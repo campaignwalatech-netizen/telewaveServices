@@ -5,8 +5,11 @@ let transporter = null;
 
 const createTransporter = () => {
     if (!transporter) {
+        // Use explicit SMTP configuration instead of 'service: gmail'
         transporter = nodemailer.createTransport({
-            service: process.env.EMAIL_SERVICE || 'gmail',
+            host: process.env.SMTP_HOST || 'smtp.gmail.com',
+            port: process.env.SMTP_PORT || 587,
+            secure: false, // Use TLS
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASSWORD
@@ -14,14 +17,30 @@ const createTransporter = () => {
             pool: true, // Use connection pooling
             maxConnections: 5,
             maxMessages: 100,
-            rateDelta: 1000,
-            rateLimit: 5
+            connectionTimeout: 15000, // 15 seconds timeout
+            greetingTimeout: 15000,
+            socketTimeout: 15000,
+            // Add retry logic
+            retries: 3,
+            // Better TLS handling
+            tls: {
+                rejectUnauthorized: false // For development, set to true in production
+            }
+        });
+
+        // Verify transporter on creation
+        transporter.verify(function(error, success) {
+            if (error) {
+                console.error('❌ SMTP Connection verification failed:', error);
+            } else {
+                console.log('✅ SMTP Server is ready to take our messages');
+            }
         });
     }
     return transporter;
 };
 
-// HTML template for OTP email
+// HTML template for OTP email (keep your existing template)
 const getOTPEmailTemplate = (userName, otp, purpose = 'verification') => {
     const purposeText = {
         'login': 'Login',
@@ -119,7 +138,7 @@ const getOTPEmailTemplate = (userName, otp, purpose = 'verification') => {
     `;
 };
 
-// Send OTP email via SMTP
+// Enhanced sendOTPEmail with retry logic
 const sendOTPEmail = async (email, userName, otp, purpose = 'verification') => {
     try {
         console.log('📧 Preparing to send OTP email...');
@@ -131,7 +150,7 @@ const sendOTPEmail = async (email, userName, otp, purpose = 'verification') => {
         
         // Check if email credentials are configured
         if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-            console.error('❌ Email credentials not configured in .env file');
+            console.error('❌ Email credentials not configured in environment variables');
             throw new Error('Email service not configured');
         }
 
@@ -155,24 +174,49 @@ const sendOTPEmail = async (email, userName, otp, purpose = 'verification') => {
             },
             to: email,
             subject: `${purposeSubject[purpose] || 'Verification OTP'} - Campaignwala`,
-            html: getOTPEmailTemplate(userName, otp, purpose)
+            html: getOTPEmailTemplate(userName, otp, purpose),
+            // Add priority headers
+            headers: {
+                'X-Priority': '1',
+                'X-MSMail-Priority': 'High'
+            }
         };
 
         console.log('📤 Sending email...');
-        const info = await transporter.sendMail(mailOptions);
         
-        console.log('✅ Email sent successfully!');
-        console.log('   Message ID:', info.messageId);
-        console.log('   Response:', info.response);
+        // Add retry logic manually
+        let lastError;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                console.log(`   Attempt ${attempt} of 3...`);
+                const info = await transporter.sendMail(mailOptions);
+                
+                console.log('✅ Email sent successfully!');
+                console.log('   Message ID:', info.messageId);
+                console.log('   Response:', info.response);
+                
+                return {
+                    success: true,
+                    message: 'OTP sent to email successfully',
+                    messageId: info.messageId
+                };
+                
+            } catch (retryError) {
+                lastError = retryError;
+                console.warn(`   Attempt ${attempt} failed:`, retryError.message);
+                
+                if (attempt < 3) {
+                    // Wait before retry (exponential backoff)
+                    await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+                }
+            }
+        }
         
-        return {
-            success: true,
-            message: 'OTP sent to email successfully',
-            messageId: info.messageId
-        };
+        // All retries failed
+        throw lastError;
         
     } catch (error) {
-        console.error('❌ Failed to send email:', error.message);
+        console.error('❌ Failed to send email after all retries:', error.message);
         console.error('   Error details:', error);
         
         // Return error instead of fallback
@@ -180,7 +224,7 @@ const sendOTPEmail = async (email, userName, otp, purpose = 'verification') => {
     }
 };
 
-// Send welcome email
+// Send welcome email (keep your existing implementation)
 const sendWelcomeEmail = async (email, userName) => {
     try {
         if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
