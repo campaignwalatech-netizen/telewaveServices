@@ -1,0 +1,65 @@
+# Node modules
+
+Campaignwala-Backend/node_modules/
+Campaignwala-Frontend/node_modules/
+node_modules/
+
+# Environment files
+.env
+Campaignwala-Backend/.env
+Campaignwala-Frontend/.env
+Campaignwala-Backend/.env.local
+Campaignwala-Frontend/.env.local
+.env.local
+.env.production
+Campaignwala-Backend/.env.production
+Campaignwala-Frontend/.env.production
+
+# Build output
+dist/
+Campaignwala-Backend/dist/
+Campaignwala-Frontend/dist/
+build/
+Campaignwala-Backend/build/
+Campaignwala-Frontend/build/
+
+# Logs
+logs/
+Campaignwala-Backend/logs/
+Campaignwala-Frontend/logs/
+*.log
+Campaignwala-Backend/*.log
+Campaignwala-Frontend/*.log
+npm-debug.log*
+Campaignwala-Backend/npm-debug.log*
+Campaignwala-Frontend/npm-debug.log*
+yarn-debug.log*
+Campaignwala-Backend/yarn-debug.log*
+Campaignwala-Frontend/yarn-debug.log*
+yarn-error.log*
+Campaignwala-Backend/yarn-error.log*
+Campaignwala-Frontend/yarn-error.log*
+
+# OS files
+.DS_Store
+Campaignwala-Backend/.DS_Store
+Campaignwala-Frontend/.DS_Store
+Thumbs.db
+Campaignwala-Backend/Thumbs.db
+Campaignwala-Frontend/Thumbs.db
+
+# IDE files
+.vscode/
+Campaignwala-Backend/.vscode/
+Campaignwala-Frontend/.vscode/
+.idea/
+Campaignwala-Backend/.idea/
+Campaignwala-Frontend/.idea/
+
+# Temporary files
+*.tmp
+Campaignwala-Backend/*.tmp
+Campaignwala-Frontend/*.tmp
+*.swp
+Campaignwala-Backend/*.swp
+Campaignwala-Frontend/*.swp
