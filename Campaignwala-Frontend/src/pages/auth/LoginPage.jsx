@@ -14,11 +14,13 @@ export default function LoginPage() {
   const [userEmail, setUserEmail] = useState("");
   const [sendingOtp, setSendingOtp] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [developmentOTP, setDevelopmentOTP] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     setSuccessMessage("");
+    setDevelopmentOTP("");
     setSendingOtp(true);
     clearAuthError();
 
@@ -31,14 +33,19 @@ export default function LoginPage() {
       if (response.requireOTP) {
         // OTP required - show modal
         setUserEmail(response.data?.email || email);
-        setSuccessMessage("📧 OTP sent to your email!");
+        
+        // Show appropriate message based on development mode
+        if (response.data?.developmentMode) {
+          const devOtp = response.data.otp;
+          setDevelopmentOTP(devOtp);
+          setSuccessMessage(`🔑 OTP Generated: ${devOtp} (Email service unavailable - use this OTP)`);
+          console.log('🔑 Development OTP:', devOtp);
+        } else {
+          setSuccessMessage("📧 OTP sent to your email!");
+        }
+        
         setSendingOtp(false);
         setShowOtpModal(true);
-        
-        // Show OTP in development mode
-        if (response.data?.otp) {
-          console.log('🔑 Development OTP:', response.data.otp);
-        }
       } else {
         // Login successful without OTP (shouldn't happen with new flow)
         console.log('✅ Login successful without OTP');
@@ -70,7 +77,16 @@ export default function LoginPage() {
         throw new Error('Failed to resend OTP');
       }
       
-      setSuccessMessage("📧 OTP resent to your email!");
+      // Update success message based on development mode
+      if (response.data?.developmentMode) {
+        const devOtp = response.data.otp;
+        setDevelopmentOTP(devOtp);
+        setSuccessMessage(`🔑 OTP Regenerated: ${devOtp} (Email service unavailable)`);
+        console.log('🔑 New Development OTP:', devOtp);
+      } else {
+        setSuccessMessage("📧 OTP resent to your email!");
+      }
+      
       console.log('✅ OTP resent successfully');
     } catch (error) {
       console.error('Error resending OTP:', error);
@@ -81,6 +97,7 @@ export default function LoginPage() {
   const handleCloseOtpModal = () => {
     setShowOtpModal(false);
     setSuccessMessage("");
+    setDevelopmentOTP("");
   };
 
   return (
@@ -153,9 +170,20 @@ export default function LoginPage() {
             )}
 
             {successMessage && (
-              <div className="bg-green-50 border border-green-300 text-green-800 px-4 py-3 rounded-lg text-sm flex items-center gap-2">
-                <span>✅</span>
-                <span>{successMessage}</span>
+              <div className={`${
+                developmentOTP ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' : 'bg-green-500/10 border-green-500/30 text-green-600'
+              } px-4 py-3 rounded-lg text-sm border`}>
+                <div className="flex items-start gap-2">
+                  <span>{developmentOTP ? '🔑' : '📧'}</span>
+                  <div>
+                    <div className="font-medium">{successMessage}</div>
+                    {developmentOTP && (
+                      <div className="mt-2 p-2 bg-amber-100 border border-amber-300 rounded text-amber-800 text-center font-mono text-lg">
+                        OTP: {developmentOTP}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -263,6 +291,7 @@ export default function LoginPage() {
         email={userEmail}
         purpose="login"
         darkMode={false}
+        developmentOTP={developmentOTP}
       />
     </main>
   );

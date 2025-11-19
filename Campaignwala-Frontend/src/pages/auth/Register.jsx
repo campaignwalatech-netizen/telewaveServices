@@ -15,11 +15,13 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [registrationEmail, setRegistrationEmail] = useState("");
+  const [developmentOTP, setDevelopmentOTP] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError("");
     setSuccessMessage("");
+    setDevelopmentOTP("");
     clearAuthError();
 
     console.log('=== REGISTRATION FORM SUBMITTED ===');
@@ -77,13 +79,18 @@ export default function RegisterPage() {
       if (result.requireOTP) {
         // Show OTP modal
         setRegistrationEmail(email);
-        setSuccessMessage("📧 OTP sent to your email! Please verify to complete registration.");
-        setShowOtpModal(true);
         
-        // Show OTP in development mode
-        if (result.data?.otp) {
-          console.log('🔑 Development OTP:', result.data.otp);
+        // Show appropriate message based on development mode
+        if (result.data?.developmentMode) {
+          const devOtp = result.data.otp;
+          setDevelopmentOTP(devOtp);
+          setSuccessMessage(`🔑 OTP Generated: ${devOtp} (Email service unavailable - use this OTP)`);
+          console.log('🔑 Development OTP:', devOtp);
+        } else {
+          setSuccessMessage("📧 OTP sent to your email! Please verify to complete registration.");
         }
+        
+        setShowOtpModal(true);
       } else {
         // Should not happen with new flow
         setSuccessMessage("Registration successful! Redirecting...");
@@ -126,7 +133,16 @@ export default function RegisterPage() {
         throw new Error('Failed to resend OTP');
       }
       
-      setSuccessMessage("📧 OTP resent to your email!");
+      // Update success message based on development mode
+      if (result.data?.developmentMode) {
+        const devOtp = result.data.otp;
+        setDevelopmentOTP(devOtp);
+        setSuccessMessage(`🔑 OTP Regenerated: ${devOtp} (Email service unavailable)`);
+        console.log('🔑 New Development OTP:', devOtp);
+      } else {
+        setSuccessMessage("📧 OTP resent to your email!");
+      }
+      
       console.log('✅ OTP resent successfully');
     } catch (error) {
       console.error('Error resending OTP:', error);
@@ -137,6 +153,7 @@ export default function RegisterPage() {
   const handleCloseOtpModal = () => {
     setShowOtpModal(false);
     setSuccessMessage("");
+    setDevelopmentOTP("");
   };
 
   return (
@@ -187,8 +204,20 @@ export default function RegisterPage() {
             )}
 
             {successMessage && (
-              <div className="bg-green-500/10 border border-green-500/30 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg text-sm">
-                {successMessage}
+              <div className={`${
+                developmentOTP ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' : 'bg-green-500/10 border-green-500/30 text-green-600'
+              } px-4 py-3 rounded-lg text-sm border`}>
+                <div className="flex items-start gap-2">
+                  <span>{developmentOTP ? '🔑' : '📧'}</span>
+                  <div>
+                    <div className="font-medium">{successMessage}</div>
+                    {developmentOTP && (
+                      <div className="mt-2 p-2 bg-amber-100 border border-amber-300 rounded text-amber-800 text-center font-mono text-lg">
+                        OTP: {developmentOTP}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -320,6 +349,7 @@ export default function RegisterPage() {
         email={registrationEmail}
         purpose="registration"
         darkMode={false}
+        developmentOTP={developmentOTP}
       />
     </main>
   );

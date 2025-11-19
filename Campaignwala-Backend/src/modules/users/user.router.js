@@ -38,6 +38,25 @@ const {
     requireVerified
 } = require('../../middleware/user.middleware');
 
+
+// Add this to your user.routes.js
+router.get('/test-email', async (req, res) => {
+    try {
+        const { sendOTPEmail } = require('../../utils/emailService');
+        const result = await sendOTPEmail('rajyogi1811@gmail.com', 'Test User', '1234', 'test');
+        
+        res.json({
+            success: true,
+            emailService: result.developmentMode ? 'DEVELOPMENT MODE' : 'PRODUCTION MODE',
+            details: result
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
 /**
  * @swagger
  * tags:

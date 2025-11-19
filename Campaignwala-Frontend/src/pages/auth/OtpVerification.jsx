@@ -67,7 +67,7 @@ export default function OtpVerification() {
       return;
     }
 
-    // Dummy verification - accept any 6 digit code
+    // Dummy verification - accept any 4 digit code
     console.log("=== OTP VERIFICATION SUCCESS ===");
     console.log("Setting localStorage...");
     console.log("phone:", phone);
@@ -99,7 +99,7 @@ export default function OtpVerification() {
   };
 
   const handleResend = () => {
-    setOtp(["", "", "", "", "", ""]);
+    setOtp(["", "", "", ""]);
     setResendTimer(30);
     setError("");
     inputRefs.current[0]?.focus();

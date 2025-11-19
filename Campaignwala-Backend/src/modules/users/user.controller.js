@@ -128,41 +128,23 @@ const register = async (req, res) => {
         console.log('📧 Sending registration OTP to:', email);
         console.log('🔑 Registration OTP:', otp);
 
-        // Send OTP via email
-        try {
-            await sendOTPEmail(email, name, otp, 'registration');
-            console.log('✅ Registration OTP email sent successfully');
-            
-            return res.json({
-                success: true,
-                message: 'OTP sent to your email. Please verify to complete registration.',
-                requireOTP: true,
-                data: {
-                    email: email,
-                    name: name,
-                    otpSent: true,
-                    // Send OTP in development mode for testing
-                    ...(process.env.NODE_ENV === 'development' && { otp: otp })
-                }
-            });
-        } catch (emailError) {
-            console.error('❌ Failed to send registration OTP email:', emailError);
-            
-            // DEVELOPMENT FALLBACK: Return OTP in response when email fails
-            return res.json({
-                success: true,
-                message: 'OTP generated (Email service temporarily unavailable)',
-                requireOTP: true,
-                developmentMode: true,
-                data: {
-                    email: email,
-                    name: name,
-                    otpSent: false,
-                    otp: otp, // Include OTP for development/testing
-                    note: 'Email service unavailable - use this OTP to complete registration'
-                }
-            });
-        }
+        // Send OTP via email with improved error handling
+        const emailResult = await sendOTPEmail(email, name, otp, 'registration');
+
+        return res.json({
+            success: true,
+            message: emailResult.developmentMode 
+                ? 'OTP generated (Email service unavailable - check console)' 
+                : 'OTP sent to your email. Please verify to complete registration.',
+            requireOTP: true,
+            data: {
+                email: email,
+                name: name,
+                otpSent: !emailResult.developmentMode,
+                otp: otp, // Always include OTP for development/Render
+                developmentMode: emailResult.developmentMode || false
+            }
+        });
 
     } catch (error) {
         console.error('Registration error:', error);
@@ -228,7 +210,7 @@ const verifyRegistrationOTP = async (req, res) => {
         user.clearOtp('registration');
         await user.save();
 
-        // Send welcome email
+        // Send welcome email (don't block registration if it fails)
         try {
             await sendWelcomeEmail(user.email, user.name);
         } catch (emailError) {
@@ -330,44 +312,24 @@ const login = async (req, res) => {
         console.log('📧 Sending login OTP to email:', user.email);
         console.log('🔑 Login OTP:', otp);
 
-        try {
-            await sendOTPEmail(user.email, user.name || 'User', otp, 'login');
-            console.log('✅ Login OTP email sent successfully');
-            
-            return res.json({
-                success: true,
-                message: 'OTP sent to your email. Please verify to complete login.',
-                requireOTP: true,
-                data: {
-                    email: user.email,
-                    name: user.name,
-                    role: user.role,
-                    otpSent: true,
-                    // Send OTP in development mode for testing
-                    ...(process.env.NODE_ENV === 'development' && { otp: otp })
-                }
-            });
-        } catch (emailError) {
-            console.error('❌ Failed to send login OTP email:', emailError);
-            
-            // DEVELOPMENT FALLBACK: Return OTP in response when email fails
-            console.log('🔄 Using development fallback - returning OTP in response');
-            
-            return res.json({
-                success: true,
-                message: 'OTP generated (Email service temporarily unavailable)',
-                requireOTP: true,
-                developmentMode: true,
-                data: {
-                    email: user.email,
-                    name: user.name,
-                    role: user.role,
-                    otpSent: false,
-                    otp: otp, // Include OTP for development/testing
-                    note: 'Email service unavailable - use this OTP to login'
-                }
-            });
-        }
+        // Send OTP via email with improved error handling
+        const emailResult = await sendOTPEmail(user.email, user.name || 'User', otp, 'login');
+
+        return res.json({
+            success: true,
+            message: emailResult.developmentMode
+                ? 'OTP generated (Email service unavailable - check console)'
+                : 'OTP sent to your email. Please verify to complete login.',
+            requireOTP: true,
+            data: {
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                otpSent: !emailResult.developmentMode,
+                otp: otp, // Always include OTP
+                developmentMode: emailResult.developmentMode || false
+            }
+        });
 
     } catch (error) {
         console.error('Login error:', error);
@@ -507,42 +469,24 @@ const adminLogin = async (req, res) => {
         console.log('📧 Sending admin login OTP to email:', user.email);
         console.log('🔑 Admin Login OTP:', otp);
 
-        try {
-            await sendOTPEmail(user.email, user.name || 'Admin', otp, 'login');
-            console.log('✅ Admin login OTP email sent successfully');
-            
-            return res.json({
-                success: true,
-                message: 'OTP sent to your email. Please verify to complete admin login.',
-                requireOTP: true,
-                data: {
-                    email: user.email,
-                    name: user.name,
-                    role: user.role,
-                    otpSent: true,
-                    // Send OTP in development mode for testing
-                    ...(process.env.NODE_ENV === 'development' && { otp: otp })
-                }
-            });
-        } catch (emailError) {
-            console.error('❌ Failed to send admin login OTP email:', emailError);
-            
-            // DEVELOPMENT FALLBACK
-            return res.json({
-                success: true,
-                message: 'OTP generated (Email service temporarily unavailable)',
-                requireOTP: true,
-                developmentMode: true,
-                data: {
-                    email: user.email,
-                    name: user.name,
-                    role: user.role,
-                    otpSent: false,
-                    otp: otp,
-                    note: 'Email service unavailable - use this OTP to login'
-                }
-            });
-        }
+        // Send OTP via email with improved error handling
+        const emailResult = await sendOTPEmail(user.email, user.name || 'Admin', otp, 'login');
+
+        return res.json({
+            success: true,
+            message: emailResult.developmentMode
+                ? 'OTP generated (Email service unavailable - check console)'
+                : 'OTP sent to your email. Please verify to complete admin login.',
+            requireOTP: true,
+            data: {
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                otpSent: !emailResult.developmentMode,
+                otp: otp,
+                developmentMode: emailResult.developmentMode || false
+            }
+        });
 
     } catch (error) {
         console.error('Admin login error:', error);
@@ -590,33 +534,20 @@ const forgotPassword = async (req, res) => {
         console.log('📧 Sending password reset OTP to:', user.email);
         console.log('🔑 Reset OTP:', otp);
 
-        // Send OTP via email
-        try {
-            await sendOTPEmail(user.email, user.name || 'User', otp, 'password-reset');
-            
-            return res.json({
-                success: true,
-                message: 'Password reset OTP sent to your email',
-                data: {
-                    email: user.email,
-                    ...(process.env.NODE_ENV === 'development' && { otp: otp })
-                }
-            });
-        } catch (emailError) {
-            console.error('❌ Failed to send password reset OTP:', emailError);
-            
-            // Fallback: Return OTP in response
-            return res.json({
-                success: true,
-                message: 'Password reset OTP generated (Email service unavailable)',
-                developmentMode: true,
-                data: {
-                    email: user.email,
-                    otp: otp,
-                    note: 'Email service unavailable - use this OTP to reset password'
-                }
-            });
-        }
+        // Send OTP via email with improved error handling
+        const emailResult = await sendOTPEmail(user.email, user.name || 'User', otp, 'password-reset');
+
+        return res.json({
+            success: true,
+            message: emailResult.developmentMode
+                ? 'Password reset OTP generated (Email service unavailable - check console)'
+                : 'Password reset OTP sent to your email',
+            data: {
+                email: user.email,
+                otp: otp, // Always include OTP
+                developmentMode: emailResult.developmentMode || false
+            }
+        });
 
     } catch (error) {
         console.error('Forgot password error:', error);
@@ -852,7 +783,7 @@ const changePassword = async (req, res) => {
 const sendEmailOTP = async (req, res) => {
     try {
         const userId = req.user._id;
-        const { purpose } = req.body; // 'profile-update', 'login', etc.
+        const { purpose } = req.body;
 
         const user = await User.findById(userId);
         if (!user) {
@@ -889,34 +820,18 @@ const sendEmailOTP = async (req, res) => {
 
         // Try to send OTP to email
         console.log('📧 Sending OTP to email:', user.email);
-        let emailResult = null;
-        let emailSent = false;
-        
-        try {
-            emailResult = await sendOTPEmail(user.email, user.name || 'User', otp, purpose || 'verification');
-            emailSent = true;
-            console.log('✅ Email sent successfully:', emailResult);
-        } catch (emailError) {
-            console.error('⚠️ Email sending failed:', emailError.message);
-            console.log('📱 Using fallback mode - OTP stored in database');
-            emailResult = {
-                success: false,
-                message: emailError.message,
-                isDevelopment: true
-            };
-        }
+        const emailResult = await sendOTPEmail(user.email, user.name || 'User', otp, purpose || 'verification');
 
         res.json({
             success: true,
-            message: emailSent 
-                ? 'OTP sent to your email successfully' 
-                : 'OTP generated (Email service unavailable - check console)',
+            message: emailResult.developmentMode 
+                ? 'OTP generated (Email service unavailable - check console)' 
+                : 'OTP sent to your email successfully',
             data: {
                 email: user.email,
-                expiresIn: 600, // seconds
-                otp: otp, // Include OTP in response for development
-                emailSent: emailSent,
-                isDevelopment: !emailSent
+                expiresIn: 600,
+                otp: otp,
+                developmentMode: emailResult.developmentMode || false
             }
         });
 
@@ -991,6 +906,7 @@ const verifyEmailOTP = async (req, res) => {
         });
     }
 };
+
 
 // Admin: Get all users
 const getAllUsers = async (req, res) => {
