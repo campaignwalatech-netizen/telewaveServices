@@ -3,128 +3,84 @@ import { useState } from "react";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
-import authService from "../../services/authService";
 import OtpModal from "../../components/OtpModal";
 
 export default function LoginPage() {
-  const { login, isLoading, error } = useAuth();
+  const { login, verifyLoginOTP, isLoading, error, clearAuthError } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [userEmail, setUserEmail] = useState("");
-  const [tempLoginData, setTempLoginData] = useState(null);
-  const [sendingOtp, setSendingOtp] = useState(false); // New state for OTP sending
-  const [successMessage, setSuccessMessage] = useState(""); // Success message state
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    setSuccessMessage(""); // Clear previous success message
-    setSendingOtp(true); // Start loading
-    
+    setSuccessMessage("");
+    setSendingOtp(true);
+    clearAuthError();
+
     try {
-      // First attempt login - backend will send OTP based on user role
-      const response = await authService.login({ phoneNumber, password });
+      console.log('🔐 Login attempt with:', { email });
+      
+      const response = await login({ email, password });
+      console.log('✅ Login response:', response);
       
       if (response.requireOTP) {
         // OTP required - show modal
-        const otpType = response.otpType || 'email';
-        
-        if (otpType === 'mobile') {
-          // Admin - Mobile OTP
-          setUserEmail(`your mobile ${response.data?.phoneNumber || 'number'}`);
-          setSuccessMessage("📱 OTP sent to your mobile number!");
-        } else {
-          // User - Email OTP
-          setUserEmail(response.data?.email || 'your registered email');
-          setSuccessMessage("📧 OTP sent to your email!");
-        }
-        
-        setTempLoginData({ phoneNumber, password });
-        setSendingOtp(false); // Stop loading
+        setUserEmail(response.data?.email || email);
+        setSuccessMessage("📧 OTP sent to your email!");
+        setSendingOtp(false);
         setShowOtpModal(true);
         
         // Show OTP in development mode
         if (response.data?.otp) {
           console.log('🔑 Development OTP:', response.data.otp);
-          if (otpType === 'mobile') {
-            alert(`Admin Mobile OTP: ${response.data.otp}`);
-          } else {
-            console.log('📧 Check your email for OTP');
-          }
         }
-      } else if (response.success && response.data) {
-        // Login successful without OTP (backward compatibility)
-        // Store auth data
-        localStorage.setItem('accessToken', response.data.token);
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('userType', response.data.user?.role || 'user');
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        
-        setSendingOtp(false); // Stop loading
-        
-        // Redirect based on role
-        if (response.data.user?.role === 'admin') {
-          window.location.href = '/admin';
-        } else {
-          window.location.href = '/user';
-        }
+      } else {
+        // Login successful without OTP (shouldn't happen with new flow)
+        console.log('✅ Login successful without OTP');
+        setSendingOtp(false);
       }
-    } catch (error) {
-      // Error is handled by Redux state
-      console.error('Login error:', error);
-      setSendingOtp(false); // Stop loading on error
+    } catch (err) {
+      console.error('❌ Login error:', err);
+      setSendingOtp(false);
     }
   };
 
   const handleVerifyOTP = async (otp) => {
     try {
-      // Login with OTP
-      const response = await authService.login({
-        ...tempLoginData,
-        otp
-      });
-      
-      if (response.success) {
-        // Store auth data and redirect
-        localStorage.setItem('accessToken', response.data.token);
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('userType', response.data.user.role);
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-        
-        setShowOtpModal(false);
-        
-        // Redirect based on role
-        if (response.data.user.role === 'admin') {
-          window.location.href = '/admin';
-        } else {
-          window.location.href = '/user';
-        }
-      } else {
-        throw new Error(response.message || 'OTP verification failed');
-      }
+      // Verify OTP and complete login
+      await verifyLoginOTP(userEmail, otp);
+      // verifyLoginOTP will handle navigation on success
     } catch (error) {
       console.error('OTP verification error:', error);
-      throw error; // Re-throw to be handled by OtpModal
+      throw error;
     }
   };
 
   const handleResendOTP = async () => {
     try {
       // Resend OTP by making login call again
-      const response = await authService.login(tempLoginData);
+      const response = await login({ email: userEmail, password });
       
       if (!response.requireOTP) {
         throw new Error('Failed to resend OTP');
       }
       
-      // Success message based on OTP type
+      setSuccessMessage("📧 OTP resent to your email!");
       console.log('✅ OTP resent successfully');
     } catch (error) {
       console.error('Error resending OTP:', error);
-      throw error; // Re-throw to be handled by OtpModal
+      throw error;
     }
+  };
+
+  const handleCloseOtpModal = () => {
+    setShowOtpModal(false);
+    setSuccessMessage("");
   };
 
   return (
@@ -203,26 +159,23 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Phone Number */}
+            {/* Email */}
             <div>
               <label
-                htmlFor="phoneNumber"
+                htmlFor="email"
                 className="block text-sm font-medium text-foreground mb-2"
               >
-                Phone Number
+                Email Address
               </label>
               <input
-                id="phoneNumber"
-                type="tel"
-                placeholder="Enter your phone number"
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
+                id="email"
+                type="email"
+                placeholder="Enter your email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition bg-background text-foreground font-medium placeholder:text-muted-foreground"
                 required
-                pattern="[0-9]{10}"
-                maxLength="10"
               />
-             
             </div>
 
             {/* Password */}
@@ -252,7 +205,6 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
-              
             </div>
 
             {/* Forgot Password */}
@@ -282,7 +234,7 @@ export default function LoginPage() {
               ) : isLoading ? (
                 "LOGGING IN..."
               ) : (
-                "LOGIN"
+                "SEND OTP & LOGIN"
               )}
             </button>
 
@@ -305,7 +257,7 @@ export default function LoginPage() {
       {/* OTP Modal */}
       <OtpModal
         isOpen={showOtpModal}
-        onClose={() => setShowOtpModal(false)}
+        onClose={handleCloseOtpModal}
         onVerify={handleVerifyOTP}
         onResend={handleResendOTP}
         email={userEmail}
@@ -314,5 +266,4 @@ export default function LoginPage() {
       />
     </main>
   );
-  
 }

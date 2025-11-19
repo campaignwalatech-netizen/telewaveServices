@@ -2,14 +2,17 @@ const express = require('express');
 const router = express.Router();
 const upload = require('../../middleware/upload.middleware');
 const {
-    sendOTP,
     register,
+    verifyRegistrationOTP, // NEW
     login,
+    verifyLoginOTP, // NEW
+    adminLogin,
     logout,
-    verifyOTP,
     getProfile,
     updateProfile,
     changePassword,
+    forgotPassword,
+    resetPassword,
     getAllUsers,
     getUserById,
     updateUserRole,
@@ -17,8 +20,6 @@ const {
     markUserAsEx,
     deleteUser,
     getDashboardStats,
-    forgotPassword,
-    resetPassword,
     updateKYCDetails,
     getKYCDetails,
     getPendingKYCRequests,
@@ -27,7 +28,8 @@ const {
     getKYCDetailsByUserId,
     sendEmailOTP,
     verifyEmailOTP,
-    bulkUploadUsers
+    bulkUploadUsers,
+    sendOTP // Legacy function
 } = require('./user.controller');
 
 const {
@@ -45,13 +47,17 @@ const {
  *     description: User profile management endpoints
  *   - name: Admin
  *     description: Admin-only endpoints for user management
+ *   - name: KYC
+ *     description: KYC management endpoints
  */
+
+// ==================== AUTHENTICATION ROUTES ====================
 
 /**
  * @swagger
- * /api/users/send-otp:
+ * /api/users/register:
  *   post:
- *     summary: Send OTP to phone number
+ *     summary: Register a new user - Step 1 Send OTP
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -60,15 +66,35 @@ const {
  *           schema:
  *             type: object
  *             required:
+ *               - name
+ *               - email
+ *               - password
+ *               - confirmPassword
  *               - phoneNumber
  *             properties:
+ *               name:
+ *                 type: string
+ *                 description: User's full name
+ *                 example: "John Doe"
+ *               email:
+ *                 type: string
+ *                 description: User's email address
+ *                 example: "john@example.com"
+ *               password:
+ *                 type: string
+ *                 description: Password (minimum 6 characters)
+ *                 example: "password123"
+ *               confirmPassword:
+ *                 type: string
+ *                 description: Confirm password
+ *                 example: "password123"
  *               phoneNumber:
  *                 type: string
  *                 description: 10-digit phone number
  *                 example: "9876543210"
  *     responses:
  *       200:
- *         description: OTP sent successfully
+ *         description: OTP sent to email for verification
  *         content:
  *           application/json:
  *             schema:
@@ -79,36 +105,34 @@ const {
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: "OTP sent successfully"
+ *                   example: "OTP sent to your email. Please verify to complete registration."
+ *                 requireOTP:
+ *                   type: boolean
+ *                   example: true
  *                 data:
  *                   type: object
  *                   properties:
- *                     phoneNumber:
+ *                     email:
  *                       type: string
- *                       example: "9876543210"
- *                     otp:
+ *                       example: "john@example.com"
+ *                     name:
  *                       type: string
- *                       example: "112233"
+ *                       example: "John Doe"
+ *                     otpSent:
+ *                       type: boolean
+ *                       example: true
  *       400:
- *         description: Bad request - Invalid phone number
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       429:
- *         description: Too many OTP attempts
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *         description: Bad request - Invalid input
+ *       409:
+ *         description: User already exists
  */
-router.post('/send-otp', sendOTP);
+router.post('/register', register);
 
 /**
  * @swagger
- * /api/users/register:
+ * /api/users/verify-registration:
  *   post:
- *     summary: Register a new user
+ *     summary: Verify registration OTP - Step 2 Complete registration
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -117,25 +141,20 @@ router.post('/send-otp', sendOTP);
  *           schema:
  *             type: object
  *             required:
- *               - phoneNumber
- *               - password
+ *               - email
  *               - otp
  *             properties:
- *               phoneNumber:
+ *               email:
  *                 type: string
- *                 description: 10-digit phone number
- *                 example: "9876543210"
- *               password:
- *                 type: string
- *                 description: Password (minimum 6 characters)
- *                 example: "password123"
+ *                 description: Email address used for registration
+ *                 example: "john@example.com"
  *               otp:
  *                 type: string
- *                 description: OTP received on phone
- *                 example: "112233"
+ *                 description: OTP received via email
+ *                 example: "1234"
  *     responses:
  *       201:
- *         description: User registered successfully
+ *         description: Registration completed successfully
  *         content:
  *           application/json:
  *             schema:
@@ -146,7 +165,7 @@ router.post('/send-otp', sendOTP);
  *                   example: true
  *                 message:
  *                   type: string
- *                   example: "User registered successfully"
+ *                   example: "Registration successful! Welcome to our platform."
  *                 data:
  *                   type: object
  *                   properties:
@@ -156,25 +175,15 @@ router.post('/send-otp', sendOTP);
  *                       type: string
  *                       description: JWT access token
  *       400:
- *         description: Bad request - Invalid input or OTP
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       409:
- *         description: User already exists
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *         description: Bad request - Invalid or expired OTP
  */
-router.post('/register', register);
+router.post('/verify-registration', verifyRegistrationOTP); // NEW
 
 /**
  * @swagger
  * /api/users/login:
  *   post:
- *     summary: Login user
+ *     summary: Login user - Step 1 Send OTP to email
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -183,17 +192,78 @@ router.post('/register', register);
  *           schema:
  *             type: object
  *             required:
- *               - phoneNumber
+ *               - email
  *               - password
  *             properties:
- *               phoneNumber:
+ *               email:
  *                 type: string
- *                 description: Registered phone number
- *                 example: "9876543210"
+ *                 description: Registered email address
+ *                 example: "john@example.com"
  *               password:
  *                 type: string
  *                 description: User password
  *                 example: "password123"
+ *     responses:
+ *       200:
+ *         description: OTP sent to email successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "OTP sent to your email. Please verify to complete login."
+ *                 requireOTP:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     email:
+ *                       type: string
+ *                       example: "john@example.com"
+ *                     name:
+ *                       type: string
+ *                       example: "John Doe"
+ *                     role:
+ *                       type: string
+ *                       example: "user"
+ *                     otpSent:
+ *                       type: boolean
+ *                       example: true
+ *       401:
+ *         description: Unauthorized - Invalid credentials
+ */
+router.post('/login', login);
+
+/**
+ * @swagger
+ * /api/users/verify-login:
+ *   post:
+ *     summary: Verify login OTP - Step 2 Complete login
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: Email address used for login
+ *                 example: "john@example.com"
+ *               otp:
+ *                 type: string
+ *                 description: OTP received via email
+ *                 example: "1234"
  *     responses:
  *       200:
  *         description: Login successful
@@ -216,53 +286,16 @@ router.post('/register', register);
  *                     token:
  *                       type: string
  *                       description: JWT access token
- *       401:
- *         description: Unauthorized - Invalid credentials
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  *       400:
- *         description: Bad request
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *         description: Bad request - Invalid or expired OTP
  */
-router.post('/login', login);
+router.post('/verify-login', verifyLoginOTP); // NEW
 
 /**
  * @swagger
- * /api/users/logout:
+ * /api/users/admin-login:
  *   post:
- *     summary: Logout user (clear active session)
- *     tags: [Authentication]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Logout successful
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 message:
- *                   type: string
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
-router.post('/logout', authenticateToken, logout);
-
-/**
- * @swagger
- * /api/users/verify-otp:
- *   post:
- *     summary: Verify OTP for phone number
+ *     summary: Login admin - sends OTP to email
  *     tags: [Authentication]
  *     requestBody:
  *       required: true
@@ -271,50 +304,144 @@ router.post('/logout', authenticateToken, logout);
  *           schema:
  *             type: object
  *             required:
- *               - phoneNumber
- *               - otp
+ *               - email
+ *               - password
  *             properties:
- *               phoneNumber:
+ *               email:
  *                 type: string
- *                 description: Phone number to verify
- *                 example: "9876543210"
- *               otp:
+ *                 description: Admin email address
+ *                 example: "admin@example.com"
+ *               password:
  *                 type: string
- *                 description: OTP received on phone
- *                 example: "112233"
+ *                 description: Admin password
+ *                 example: "admin123"
  *     responses:
  *       200:
- *         description: Phone number verified successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Phone number verified successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     user:
- *                       $ref: '#/components/schemas/User'
+ *         description: OTP sent to admin email successfully
+ *       401:
+ *         description: Unauthorized - Invalid credentials or not admin
+ */
+router.post('/admin-login', adminLogin);
+
+/**
+ * @swagger
+ * /api/users/verify-otp:
+ *   post:
+ *     summary: Verify OTP and complete login - Legacy endpoint
+ *     tags: [Authentication]
+ *     deprecated: true
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: Email address used for login
+ *                 example: "john@example.com"
+ *               otp:
+ *                 type: string
+ *                 description: OTP received via email
+ *                 example: "1006"
+ *     responses:
+ *       200:
+ *         description: Login successful
  *       400:
- *         description: Bad request - Invalid OTP
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *         description: Bad request - Invalid or expired OTP
+ */
+router.post('/verify-otp', verifyLoginOTP); // Map to new function
+
+/**
+ * @swagger
+ * /api/users/forgot-password:
+ *   post:
+ *     summary: Request password reset OTP via email
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: Registered email address
+ *                 example: "john@example.com"
+ *     responses:
+ *       200:
+ *         description: Password reset OTP sent to email
  *       404:
  *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
-router.post('/verify-otp', verifyOTP);
+router.post('/forgot-password', forgotPassword);
+
+/**
+ * @swagger
+ * /api/users/reset-password:
+ *   post:
+ *     summary: Reset password with OTP
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - otp
+ *               - newPassword
+ *               - confirmPassword
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 description: Registered email address
+ *                 example: "john@example.com"
+ *               otp:
+ *                 type: string
+ *                 description: OTP received via email
+ *                 example: "1006"
+ *               newPassword:
+ *                 type: string
+ *                 description: New password (minimum 6 characters)
+ *                 example: "newpassword123"
+ *               confirmPassword:
+ *                 type: string
+ *                 description: Confirm new password
+ *                 example: "newpassword123"
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *       400:
+ *         description: Bad request - Invalid OTP or passwords don't match
+ */
+router.post('/reset-password', resetPassword);
+
+/**
+ * @swagger
+ * /api/users/logout:
+ *   post:
+ *     summary: Logout user - clear active session
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/logout', authenticateToken, logout);
+
+// ==================== USER PROFILE ROUTES ====================
 
 /**
  * @swagger
@@ -345,16 +472,8 @@ router.post('/verify-otp', verifyOTP);
  *                       $ref: '#/components/schemas/User'
  *       401:
  *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
  */
 router.get('/profile', authenticateToken, getProfile);
-
-// Email OTP routes for profile updates
-router.post('/send-email-otp', authenticateToken, sendEmailOTP);
-router.post('/verify-email-otp', authenticateToken, verifyEmailOTP);
 
 /**
  * @swagger
@@ -371,29 +490,21 @@ router.post('/verify-email-otp', authenticateToken, verifyEmailOTP);
  *           schema:
  *             type: object
  *             properties:
- *               password:
+ *               name:
  *                 type: string
- *                 description: New password (minimum 6 characters)
- *                 example: "newpassword123"
+ *                 description: User's full name
+ *                 example: "John Smith"
+ *               phoneNumber:
+ *                 type: string
+ *                 description: 10-digit phone number
+ *                 example: "9876543210"
  *     responses:
  *       200:
  *         description: Profile updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
  *       400:
- *         description: Bad request
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *         description: Bad request - Invalid phone number format
+ *       409:
+ *         description: Phone number already registered
  */
 router.put('/profile', authenticateToken, updateProfile);
 
@@ -414,6 +525,7 @@ router.put('/profile', authenticateToken, updateProfile);
  *             required:
  *               - currentPassword
  *               - newPassword
+ *               - confirmPassword
  *             properties:
  *               currentPassword:
  *                 type: string
@@ -423,644 +535,35 @@ router.put('/profile', authenticateToken, updateProfile);
  *                 type: string
  *                 description: New password (minimum 6 characters)
  *                 example: "newpassword123"
- *     responses:
- *       200:
- *         description: Password changed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Password changed successfully"
- *       400:
- *         description: Bad request - Invalid current password
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.put('/change-password', authenticateToken, changePassword);
-
-/**
- * @swagger
- * /api/users/admin/users:
- *   get:
- *     summary: Get all users (Admin only)
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number for pagination
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Number of users per page
- *       - in: query
- *         name: role
- *         schema:
- *           type: string
- *           enum: [user, admin]
- *         description: Filter by user role
- *       - in: query
- *         name: isVerified
- *         schema:
- *           type: boolean
- *         description: Filter by verification status
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search by phone number
- *     responses:
- *       200:
- *         description: Users retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Users retrieved successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     users:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/User'
- *                     pagination:
- *                       type: object
- *                       properties:
- *                         current:
- *                           type: integer
- *                         pages:
- *                           type: integer
- *                         total:
- *                           type: integer
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       403:
- *         description: Forbidden - Admin access required
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.get('/admin/users', authenticateToken, requireAdmin, getAllUsers);
-
-/**
- * @swagger
- * /api/users/admin/bulk-upload:
- *   post:
- *     summary: Bulk upload users from Excel/CSV file (Admin only)
- *     tags: [Admin]
- *     description: Upload an Excel (.xlsx, .xls) or CSV file to create multiple users at once. Maximum file size is 10MB. Passwords will be automatically hashed.
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         multipart/form-data:
- *           schema:
- *             type: object
- *             required:
- *               - file
- *             properties:
- *               file:
+ *               confirmPassword:
  *                 type: string
- *                 format: binary
- *                 description: Excel or CSV file with users data. Required columns - phoneNumber, name, email, password. Optional columns - role, isVerified, isActive, firstName, lastName, city, state
- *     responses:
- *       201:
- *         description: Bulk upload completed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Bulk upload completed: 95 users created, 5 failed"
- *                 data:
- *                   type: object
- *                   properties:
- *                     totalRows:
- *                       type: number
- *                       example: 100
- *                     successCount:
- *                       type: number
- *                       example: 95
- *                     failedCount:
- *                       type: number
- *                       example: 5
- *                     successItems:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           row:
- *                             type: number
- *                             example: 2
- *                           phoneNumber:
- *                             type: string
- *                             example: "9876543210"
- *                           email:
- *                             type: string
- *                             example: "john@example.com"
- *                           name:
- *                             type: string
- *                             example: "John Doe"
- *                     failedItems:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           row:
- *                             type: number
- *                             example: 15
- *                           data:
- *                             type: object
- *                             properties:
- *                               phoneNumber:
- *                                 type: string
- *                               email:
- *                                 type: string
- *                               name:
- *                                 type: string
- *                           error:
- *                             type: string
- *                             example: "Duplicate phone number or email"
- *       400:
- *         description: Invalid file format or validation error
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 message:
- *                   type: string
- *                   example: "Validation failed: Missing required fields"
- *                 errors:
- *                   type: object
- *                   properties:
- *                     missingFields:
- *                       type: array
- *                       items:
- *                         type: string
- *                       example: ["phoneNumber", "email", "password"]
- *                     invalidRows:
- *                       type: array
- *                       items:
- *                         type: object
- *       401:
- *         description: Unauthorized - Valid token required
- *       403:
- *         description: Forbidden - Admin access required
- *       500:
- *         description: Server error during bulk upload
- */
-router.post('/admin/bulk-upload', authenticateToken, requireAdmin, upload.single('file'), bulkUploadUsers);
-
-/**
- * @swagger
- * /api/users/admin/users/{userId}:
- *   get:
- *     summary: Get user by ID (Admin only)
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     responses:
- *       200:
- *         description: User retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "User retrieved successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     user:
- *                       $ref: '#/components/schemas/User'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       403:
- *         description: Forbidden - Admin access required
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.get('/admin/users/:userId', authenticateToken, requireAdmin, getUserById);
-
-/**
- * @swagger
- * /api/users/admin/users/{userId}/role:
- *   put:
- *     summary: Update user role (Admin only)
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - role
- *             properties:
- *               role:
- *                 type: string
- *                 enum: [user, admin]
- *                 description: New role for the user
- *                 example: "admin"
- *     responses:
- *       200:
- *         description: User role updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
- *       400:
- *         description: Bad request - Invalid role
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       403:
- *         description: Forbidden - Admin access required
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.put('/admin/users/:userId/role', authenticateToken, requireAdmin, updateUserRole);
-
-/**
- * @swagger
- * /api/users/admin/users/{userId}/toggle-status:
- *   put:
- *     summary: Toggle user active status (Admin only)
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     responses:
- *       200:
- *         description: User status updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       403:
- *         description: Forbidden - Admin access required
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.put('/admin/users/:userId/toggle-status', authenticateToken, requireAdmin, toggleUserStatus);
-
-/**
- * @swagger
- * /api/users/admin/users/{userId}:
- *   delete:
- *     summary: Delete user (Admin only)
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *         description: User ID
- *     responses:
- *       200:
- *         description: User deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "User deleted successfully"
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       403:
- *         description: Forbidden - Admin access required
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       404:
- *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.delete('/admin/users/:userId', authenticateToken, requireAdmin, deleteUser);
-
-/**
- * @swagger
- * /api/users/admin/dashboard-stats:
- *   get:
- *     summary: Get dashboard statistics (Admin only)
- *     tags: [Admin]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Dashboard stats retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Dashboard stats retrieved successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     totalUsers:
- *                       type: integer
- *                       example: 150
- *                     verifiedUsers:
- *                       type: integer
- *                       example: 120
- *                     adminUsers:
- *                       type: integer
- *                       example: 5
- *                     activeUsers:
- *                       type: integer
- *                       example: 145
- *                     recentRegistrations:
- *                       type: integer
- *                       example: 25
- *                     unverifiedUsers:
- *                       type: integer
- *                       example: 30
- *                     inactiveUsers:
- *                       type: integer
- *                       example: 5
- *       401:
- *         description: Unauthorized
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- *       403:
- *         description: Forbidden - Admin access required
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.get('/admin/dashboard-stats', authenticateToken, requireAdmin, getDashboardStats);
-
-/**
- * @swagger
- * /api/users/forgot-password:
- *   post:
- *     summary: Request password reset OTP
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - phoneNumber
- *             properties:
- *               phoneNumber:
- *                 type: string
- *                 description: Registered phone number
- *                 example: "9876543210"
- *     responses:
- *       200:
- *         description: Reset OTP sent successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
- *       404:
- *         description: User not found
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
-router.post('/forgot-password', forgotPassword);
-
-/**
- * @swagger
- * /api/users/reset-password:
- *   post:
- *     summary: Reset password with OTP
- *     tags: [Authentication]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - phoneNumber
- *               - otp
- *               - newPassword
- *             properties:
- *               phoneNumber:
- *                 type: string
- *                 description: Phone number
- *                 example: "9876543210"
- *               otp:
- *                 type: string
- *                 description: OTP received
- *                 example: "100623"
- *               newPassword:
- *                 type: string
- *                 description: New password (minimum 6 characters)
+ *                 description: Confirm new password
  *                 example: "newpassword123"
  *     responses:
  *       200:
- *         description: Password reset successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
+ *         description: Password changed successfully
  *       400:
- *         description: Invalid OTP or password
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
+ *         description: Bad request - Invalid current password or passwords don't match
  */
-router.post('/reset-password', resetPassword);
+router.put('/change-password', authenticateToken, changePassword);
 
-/**
- * @swagger
- * /api/users:
- *   get:
- *     summary: Get all users (Admin only)
- *     tags: [Admin]
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *       - in: query
- *         name: role
- *         schema:
- *           type: string
- *       - in: query
- *         name: isVerified
- *         schema:
- *           type: boolean
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Users retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
- */
-router.get('/', getAllUsers);
+// Email OTP routes for profile updates
+router.post('/send-email-otp', authenticateToken, sendEmailOTP);
+router.post('/verify-email-otp', authenticateToken, verifyEmailOTP);
 
-// ============== KYC Routes (MUST be before /:userId route) ==============
+// ==================== KYC ROUTES ====================
 
 /**
  * @swagger
  * /api/users/kyc:
  *   get:
  *     summary: Get user's KYC details
- *     tags: [User Profile]
+ *     tags: [KYC]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: KYC details retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
  */
 router.get('/kyc', authenticateToken, getKYCDetails);
 
@@ -1068,8 +571,8 @@ router.get('/kyc', authenticateToken, getKYCDetails);
  * @swagger
  * /api/users/kyc:
  *   put:
- *     summary: Update KYC details (Personal, Documents, Bank)
- *     tags: [User Profile]
+ *     summary: Update KYC details - Personal Documents Bank
+ *     tags: [KYC]
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -1122,18 +625,229 @@ router.get('/kyc', authenticateToken, getKYCDetails);
  *     responses:
  *       200:
  *         description: KYC details updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
  */
 router.put('/kyc', authenticateToken, updateKYCDetails);
+
+// ==================== ADMIN ROUTES ====================
+
+/**
+ * @swagger
+ * /api/users/admin/users:
+ *   get:
+ *     summary: Get all users - Admin only
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of users per page
+ *       - in: query
+ *         name: role
+ *         schema:
+ *           type: string
+ *           enum: [user, admin]
+ *         description: Filter by user role
+ *       - in: query
+ *         name: isVerified
+ *         schema:
+ *           type: boolean
+ *         description: Filter by verification status
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by email, name, or phone number
+ *     responses:
+ *       200:
+ *         description: Users retrieved successfully
+ *       403:
+ *         description: Forbidden - Admin access required
+ */
+router.get('/admin/users', authenticateToken, requireAdmin, getAllUsers);
+
+/**
+ * @swagger
+ * /api/users/admin/users/{userId}:
+ *   get:
+ *     summary: Get user by ID - Admin only
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User retrieved successfully
+ *       404:
+ *         description: User not found
+ */
+router.get('/admin/users/:userId', authenticateToken, requireAdmin, getUserById);
+
+/**
+ * @swagger
+ * /api/users/admin/users/{userId}/role:
+ *   put:
+ *     summary: Update user role - Admin only
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - role
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 enum: [user, admin]
+ *                 description: New role for the user
+ *                 example: "admin"
+ *     responses:
+ *       200:
+ *         description: User role updated successfully
+ *       400:
+ *         description: Bad request - Invalid role
+ */
+router.put('/admin/users/:userId/role', authenticateToken, requireAdmin, updateUserRole);
+
+/**
+ * @swagger
+ * /api/users/admin/users/{userId}/toggle-status:
+ *   put:
+ *     summary: Toggle user active status - Admin only
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User status updated successfully
+ */
+router.put('/admin/users/:userId/toggle-status', authenticateToken, requireAdmin, toggleUserStatus);
+
+/**
+ * @swagger
+ * /api/users/admin/users/{userId}/mark-ex:
+ *   put:
+ *     summary: Mark user as Ex - Admin only
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User marked as Ex successfully
+ */
+router.put('/admin/users/:userId/mark-ex', authenticateToken, requireAdmin, markUserAsEx);
+
+/**
+ * @swagger
+ * /api/users/admin/users/{userId}:
+ *   delete:
+ *     summary: Delete user - Admin only
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ */
+router.delete('/admin/users/:userId', authenticateToken, requireAdmin, deleteUser);
+
+/**
+ * @swagger
+ * /api/users/admin/dashboard-stats:
+ *   get:
+ *     summary: Get dashboard statistics - Admin only
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard stats retrieved successfully
+ */
+router.get('/admin/dashboard-stats', authenticateToken, requireAdmin, getDashboardStats);
+
+/**
+ * @swagger
+ * /api/users/admin/bulk-upload:
+ *   post:
+ *     summary: Bulk upload users from Excel/CSV file - Admin only
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - file
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: Excel or CSV file with users data
+ *     responses:
+ *       201:
+ *         description: Bulk upload completed successfully
+ *       400:
+ *         description: Invalid file format or validation error
+ */
+router.post('/admin/bulk-upload', authenticateToken, requireAdmin, upload.single('file'), bulkUploadUsers);
+
+// ==================== ADMIN KYC ROUTES ====================
 
 /**
  * @swagger
  * /api/users/admin/kyc/pending:
  *   get:
- *     summary: Get all pending KYC requests (Admin only)
+ *     summary: Get all pending KYC requests - Admin only
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
@@ -1162,10 +876,6 @@ router.put('/kyc', authenticateToken, updateKYCDetails);
  *     responses:
  *       200:
  *         description: Pending KYC requests retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
  */
 router.get('/admin/kyc/pending', authenticateToken, requireAdmin, getPendingKYCRequests);
 
@@ -1173,7 +883,7 @@ router.get('/admin/kyc/pending', authenticateToken, requireAdmin, getPendingKYCR
  * @swagger
  * /api/users/admin/kyc/{userId}:
  *   get:
- *     summary: Get user's KYC details by user ID (Admin only)
+ *     summary: Get user's KYC details by user ID - Admin only
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
@@ -1186,10 +896,6 @@ router.get('/admin/kyc/pending', authenticateToken, requireAdmin, getPendingKYCR
  *     responses:
  *       200:
  *         description: KYC details retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
  */
 router.get('/admin/kyc/:userId', authenticateToken, requireAdmin, getKYCDetailsByUserId);
 
@@ -1197,7 +903,7 @@ router.get('/admin/kyc/:userId', authenticateToken, requireAdmin, getKYCDetailsB
  * @swagger
  * /api/users/admin/kyc/{userId}/approve:
  *   put:
- *     summary: Approve user's KYC (Admin only)
+ *     summary: Approve user's KYC - Admin only
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
@@ -1218,10 +924,6 @@ router.get('/admin/kyc/:userId', authenticateToken, requireAdmin, getKYCDetailsB
  *     responses:
  *       200:
  *         description: KYC approved successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
  */
 router.put('/admin/kyc/:userId/approve', authenticateToken, requireAdmin, approveKYC);
 
@@ -1229,7 +931,7 @@ router.put('/admin/kyc/:userId/approve', authenticateToken, requireAdmin, approv
  * @swagger
  * /api/users/admin/kyc/{userId}/reject:
  *   put:
- *     summary: Reject user's KYC (Admin only)
+ *     summary: Reject user's KYC - Admin only
  *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
@@ -1254,47 +956,18 @@ router.put('/admin/kyc/:userId/approve', authenticateToken, requireAdmin, approv
  *     responses:
  *       200:
  *         description: KYC rejected successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
  */
 router.put('/admin/kyc/:userId/reject', authenticateToken, requireAdmin, rejectKYC);
 
-/**
- * @swagger
- * /api/users/{userId}:
- *   get:
- *     summary: Get user by ID (Admin only)
- *     tags: [Admin]
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: User retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
- */
-router.get('/:userId', getUserById);
+// ==================== LEGACY ROUTES (for backward compatibility) ====================
 
 /**
  * @swagger
- * /api/users/{userId}/role:
- *   put:
- *     summary: Update user role (Admin only)
- *     tags: [Admin]
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
+ * /api/users/send-otp:
+ *   post:
+ *     summary: Send OTP to phone number - Legacy endpoint
+ *     tags: [Authentication]
+ *     deprecated: true
  *     requestBody:
  *       required: true
  *       content:
@@ -1302,101 +975,16 @@ router.get('/:userId', getUserById);
  *           schema:
  *             type: object
  *             required:
- *               - role
+ *               - phoneNumber
  *             properties:
- *               role:
+ *               phoneNumber:
  *                 type: string
- *                 enum: [user, admin]
+ *                 description: 10-digit phone number
+ *                 example: "9876543210"
  *     responses:
  *       200:
- *         description: Role updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
+ *         description: OTP sent successfully
  */
-router.put('/:userId/role', updateUserRole);
-
-/**
- * @swagger
- * /api/users/{userId}/toggle-status:
- *   put:
- *     summary: Toggle user active status (Admin only)
- *     tags: [Admin]
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Status toggled successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
- */
-router.put('/:userId/toggle-status', toggleUserStatus);
-
-/**
- * @swagger
- * /api/users/{userId}/mark-ex:
- *   put:
- *     summary: Mark user as Ex (Admin only)
- *     tags: [Admin]
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: User marked as Ex successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
- */
-router.put('/:userId/mark-ex', markUserAsEx);
-
-/**
- * @swagger
- * /api/users/{userId}:
- *   delete:
- *     summary: Delete user (Admin only)
- *     tags: [Admin]
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: User deleted successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
- */
-router.delete('/:userId', deleteUser);
-
-/**
- * @swagger
- * /api/users/stats/dashboard:
- *   get:
- *     summary: Get dashboard statistics (Admin only)
- *     tags: [Admin]
- *     responses:
- *       200:
- *         description: Dashboard stats retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiResponse'
- */
-router.get('/stats/dashboard', getDashboardStats);
+router.post('/send-otp', sendOTP);
 
 module.exports = router;

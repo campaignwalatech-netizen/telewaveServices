@@ -19,7 +19,7 @@
 | :--- | :--- | :--- | :--- |
 | RPF-002 | It should update the form state on input change. | 1. Render the component. <br> 2. Type a phone number into the "Phone Number" input. | The component's state for `formData.phoneNumber` should be updated. |
 | RPF-003 | It should show an alert if passwords do not match on submit. | 1. Enter a value for "New Password" and a different value for "Confirm Password". <br> 2. Click "Reset Password". | An alert with the message "Passwords do not match!" should appear. The form should not be submitted. |
-| RPF-004 | It should show an alert for an invalid OTP format. | 1. Fill the form with matching passwords. <br> 2. Enter an OTP that is not 6 digits (e.g., "12345"). <br> 3. Click "Reset Password". | An alert with the message "Please enter a valid 6-digit OTP!" should appear. |
+| RPF-004 | It should show an alert for an invalid OTP format. | 1. Fill the form with matching passwords. <br> 2. Enter an OTP that is not 6 digits (e.g., "12345"). <br> 3. Click "Reset Password". | An alert with the message "Please enter a valid 4-digit OTP!" should appear. |
 
 ---
 

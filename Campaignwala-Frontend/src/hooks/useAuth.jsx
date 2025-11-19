@@ -7,15 +7,16 @@ import {
   selectUserRole,
   selectAuthError,
   selectIsLoading,
-  loginUser,
-  registerUser,
+  loginStart,
+  loginSuccess,
+  loginFailure,
+  registerStart,
+  registerSuccess,
+  registerFailure,
   logoutUser,
-  sendOTP,
-  verifyOTP,
-  forgotPassword,
-  resetPassword,
   clearError
 } from '../redux/slices/authSlice';
+import authService from '../services/authService';
 
 /**
  * Auth Hook with Backend Integration
@@ -32,90 +33,182 @@ export const useAuth = () => {
   const error = useSelector(selectAuthError);
   const isLoading = useSelector(selectIsLoading);
 
-  // Send OTP function
-  const requestOTP = useCallback(async (phoneNumber) => {
+  // Register function - Step 1: Send OTP
+  const register = useCallback(async (userData) => {
     try {
-      console.log('📱 useAuth requestOTP called with:', phoneNumber);
-      const result = await dispatch(sendOTP(phoneNumber)).unwrap();
-      console.log('✅ useAuth requestOTP result:', result);
+      console.log('🎯 [useAuth] Register called with:', { 
+        ...userData, 
+        password: '***', 
+        confirmPassword: '***' 
+      });
+      
+      dispatch(registerStart());
+      
+      const result = await authService.register(userData);
+      
+      // Registration step 1 successful - OTP sent to email
+      dispatch(registerSuccess({ 
+        message: result.message,
+        email: userData.email,
+        requireOTP: true 
+      }));
+      
       return result;
     } catch (error) {
-      console.error('❌ useAuth requestOTP error:', error);
+      console.error('❌ [useAuth] Register error:', error);
+      dispatch(registerFailure(error.message));
       throw error;
     }
   }, [dispatch]);
 
-  // Verify OTP function
-  const verifyOTPCode = useCallback(async (phoneNumber, otp) => {
+  // Verify Registration OTP - Step 2: Complete registration
+  const verifyRegistrationOTP = useCallback(async (email, otp) => {
     try {
-      const result = await dispatch(verifyOTP({ phoneNumber, otp })).unwrap();
-      return result;
-    } catch (error) {
-      throw error;
-    }
-  }, [dispatch]);
-
-  // Register function
-  const register = useCallback(async ({ phoneNumber, otp, name, email, password }) => {
-    try {
-      console.log('🎯 useAuth register called with:', { phoneNumber, otp, name, email, password: '***' });
+      console.log('🔑 [useAuth] Verifying registration OTP for:', email);
       
-      const result = await dispatch(registerUser({ phoneNumber, otp, name, email, password })).unwrap();
+      dispatch(registerStart());
       
-      // New users are always 'user' role - redirect to user dashboard
+      const result = await authService.verifyRegistrationOTP({ email, otp });
+      
+      // Store auth data and complete registration
+      authService.storeAuthData(result.data);
+      dispatch(registerSuccess(result.data));
+      
+      // Redirect to user dashboard
       navigate('/user', { replace: true });
       
       return result;
     } catch (error) {
+      console.error('❌ [useAuth] Registration OTP verification error:', error);
+      dispatch(registerFailure(error.message));
       throw error;
     }
   }, [dispatch, navigate]);
 
-  // Login function
+  // Login function - Step 1: Send OTP
   const login = useCallback(async (credentials) => {
     try {
-      const result = await dispatch(loginUser(credentials)).unwrap();
+      console.log('🔐 [useAuth] Login attempt with:', { email: credentials.email });
       
-      // Redirect based on user role
-      if (result.user.role === 'admin') {
+      dispatch(loginStart());
+      
+      const result = await authService.login(credentials);
+      
+      if (result.requireOTP) {
+        // OTP required - store temporary data and return OTP requirement
+        dispatch(loginSuccess({ 
+          message: result.message,
+          email: credentials.email,
+          requireOTP: true,
+          tempData: credentials 
+        }));
+      } else {
+        // Login successful without OTP (shouldn't happen with new flow)
+        authService.storeAuthData(result.data);
+        dispatch(loginSuccess(result.data));
+        
+        // Redirect based on role
+        if (result.data.user.role === 'admin') {
+          navigate('/admin', { replace: true });
+        } else {
+          navigate('/user', { replace: true });
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('❌ [useAuth] Login error:', error);
+      dispatch(loginFailure(error.message));
+      throw error;
+    }
+  }, [dispatch, navigate]);
+
+  // Verify Login OTP - Step 2: Complete login
+  const verifyLoginOTP = useCallback(async (email, otp) => {
+    try {
+      console.log('🔑 [useAuth] Verifying login OTP for:', email);
+      
+      dispatch(loginStart());
+      
+      const result = await authService.verifyLoginOTP({ email, otp });
+      
+      // Store auth data and complete login
+      authService.storeAuthData(result.data);
+      dispatch(loginSuccess(result.data));
+      
+      // Redirect based on role
+      if (result.data.user.role === 'admin') {
         navigate('/admin', { replace: true });
-      } else if (result.user.role === 'user') {
+      } else {
         navigate('/user', { replace: true });
       }
       
       return result;
     } catch (error) {
+      console.error('❌ [useAuth] Login OTP verification error:', error);
+      dispatch(loginFailure(error.message));
       throw error;
     }
   }, [dispatch, navigate]);
 
-  // Forgot password function
-  const requestPasswordReset = useCallback(async (phoneNumber) => {
+  // Admin login function
+  const adminLogin = useCallback(async (credentials) => {
     try {
-      const result = await dispatch(forgotPassword(phoneNumber)).unwrap();
+      console.log('🔐 [useAuth] Admin login attempt with:', { email: credentials.email });
+      
+      dispatch(loginStart());
+      
+      const result = await authService.adminLogin(credentials);
+      
+      if (result.requireOTP) {
+        // OTP required - store temporary data
+        dispatch(loginSuccess({ 
+          message: result.message,
+          email: credentials.email,
+          requireOTP: true,
+          tempData: credentials,
+          isAdmin: true
+        }));
+      }
+      
       return result;
     } catch (error) {
+      console.error('❌ [useAuth] Admin login error:', error);
+      dispatch(loginFailure(error.message));
       throw error;
     }
   }, [dispatch]);
 
-  // Reset password function
-  const resetUserPassword = useCallback(async ({ phoneNumber, otp, newPassword }) => {
+  // Forgot password function
+  const requestPasswordReset = useCallback(async (email) => {
     try {
-      const result = await dispatch(resetPassword({ phoneNumber, otp, newPassword })).unwrap();
+      const result = await authService.forgotPassword({ email });
       return result;
     } catch (error) {
       throw error;
     }
-  }, [dispatch]);
+  }, []);
+
+  // Reset password function
+  const resetUserPassword = useCallback(async (resetData) => {
+    try {
+      const result = await authService.resetPassword(resetData);
+      return result;
+    } catch (error) {
+      throw error;
+    }
+  }, []);
 
   // Logout function
   const logout = useCallback(async () => {
     try {
-      await dispatch(logoutUser()).unwrap();
+      await authService.logout();
+      dispatch(logoutUser());
       navigate('/', { replace: true });
     } catch (error) {
       // Force logout even if server call fails
+      authService.clearAuthData();
+      dispatch(logoutUser());
       navigate('/', { replace: true });
     }
   }, [dispatch, navigate]);
@@ -128,7 +221,12 @@ export const useAuth = () => {
   // Get user display name
   const getDisplayName = useCallback(() => {
     if (!user) return '';
-    return user.displayName || user.name || user.phoneNumber || 'User';
+    return user.displayName || user.name || user.email || 'User';
+  }, [user]);
+
+  // Check if OTP is required (for conditional rendering)
+  const isOTPRequired = useCallback(() => {
+    return user?.requireOTP === true;
   }, [user]);
 
   return {
@@ -141,16 +239,18 @@ export const useAuth = () => {
 
     // Actions
     login,
+    verifyLoginOTP,
     register,
+    verifyRegistrationOTP,
+    adminLogin,
     logout,
-    requestOTP,
-    verifyOTPCode,
     requestPasswordReset,
     resetUserPassword,
     clearAuthError,
 
     // Utilities
     getDisplayName,
+    isOTPRequired,
 
     // Role checks
     isAdmin: userRole === 'admin',

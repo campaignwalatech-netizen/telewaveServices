@@ -48,7 +48,7 @@ describe('ResetPasswordForm Component', () => {
       fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'password123' } });
       fireEvent.change(screen.getByLabelText(/otp verification/i), { target: { value: '123' } });
       fireEvent.click(screen.getByRole('button', { name: /reset password/i }));
-      expect(alertSpy).toHaveBeenCalledWith('Please enter a valid 6-digit OTP!');
+      expect(alertSpy).toHaveBeenCalledWith('Please enter a valid 4-digit OTP!');
       expect(authService.resetPassword).not.toHaveBeenCalled();
     });
 

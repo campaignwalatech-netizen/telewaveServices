@@ -14,8 +14,8 @@ export default function ResetPasswordForm() {
       alert("Passwords do not match!");
       return;
     }
-    if (formData.otp.length !== 6 || !/^\d{6}$/.test(formData.otp)) {
-      alert("Please enter a valid 6-digit OTP!");
+    if (formData.otp.length !== 4 || !/^\d{4}$/.test(formData.otp)) {
+      alert("Please enter a valid 4-digit OTP!");
       return;
     }
     console.log("Reset Password Data:", formData);
@@ -86,13 +86,13 @@ export default function ResetPasswordForm() {
               value={formData.otp}
               onChange={handleChange}
               className="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="Enter 6-digit OTP"
+              placeholder="Enter 4-digit OTP"
               required
-              maxLength={6}
+              maxLength={4}
               pattern="[0-9]{6}"
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Enter the 6-digit OTP sent to the user's registered email/phone
+              Enter the 4-digit OTP sent to the user's registered email/phone
             </p>
           </div>
 

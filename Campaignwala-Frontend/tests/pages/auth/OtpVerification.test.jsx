@@ -47,7 +47,7 @@ describe('OtpVerification Page', () => {
   it('should render the OTP verification form correctly', () => {
     renderWithRouter();
     expect(screen.getByText(/verify otp/i)).toBeInTheDocument();
-    expect(screen.getByText(/enter the 6-digit code sent to/i)).toBeInTheDocument();
+    expect(screen.getByText(/enter the 4-digit code sent to/i)).toBeInTheDocument();
     expect(screen.getByText('1234567890')).toBeInTheDocument();
     expect(screen.getAllByRole('textbox').length).toBe(6);
     expect(screen.getByRole('button', { name: /verify & continue/i })).toBeInTheDocument();

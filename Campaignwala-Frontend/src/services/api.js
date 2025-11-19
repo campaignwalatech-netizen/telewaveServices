@@ -213,16 +213,18 @@ export const apiHelpers = {
 export const endpoints = {
   // Auth endpoints
   auth: {
-    login: '/auth/login',
-    register: '/auth/register',
-    logout: '/auth/logout',
-    refresh: '/auth/refresh-token',
-    profile: '/auth/profile',
-    forgotPassword: '/auth/forgot-password',
-    resetPassword: '/auth/reset-password',
-    changePassword: '/auth/change-password',
-    verifyOtp: '/auth/verify-otp',
-    validateSession: '/auth/validate-session'
+    login: '/users/login',
+    verifyLogin: '/users/verify-login',
+    register: '/users/register',
+    verifyRegistration: '/users/verify-registration',
+    adminLogin: '/users/admin-login',
+    logout: '/users/logout',
+    profile: '/users/profile',
+    forgotPassword: '/users/forgot-password',
+    resetPassword: '/users/reset-password',
+    changePassword: '/users/change-password',
+    sendEmailOTP: '/users/send-email-otp',
+    verifyEmailOTP: '/users/verify-email-otp'
   },
   
   // Admin endpoints

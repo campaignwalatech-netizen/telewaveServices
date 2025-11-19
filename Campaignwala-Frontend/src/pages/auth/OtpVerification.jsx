@@ -8,7 +8,7 @@ export default function OtpVerification() {
   const phone = location.state?.phone || "";
   const userType = location.state?.userType || "";
   
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [otp, setOtp] = useState(["", "", "", ""]);
   const [error, setError] = useState("");
   const [resendTimer, setResendTimer] = useState(30);
   const inputRefs = useRef([]);
@@ -35,7 +35,7 @@ export default function OtpVerification() {
     setError("");
 
     // Auto-focus next input
-    if (value && index < 5) {
+    if (value && index < 3) {
       inputRefs.current[index + 1]?.focus();
     }
   };
@@ -48,12 +48,12 @@ export default function OtpVerification() {
 
   const handlePaste = (e) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData("text").slice(0, 6);
+    const pastedData = e.clipboardData.getData("text").slice(0, 4);
     if (!/^\d+$/.test(pastedData)) return;
 
     const newOtp = [...otp];
     pastedData.split("").forEach((char, i) => {
-      if (i < 6) newOtp[i] = char;
+      if (i < 4) newOtp[i] = char;
     });
     setOtp(newOtp);
   };
@@ -62,7 +62,7 @@ export default function OtpVerification() {
     e.preventDefault();
     const otpCode = otp.join("");
 
-    if (otpCode.length !== 6) {
+    if (otpCode.length !== 4) {
       setError("Please enter complete OTP");
       return;
     }
@@ -127,7 +127,7 @@ export default function OtpVerification() {
             Verify OTP
           </h2>
           <p className="text-center text-sm text-muted-foreground mb-6">
-            Enter the 6-digit code sent to<br />
+            Enter the 4-digit code sent to<br />
             <span className="font-semibold text-foreground">{phone}</span>
           </p>
 

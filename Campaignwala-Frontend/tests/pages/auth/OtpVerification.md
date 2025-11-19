@@ -23,7 +23,7 @@
 |--------------|----------------------------------------------------|
 | **Description**  | Verify that a user can verify a valid OTP and is redirected. |
 | **Prerequisites** | The user is on the OTP verification page. |
-| **Steps**      | 1. Enter the correct 6-digit OTP in the input fields.<br>2. Click the "Verify & Continue" button. |
+| **Steps**      | 1. Enter the correct 4-digit OTP in the input fields.<br>2. Click the "Verify & Continue" button. |
 | **Expected Result** | The user's login state is saved to `localStorage`.<br>The user is redirected to their dashboard (`/admin` or `/user`) based on the `userType` passed in the state. |
 
 ---
@@ -33,7 +33,7 @@
 | Test Case ID | TC_OTP_03                                          |
 |--------------|----------------------------------------------------|
 | **Description**  | Verify that an error message is shown for an invalid OTP. |
-| **Steps**      | 1. Enter an incorrect 6-digit OTP.<br>2. Click the "Verify & Continue" button. |
+| **Steps**      | 1. Enter an incorrect 4-digit OTP.<br>2. Click the "Verify & Continue" button. |
 | **Expected Result** | An error message (e.g., "Please enter complete OTP") is displayed.<br>The user remains on the OTP page. |
 
 ---
@@ -63,7 +63,7 @@
 | Test Case ID | TC_OTP_06                                          |
 |--------------|----------------------------------------------------|
 | **Description**  | Verify that a user can paste an OTP code into the fields. |
-| **Steps**      | 1. Copy a 6-digit code to the clipboard.<br>2. Paste it into one of the OTP input fields. |
+| **Steps**      | 1. Copy a 4-digit code to the clipboard.<br>2. Paste it into one of the OTP input fields. |
 | **Expected Result** | The pasted code should correctly fill the OTP input fields. |
 
 ---

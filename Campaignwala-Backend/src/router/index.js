@@ -19,7 +19,19 @@ router.get('/health', (req, res) => {
         success: true,
         message: 'API is healthy',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        version: '1.0.0'
+    });
+});
+
+// API status endpoint
+router.get('/status', (req, res) => {
+    res.json({
+        success: true,
+        message: 'Campaignwala API Server is running',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        version: '1.0.0'
     });
 });
 

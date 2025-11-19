@@ -16,14 +16,21 @@ const userSchema = new mongoose.Schema({
     },
     name: {
         type: String,
-        trim: true,
-        default: ''
+        required: [true, 'Name is required'],
+        trim: true
     },
     email: {
         type: String,
+        required: [true, 'Email is required'],
+        unique: true,
         trim: true,
         lowercase: true,
-        default: ''
+        validate: {
+            validator: function (v) {
+                return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+            },
+            message: 'Invalid email format'
+        }
     },
     password: {
         type: String,
@@ -32,7 +39,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['user', 'admin'],
+        enum: ['user', 'admin', 'TL'],
         default: 'user'
     },
     isVerified: {
@@ -46,10 +53,25 @@ const userSchema = new mongoose.Schema({
     lastOtpSent: {
         type: Date
     },
-    emailOtp: {
+    // Registration OTP
+    registrationOtp: {
         type: String
     },
-    emailOtpExpires: {
+    registrationOtpExpires: {
+        type: Date
+    },
+    // Login OTP
+    loginOtp: {
+        type: String
+    },
+    loginOtpExpires: {
+        type: Date
+    },
+    // Password Reset OTP
+    resetPasswordOtp: {
+        type: String
+    },
+    resetPasswordOtpExpires: {
         type: Date
     },
     isActive: {
@@ -63,19 +85,19 @@ const userSchema = new mongoose.Schema({
     // Session Management - Single Device Login
     activeSession: {
         type: String,
-        default: null // Store current active JWT token
+        default: null
     },
     sessionDevice: {
         type: String,
-        default: null // Store device info (user-agent)
+        default: null
     },
     sessionIP: {
         type: String,
-        default: null // Store IP address
+        default: null
     },
     lastActivity: {
         type: Date,
-        default: null // Track last activity time
+        default: null
     },
     // Personal Details
     firstName: {
@@ -220,17 +242,22 @@ userSchema.methods.comparePassword = async function (candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
 };
 
+// Generate random 4-digit OTP
+userSchema.methods.generateOTP = function () {
+    return Math.floor(1000 + Math.random() * 9000).toString();
+};
+
 // Check if OTP attempts exceeded
 userSchema.methods.canSendOtp = function () {
     const now = new Date();
     const lastOtp = this.lastOtpSent;
 
-    // Reset attempts if more than 15 minutes passed (development mode)
+    // Reset attempts if more than 15 minutes passed
     if (lastOtp && (now - lastOtp) > 15 * 60 * 1000) {
         this.otpAttempts = 0;
     }
 
-    return this.otpAttempts < 20; // Max 20 attempts per 15 minutes (development mode)
+    return this.otpAttempts < 20; // Max 20 attempts per 15 minutes
 };
 
 // Increment OTP attempts
@@ -239,13 +266,79 @@ userSchema.methods.incrementOtpAttempts = function () {
     this.lastOtpSent = new Date();
 };
 
-// Remove password from JSON output
+// Set OTP with expiry (10 minutes)
+userSchema.methods.setOtp = function (type) {
+    const otp = this.generateOTP();
+    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
+    if (type === 'registration') {
+        this.registrationOtp = otp;
+        this.registrationOtpExpires = expires;
+    } else if (type === 'login') {
+        this.loginOtp = otp;
+        this.loginOtpExpires = expires;
+    } else if (type === 'reset') {
+        this.resetPasswordOtp = otp;
+        this.resetPasswordOtpExpires = expires;
+    }
+    
+    return otp;
+};
+
+// Verify OTP
+userSchema.methods.verifyOtp = function (otp, type) {
+    let storedOtp, storedExpiry;
+
+    if (type === 'registration') {
+        storedOtp = this.registrationOtp;
+        storedExpiry = this.registrationOtpExpires;
+    } else if (type === 'login') {
+        storedOtp = this.loginOtp;
+        storedExpiry = this.loginOtpExpires;
+    } else if (type === 'reset') {
+        storedOtp = this.resetPasswordOtp;
+        storedExpiry = this.resetPasswordOtpExpires;
+    }
+
+    if (!storedOtp || !storedExpiry) {
+        return false;
+    }
+
+    if (storedExpiry < new Date()) {
+        return false; // OTP expired
+    }
+
+    return storedOtp === otp;
+};
+
+// Clear OTP after verification
+userSchema.methods.clearOtp = function (type) {
+    if (type === 'registration') {
+        this.registrationOtp = undefined;
+        this.registrationOtpExpires = undefined;
+    } else if (type === 'login') {
+        this.loginOtp = undefined;
+        this.loginOtpExpires = undefined;
+    } else if (type === 'reset') {
+        this.resetPasswordOtp = undefined;
+        this.resetPasswordOtpExpires = undefined;
+    }
+    this.otpAttempts = 0; // Reset attempts on successful verification
+};
+
+// Remove sensitive fields from JSON output
 userSchema.methods.toJSON = function () {
     const userObject = this.toObject();
     delete userObject.password;
     delete userObject.otpAttempts;
     delete userObject.lastOtpSent;
     delete userObject.activeSession;
+    delete userObject.registrationOtp;
+    delete userObject.registrationOtpExpires;
+    delete userObject.loginOtp;
+    delete userObject.loginOtpExpires;
+    delete userObject.resetPasswordOtp;
+    delete userObject.resetPasswordOtpExpires;
     return userObject;
 };
 

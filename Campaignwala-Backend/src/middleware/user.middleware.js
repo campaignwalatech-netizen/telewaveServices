@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../modules/users/user.model');
-const HTTP_STATUS = require('../constants/httpStatus'); // new
+const HTTP_STATUS = require('../constants/httpStatus');
 
 // Verify JWT token
 const authenticateToken = async (req, res, next) => {
@@ -16,7 +16,7 @@ const authenticateToken = async (req, res, next) => {
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.userId).select('-password');
+        const user = await User.findById(decoded.userId).select('-password -emailOtp -emailOtpExpires');
 
         if (!user) {
             return res.status(HTTP_STATUS.UNAUTHORIZED).json({
@@ -34,7 +34,7 @@ const authenticateToken = async (req, res, next) => {
 
         // Check if this is the active session (single device login)
         if (user.activeSession && user.activeSession !== token) {
-            console.log('⚠️ Session mismatch detected for user:', user.phoneNumber);
+            console.log('⚠️ Session mismatch detected for user:', user.email);
             console.log('🔒 User logged in from another device/location');
             return res.status(HTTP_STATUS.UNAUTHORIZED).json({
                 success: false,
@@ -90,7 +90,7 @@ const requireVerified = (req, res, next) => {
     if (!req.user.isVerified) {
         return res.status(HTTP_STATUS.FORBIDDEN).json({
             success: false,
-            message: 'Phone number verification required'
+            message: 'Account verification required'
         });
     }
     next();
@@ -104,7 +104,7 @@ const optionalAuth = async (req, res, next) => {
 
         if (token) {
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            const user = await User.findById(decoded.userId).select('-password');
+            const user = await User.findById(decoded.userId).select('-password -emailOtp -emailOtpExpires');
 
             if (user && user.isActive) {
                 req.user = user;

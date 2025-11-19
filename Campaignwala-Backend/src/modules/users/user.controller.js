@@ -10,136 +10,15 @@ const generateToken = (userId) => {
     });
 };
 
-// Generate random 4-digit OTP with static fallback for development
-const generateOTP = () => {
-    // For development, use static OTP when email service is unreliable
-    if (process.env.NODE_ENV === 'development' || process.env.USE_STATIC_OTP === 'true') {
-        return process.env.STATIC_OTP || '1006';
-    }
-    return Math.floor(1000 + Math.random() * 9000).toString();
-};
-
-// Send OTP via Email - Updated for both registration and login
+// Legacy function - kept for backward compatibility
 const sendOTP = async (req, res) => {
     try {
-        const { phoneNumber, purpose = 'login' } = req.body;
-
-        console.log('📥 sendOTP request received for:', phoneNumber, 'Purpose:', purpose);
-
-        if (!phoneNumber) {
-            console.log('❌ Phone number missing');
-            return res.status(400).json({
-                success: false,
-                message: 'Phone number is required'
-            });
-        }
-
-        // Validate phone number format
-        if (!/^[0-9]{10}$/.test(phoneNumber)) {
-            console.log('❌ Invalid phone format:', phoneNumber);
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid phone number format. Must be 10 digits'
-            });
-        }
-
-        console.log('✅ Phone number validated');
-
-        let user = await User.findOne({ phoneNumber });
-
-        // For registration, if user doesn't exist, that's OK - we'll create a temporary record
-        if (!user && purpose === 'registration') {
-            console.log('🆕 New user registration - generating OTP');
-            
-            // Generate OTP
-            const otp = generateOTP();
-            
-            return res.json({
-                success: true,
-                message: 'OTP sent successfully for registration',
-                data: {
-                    phoneNumber,
-                    isNewUser: true,
-                    otp: otp, // Include OTP for development
-                    purpose: 'registration'
-                }
-            });
-        }
-
-        // For login, user must exist
-        if (!user) {
-            console.log('❌ User not found for login');
-            return res.status(404).json({
-                success: false,
-                message: 'User not found. Please register first.'
-            });
-        }
-
-        if (!user.email) {
-            console.log('❌ No email found for user');
-            return res.status(400).json({
-                success: false,
-                message: 'No email registered for this account. Please contact support.'
-            });
-        }
-
-        console.log('📱 Existing user found');
-        
-        // Check OTP rate limiting
-        if (!user.canSendOtp()) {
-            console.log('❌ Rate limit exceeded');
-            return res.status(429).json({
-                success: false,
-                message: 'Too many OTP attempts. Please try again later'
-            });
-        }
-
-        user.incrementOtpAttempts();
-        await user.save();
-
-        // Generate OTP
-        const otp = generateOTP();
-        
-        // Send OTP via email with fallback
-        console.log('📧 Sending OTP to email:', user.email);
-        try {
-            await sendOTPEmail(user.email, user.name || 'User', otp, purpose);
-            
-            res.json({
-                success: true,
-                message: 'OTP sent to your registered email',
-                data: {
-                    phoneNumber,
-                    email: user.email,
-                    emailSent: true,
-                    isNewUser: false,
-                    purpose: purpose,
-                    // Only include OTP in development for testing
-                    ...(process.env.NODE_ENV === 'development' && { otp: otp })
-                }
-            });
-        } catch (emailError) {
-            console.error('❌ Failed to send OTP email:', emailError);
-            
-            // DEVELOPMENT FALLBACK: Return OTP in response
-            console.log('🔄 Using development fallback - returning OTP in response');
-            
-            res.json({
-                success: true,
-                message: 'OTP generated (Email service temporarily unavailable)',
-                data: {
-                    phoneNumber,
-                    email: user.email,
-                    emailSent: false,
-                    isNewUser: false,
-                    purpose: purpose,
-                    otp: otp, // Include OTP when email fails
-                    developmentMode: true,
-                    note: 'Email service unavailable - use this OTP'
-                }
-            });
-        }
-
+        return res.status(410).json({
+            success: false,
+            message: 'This endpoint is deprecated. Please use email-based authentication instead.',
+            deprecated: true,
+            alternative: 'Use /api/users/login with email and password'
+        });
     } catch (error) {
         console.error('Send OTP error:', error);
         res.status(500).json({
@@ -149,34 +28,33 @@ const sendOTP = async (req, res) => {
     }
 };
 
-// Register user
+// Register user - Step 1: Send OTP to email
 const register = async (req, res) => {
     try {
-        const { phoneNumber, otp, name, email, password } = req.body;
+        const { name, email, password, confirmPassword, phoneNumber } = req.body;
 
-        // Debug: Log what we received
         console.log('📥 Registration request received:', {
-            phoneNumber: phoneNumber || 'MISSING',
-            otp: otp || 'MISSING',
             name: name || 'MISSING',
             email: email || 'MISSING',
-            password: password ? '***' : 'MISSING'
+            password: password ? '***' : 'MISSING',
+            confirmPassword: confirmPassword ? '***' : 'MISSING',
+            phoneNumber: phoneNumber || 'MISSING'
         });
 
         // Validation
-        if (!phoneNumber || !otp || !name || !email || !password) {
+        if (!name || !email || !password || !confirmPassword || !phoneNumber) {
             console.log('❌ Validation failed - missing fields');
             return res.status(400).json({
                 success: false,
-                message: 'Phone number, OTP, name, email, and password are required'
+                message: 'Name, email, password, confirm password, and phone number are required'
             });
         }
 
-        // Verify OTP (static check for development)
-        if (otp !== process.env.STATIC_OTP) {
+        // Check if passwords match
+        if (password !== confirmPassword) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid OTP'
+                message: 'Passwords do not match'
             });
         }
 
@@ -189,16 +67,15 @@ const register = async (req, res) => {
             });
         }
 
-        // Check if user already exists
-        const existingUser = await User.findOne({ phoneNumber });
-        if (existingUser) {
-            return res.status(409).json({
+        // Validate phone number format
+        if (!/^[0-9]{10}$/.test(phoneNumber)) {
+            return res.status(400).json({
                 success: false,
-                message: 'User with this phone number already exists'
+                message: 'Invalid phone number format. Must be 10 digits'
             });
         }
 
-        // Check if email already exists
+        // Check if user already exists with email
         const existingEmail = await User.findOne({ email });
         if (existingEmail) {
             return res.status(409).json({
@@ -207,47 +84,97 @@ const register = async (req, res) => {
             });
         }
 
-        // Create new user
-        const user = new User({
-            phoneNumber,
-            name,
-            email,
-            password,
-            isVerified: true // Auto-verify since OTP is validated
-        });
-
-        await user.save();
-
-        // Send welcome email (with error handling)
-        if (email) {
-            console.log('📧 Sending welcome email to:', email);
-            try {
-                await sendWelcomeEmail(email, name);
-            } catch (emailError) {
-                console.error('❌ Failed to send welcome email:', emailError);
-                // Continue registration even if welcome email fails
-            }
+        // Check if user already exists with phone number
+        const existingPhone = await User.findOne({ phoneNumber });
+        if (existingPhone) {
+            return res.status(409).json({
+                success: false,
+                message: 'Phone number already registered'
+            });
         }
 
-        // Generate token
-        const token = generateToken(user._id);
+        // Check if temporary user exists (for OTP verification)
+        let user = await User.findOne({ email, isVerified: false });
+        
+        if (user) {
+            // Update existing temporary user
+            user.name = name;
+            user.password = password;
+            user.phoneNumber = phoneNumber;
+        } else {
+            // Create new temporary user (not verified yet)
+            user = new User({
+                name,
+                email,
+                password,
+                phoneNumber,
+                isVerified: false
+            });
+        }
 
-        res.status(201).json({
-            success: true,
-            message: 'User registered successfully',
-            data: {
-                user,
-                token
-            }
-        });
+        // Check OTP rate limiting
+        if (!user.canSendOtp()) {
+            return res.status(429).json({
+                success: false,
+                message: 'Too many OTP attempts. Please try again later.'
+            });
+        }
+
+        // Generate and set registration OTP
+        const otp = user.setOtp('registration');
+        user.incrementOtpAttempts();
+        await user.save();
+
+        console.log('📧 Sending registration OTP to:', email);
+        console.log('🔑 Registration OTP:', otp);
+
+        // Send OTP via email
+        try {
+            await sendOTPEmail(email, name, otp, 'registration');
+            console.log('✅ Registration OTP email sent successfully');
+            
+            return res.json({
+                success: true,
+                message: 'OTP sent to your email. Please verify to complete registration.',
+                requireOTP: true,
+                data: {
+                    email: email,
+                    name: name,
+                    otpSent: true,
+                    // Send OTP in development mode for testing
+                    ...(process.env.NODE_ENV === 'development' && { otp: otp })
+                }
+            });
+        } catch (emailError) {
+            console.error('❌ Failed to send registration OTP email:', emailError);
+            
+            // DEVELOPMENT FALLBACK: Return OTP in response when email fails
+            return res.json({
+                success: true,
+                message: 'OTP generated (Email service temporarily unavailable)',
+                requireOTP: true,
+                developmentMode: true,
+                data: {
+                    email: email,
+                    name: name,
+                    otpSent: false,
+                    otp: otp, // Include OTP for development/testing
+                    note: 'Email service unavailable - use this OTP to complete registration'
+                }
+            });
+        }
 
     } catch (error) {
         console.error('Registration error:', error);
 
         if (error.code === 11000) {
+            const field = Object.keys(error.keyPattern)[0];
+            const message = field === 'email' 
+                ? 'Email already registered' 
+                : 'Phone number already registered';
             return res.status(409).json({
                 success: false,
-                message: 'Phone number already registered'
+                message
             });
         }
 
@@ -267,24 +194,106 @@ const register = async (req, res) => {
     }
 };
 
-// Login user (Step 1: Send OTP) - UPDATED WITH FALLBACK
-const login = async (req, res) => {
+// Verify Registration OTP - Step 2: Complete registration
+const verifyRegistrationOTP = async (req, res) => {
     try {
-        const { phoneNumber, password, otp } = req.body;
+        const { email, otp } = req.body;
 
-        if (!phoneNumber || !password) {
+        if (!email || !otp) {
             return res.status(400).json({
                 success: false,
-                message: 'Phone number and password are required'
+                message: 'Email and OTP are required'
             });
         }
 
-        // Find user
-        const user = await User.findOne({ phoneNumber });
+        // Find temporary user
+        const user = await User.findOne({ email, isVerified: false });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'Registration session not found. Please start registration again.'
+            });
+        }
+
+        // Verify OTP
+        if (!user.verifyOtp(otp, 'registration')) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired OTP'
+            });
+        }
+
+        // Mark user as verified and complete registration
+        user.isVerified = true;
+        user.clearOtp('registration');
+        await user.save();
+
+        // Send welcome email
+        try {
+            await sendWelcomeEmail(user.email, user.name);
+        } catch (emailError) {
+            console.error('❌ Failed to send welcome email:', emailError);
+            // Continue registration even if welcome email fails
+        }
+
+        // Generate token
+        const token = generateToken(user._id);
+
+        // Store session info
+        user.activeSession = token;
+        user.sessionDevice = req.headers['user-agent'] || 'Unknown Device';
+        user.sessionIP = req.ip || req.connection.remoteAddress || 'Unknown IP';
+        user.lastActivity = new Date();
+        await user.save();
+
+        console.log('✅ User registered successfully:', user.email);
+
+        res.status(201).json({
+            success: true,
+            message: 'Registration successful! Welcome to our platform.',
+            data: {
+                user: {
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    phoneNumber: user.phoneNumber,
+                    role: user.role,
+                    isVerified: user.isVerified,
+                    isActive: user.isActive
+                },
+                token
+            }
+        });
+
+    } catch (error) {
+        console.error('Verify registration OTP error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Registration verification failed'
+        });
+    }
+};
+
+// Login user with email and password, then send OTP to email
+const login = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        console.log('📥 Login request received for email:', email);
+
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and password are required'
+            });
+        }
+
+        // Find user by email (must be verified)
+        const user = await User.findOne({ email, isVerified: true });
         if (!user) {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid phone number or password'
+                message: 'Invalid email or password, or account not verified'
             });
         }
 
@@ -292,7 +301,7 @@ const login = async (req, res) => {
         if (!user.isActive) {
             return res.status(401).json({
                 success: false,
-                message: 'Account is deactivated'
+                message: 'Account is deactivated. Please contact support.'
             });
         }
 
@@ -301,90 +310,41 @@ const login = async (req, res) => {
         if (!isPasswordValid) {
             return res.status(401).json({
                 success: false,
-                message: 'Invalid phone number or password'
+                message: 'Invalid email or password'
             });
         }
 
-        // If OTP is provided, verify it and complete login
-        if (otp) {
-            // Check if email OTP exists and is valid
-            if (!user.emailOtp || user.emailOtp !== otp) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid OTP'
-                });
-            }
-
-            // Check if OTP is expired
-            if (user.emailOtpExpires && user.emailOtpExpires < new Date()) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'OTP has expired. Please request a new one.'
-                });
-            }
-
-            // Clear OTP after successful verification
-            user.emailOtp = undefined;
-            user.emailOtpExpires = undefined;
-
-            // Generate token
-            const token = generateToken(user._id);
-
-            // Store session info for single device login
-            user.activeSession = token;
-            user.sessionDevice = req.headers['user-agent'] || 'Unknown Device';
-            user.sessionIP = req.ip || req.connection.remoteAddress || 'Unknown IP';
-            user.lastActivity = new Date();
-            
-            await user.save();
-
-            console.log('✅ New session created for user:', user.phoneNumber);
-            console.log('📱 Device:', user.sessionDevice);
-            console.log('🌐 IP:', user.sessionIP);
-
-            return res.json({
-                success: true,
-                message: 'Login successful',
-                data: {
-                    user,
-                    token
-                }
+        // Check OTP rate limiting
+        if (!user.canSendOtp()) {
+            return res.status(429).json({
+                success: false,
+                message: 'Too many OTP attempts. Please try again later.'
             });
         }
 
-        // Generate 4-digit OTP
-        const loginOtp = generateOTP();
-        
-        // Store OTP with 10-minute expiry
-        user.emailOtp = loginOtp;
-        user.emailOtpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+        // Generate and set login OTP
+        const otp = user.setOtp('login');
+        user.incrementOtpAttempts();
         await user.save();
 
-        // Send OTP via Email for all users (admin and regular users)
-        if (!user.email || user.email.trim() === '') {
-            return res.status(400).json({
-                success: false,
-                message: 'No email configured for this account. Please contact support.'
-            });
-        }
-
         console.log('📧 Sending login OTP to email:', user.email);
+        console.log('🔑 Login OTP:', otp);
+
         try {
-            await sendOTPEmail(user.email, user.name || 'User', loginOtp, 'login');
+            await sendOTPEmail(user.email, user.name || 'User', otp, 'login');
             console.log('✅ Login OTP email sent successfully');
             
             return res.json({
                 success: true,
-                message: 'OTP sent to your registered email. Please verify to complete login.',
+                message: 'OTP sent to your email. Please verify to complete login.',
                 requireOTP: true,
-                otpType: 'email',
                 data: {
-                    phoneNumber: user.phoneNumber,
                     email: user.email,
+                    name: user.name,
                     role: user.role,
                     otpSent: true,
                     // Send OTP in development mode for testing
-                    ...(process.env.NODE_ENV === 'development' && { otp: loginOtp })
+                    ...(process.env.NODE_ENV === 'development' && { otp: otp })
                 }
             });
         } catch (emailError) {
@@ -397,14 +357,13 @@ const login = async (req, res) => {
                 success: true,
                 message: 'OTP generated (Email service temporarily unavailable)',
                 requireOTP: true,
-                otpType: 'email',
                 developmentMode: true,
                 data: {
-                    phoneNumber: user.phoneNumber,
                     email: user.email,
+                    name: user.name,
                     role: user.role,
                     otpSent: false,
-                    otp: loginOtp, // Include OTP for development/testing
+                    otp: otp, // Include OTP for development/testing
                     note: 'Email service unavailable - use this OTP to login'
                 }
             });
@@ -419,44 +378,68 @@ const login = async (req, res) => {
     }
 };
 
-// Verify OTP and phone number
-const verifyOTP = async (req, res) => {
+// Verify Login OTP
+const verifyLoginOTP = async (req, res) => {
     try {
-        const { phoneNumber, otp } = req.body;
+        const { email, otp } = req.body;
 
-        if (!phoneNumber || !otp) {
+        if (!email || !otp) {
             return res.status(400).json({
                 success: false,
-                message: 'Phone number and OTP are required'
+                message: 'Email and OTP are required'
             });
         }
 
-        // Verify OTP (static check for development)
-        if (otp !== process.env.STATIC_OTP) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid OTP'
-            });
-        }
-
-        // Find user
-        const user = await User.findOne({ phoneNumber });
+        // Find user by email
+        const user = await User.findOne({ email, isVerified: true });
         if (!user) {
             return res.status(404).json({
                 success: false,
-                message: 'User not found'
+                message: 'User not found or account not verified'
             });
         }
 
-        // Update verification status
-        user.isVerified = true;
-        user.otpAttempts = 0;
+        // Verify OTP
+        if (!user.verifyOtp(otp, 'login')) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired OTP'
+            });
+        }
+
+        // Clear OTP after successful verification
+        user.clearOtp('login');
+
+        // Generate token
+        const token = generateToken(user._id);
+
+        // Store session info for single device login
+        user.activeSession = token;
+        user.sessionDevice = req.headers['user-agent'] || 'Unknown Device';
+        user.sessionIP = req.ip || req.connection.remoteAddress || 'Unknown IP';
+        user.lastActivity = new Date();
+        
         await user.save();
+
+        console.log('✅ User logged in successfully:', user.email);
+        console.log('👤 Role:', user.role);
+        console.log('📱 Device:', user.sessionDevice);
 
         res.json({
             success: true,
-            message: 'Phone number verified successfully',
-            data: { user }
+            message: 'Login successful',
+            data: {
+                user: {
+                    _id: user._id,
+                    name: user.name,
+                    email: user.email,
+                    phoneNumber: user.phoneNumber,
+                    role: user.role,
+                    isVerified: user.isVerified,
+                    isActive: user.isActive
+                },
+                token
+            }
         });
 
     } catch (error) {
@@ -464,6 +447,272 @@ const verifyOTP = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'OTP verification failed'
+        });
+    }
+};
+
+// Admin Login - Same as user login but checks for admin role
+const adminLogin = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        console.log('📥 Admin login request received for email:', email);
+
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and password are required'
+            });
+        }
+
+        // Find user by email and check if admin
+        const user = await User.findOne({ email, role: 'admin', isVerified: true });
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password, or insufficient permissions'
+            });
+        }
+
+        // Check if account is active
+        if (!user.isActive) {
+            return res.status(401).json({
+                success: false,
+                message: 'Admin account is deactivated.'
+            });
+        }
+
+        // Check password
+        const isPasswordValid = await user.comparePassword(password);
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        }
+
+        // Check OTP rate limiting
+        if (!user.canSendOtp()) {
+            return res.status(429).json({
+                success: false,
+                message: 'Too many OTP attempts. Please try again later.'
+            });
+        }
+
+        // Generate and set login OTP
+        const otp = user.setOtp('login');
+        user.incrementOtpAttempts();
+        await user.save();
+
+        console.log('📧 Sending admin login OTP to email:', user.email);
+        console.log('🔑 Admin Login OTP:', otp);
+
+        try {
+            await sendOTPEmail(user.email, user.name || 'Admin', otp, 'login');
+            console.log('✅ Admin login OTP email sent successfully');
+            
+            return res.json({
+                success: true,
+                message: 'OTP sent to your email. Please verify to complete admin login.',
+                requireOTP: true,
+                data: {
+                    email: user.email,
+                    name: user.name,
+                    role: user.role,
+                    otpSent: true,
+                    // Send OTP in development mode for testing
+                    ...(process.env.NODE_ENV === 'development' && { otp: otp })
+                }
+            });
+        } catch (emailError) {
+            console.error('❌ Failed to send admin login OTP email:', emailError);
+            
+            // DEVELOPMENT FALLBACK
+            return res.json({
+                success: true,
+                message: 'OTP generated (Email service temporarily unavailable)',
+                requireOTP: true,
+                developmentMode: true,
+                data: {
+                    email: user.email,
+                    name: user.name,
+                    role: user.role,
+                    otpSent: false,
+                    otp: otp,
+                    note: 'Email service unavailable - use this OTP to login'
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error('Admin login error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Admin login failed'
+        });
+    }
+};
+
+// Forgot Password - Send OTP to email
+const forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email is required'
+            });
+        }
+
+        // Check if user exists and is verified
+        const user = await User.findOne({ email, isVerified: true });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'No verified account found with this email'
+            });
+        }
+
+        // Check OTP rate limiting
+        if (!user.canSendOtp()) {
+            return res.status(429).json({
+                success: false,
+                message: 'Too many OTP attempts. Please try again later.'
+            });
+        }
+
+        // Generate and set reset password OTP
+        const otp = user.setOtp('reset');
+        user.incrementOtpAttempts();
+        await user.save();
+
+        console.log('📧 Sending password reset OTP to:', user.email);
+        console.log('🔑 Reset OTP:', otp);
+
+        // Send OTP via email
+        try {
+            await sendOTPEmail(user.email, user.name || 'User', otp, 'password-reset');
+            
+            return res.json({
+                success: true,
+                message: 'Password reset OTP sent to your email',
+                data: {
+                    email: user.email,
+                    ...(process.env.NODE_ENV === 'development' && { otp: otp })
+                }
+            });
+        } catch (emailError) {
+            console.error('❌ Failed to send password reset OTP:', emailError);
+            
+            // Fallback: Return OTP in response
+            return res.json({
+                success: true,
+                message: 'Password reset OTP generated (Email service unavailable)',
+                developmentMode: true,
+                data: {
+                    email: user.email,
+                    otp: otp,
+                    note: 'Email service unavailable - use this OTP to reset password'
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error('Forgot password error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to send reset OTP'
+        });
+    }
+};
+
+// Reset Password with OTP
+const resetPassword = async (req, res) => {
+    try {
+        const { email, otp, newPassword, confirmPassword } = req.body;
+
+        if (!email || !otp || !newPassword || !confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email, OTP, new password, and confirm password are required'
+            });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'New password and confirm password do not match'
+            });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'Password must be at least 6 characters long'
+            });
+        }
+
+        // Find user
+        const user = await User.findOne({ email, isVerified: true });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Verify OTP
+        if (!user.verifyOtp(otp, 'reset')) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid or expired OTP'
+            });
+        }
+
+        // Update password and clear OTP
+        user.password = newPassword;
+        user.clearOtp('reset');
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'Password reset successfully'
+        });
+
+    } catch (error) {
+        console.error('Reset password error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to reset password'
+        });
+    }
+};
+
+// Logout user (Clear active session)
+const logout = async (req, res) => {
+    try {
+        const user = req.user;
+
+        // Clear session info
+        user.activeSession = null;
+        user.sessionDevice = null;
+        user.sessionIP = null;
+        user.lastActivity = null;
+        await user.save();
+
+        console.log('✅ User logged out successfully:', user.email);
+
+        res.json({
+            success: true,
+            message: 'Logged out successfully'
+        });
+
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to logout'
         });
     }
 };
@@ -488,42 +737,50 @@ const getProfile = async (req, res) => {
 // Update user profile
 const updateProfile = async (req, res) => {
     try {
-        const { password } = req.body;
+        const { name, phoneNumber } = req.body;
         const userId = req.user._id;
 
-        const updateData = {};
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
 
-        if (password) {
-            if (password.length < 6) {
+        // Update fields if provided
+        if (name !== undefined) user.name = name;
+        if (phoneNumber !== undefined) {
+            // Validate phone number format
+            if (!/^[0-9]{10}$/.test(phoneNumber)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Password must be at least 6 characters long'
+                    message: 'Invalid phone number format. Must be 10 digits'
                 });
             }
-            updateData.password = password;
+            
+            // Check if phone number is already taken by another user
+            const existingUser = await User.findOne({ 
+                phoneNumber, 
+                _id: { $ne: userId } 
+            });
+            if (existingUser) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'Phone number already registered by another user'
+                });
+            }
+            
+            user.phoneNumber = phoneNumber;
         }
 
-        // If password is being updated, we need to trigger the pre-save hook
-        if (updateData.password) {
-            const user = await User.findById(userId);
-            user.password = updateData.password;
-            await user.save();
+        await user.save();
 
-            // Remove password from response
-            const updatedUser = user.toJSON();
-
-            res.json({
-                success: true,
-                message: 'Profile updated successfully',
-                data: { user: updatedUser }
-            });
-        } else {
-            res.json({
-                success: true,
-                message: 'No changes to update',
-                data: { user: req.user }
-            });
-        }
+        res.json({
+            success: true,
+            message: 'Profile updated successfully',
+            data: { user }
+        });
 
     } catch (error) {
         console.error('Update profile error:', error);
@@ -537,13 +794,20 @@ const updateProfile = async (req, res) => {
 // Change password
 const changePassword = async (req, res) => {
     try {
-        const { currentPassword, newPassword, otp } = req.body;
+        const { currentPassword, newPassword, confirmPassword } = req.body;
         const userId = req.user._id;
 
-        if (!currentPassword || !newPassword) {
+        if (!currentPassword || !newPassword || !confirmPassword) {
             return res.status(400).json({
                 success: false,
-                message: 'Current password and new password are required'
+                message: 'Current password, new password, and confirm password are required'
+            });
+        }
+
+        if (newPassword !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: 'New password and confirm password do not match'
             });
         }
 
@@ -566,72 +830,164 @@ const changePassword = async (req, res) => {
             });
         }
 
-        // If OTP is provided, verify and change password
-        if (otp) {
-            // Verify OTP
-            if (otp !== process.env.STATIC_OTP) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Invalid OTP'
-                });
-            }
+        // Update password
+        user.password = newPassword;
+        await user.save();
 
-            // Update password
-            user.password = newPassword;
-            await user.save();
-
-            return res.json({
-                success: true,
-                message: 'Password changed successfully'
-            });
-        }
-
-        // If no OTP provided, send OTP to email first
-        if (user.email) {
-            console.log('📧 Sending password change OTP to email:', user.email);
-            try {
-                await sendOTPEmail(user.email, user.name || 'User', process.env.STATIC_OTP, 'password-change');
-                
-                return res.json({
-                    success: true,
-                    message: 'OTP sent to your registered email. Please verify to complete password change.',
-                    requireOTP: true,
-                    emailSent: true,
-                    data: {
-                        email: user.email
-                    }
-                });
-            } catch (emailError) {
-                console.error('❌ Failed to send password change OTP:', emailError);
-                
-                // Fallback: Allow password change without OTP when email fails
-                console.log('🔄 Using fallback - changing password without OTP verification');
-                
-                user.password = newPassword;
-                await user.save();
-
-                return res.json({
-                    success: true,
-                    message: 'Password changed successfully (Email service unavailable)',
-                    developmentMode: true
-                });
-            }
-        } else {
-            // No email configured, change password without OTP
-            user.password = newPassword;
-            await user.save();
-
-            return res.json({
-                success: true,
-                message: 'Password changed successfully'
-            });
-        }
+        return res.json({
+            success: true,
+            message: 'Password changed successfully'
+        });
 
     } catch (error) {
         console.error('Change password error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to change password'
+        });
+    }
+};
+
+// Send Email OTP for verification (for profile updates)
+const sendEmailOTP = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { purpose } = req.body; // 'profile-update', 'login', etc.
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        if (!user.email) {
+            return res.status(400).json({
+                success: false,
+                message: 'No email associated with this account'
+            });
+        }
+
+        // Check rate limiting
+        if (!user.canSendOtp()) {
+            return res.status(429).json({
+                success: false,
+                message: 'Too many OTP attempts. Please try again later'
+            });
+        }
+
+        // Generate static OTP for development (always 1006)
+        const otp = '1006';
+        console.log('🔑 Generated Static OTP:', otp);
+
+        // Store OTP in user document
+        user.emailOtp = otp;
+        user.emailOtpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+        user.incrementOtpAttempts();
+        await user.save();
+
+        // Try to send OTP to email
+        console.log('📧 Sending OTP to email:', user.email);
+        let emailResult = null;
+        let emailSent = false;
+        
+        try {
+            emailResult = await sendOTPEmail(user.email, user.name || 'User', otp, purpose || 'verification');
+            emailSent = true;
+            console.log('✅ Email sent successfully:', emailResult);
+        } catch (emailError) {
+            console.error('⚠️ Email sending failed:', emailError.message);
+            console.log('📱 Using fallback mode - OTP stored in database');
+            emailResult = {
+                success: false,
+                message: emailError.message,
+                isDevelopment: true
+            };
+        }
+
+        res.json({
+            success: true,
+            message: emailSent 
+                ? 'OTP sent to your email successfully' 
+                : 'OTP generated (Email service unavailable - check console)',
+            data: {
+                email: user.email,
+                expiresIn: 600, // seconds
+                otp: otp, // Include OTP in response for development
+                emailSent: emailSent,
+                isDevelopment: !emailSent
+            }
+        });
+
+    } catch (error) {
+        console.error('Send Email OTP error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to send OTP'
+        });
+    }
+};
+
+// Verify Email OTP
+const verifyEmailOTP = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { otp } = req.body;
+
+        if (!otp) {
+            return res.status(400).json({
+                success: false,
+                message: 'OTP is required'
+            });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Check if OTP exists and not expired
+        if (!user.emailOtp || !user.emailOtpExpires) {
+            return res.status(400).json({
+                success: false,
+                message: 'No OTP found. Please request a new one'
+            });
+        }
+
+        if (Date.now() > user.emailOtpExpires) {
+            return res.status(400).json({
+                success: false,
+                message: 'OTP has expired. Please request a new one'
+            });
+        }
+
+        // Verify OTP
+        if (user.emailOtp !== otp) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid OTP'
+            });
+        }
+
+        // Clear OTP after successful verification
+        user.emailOtp = undefined;
+        user.emailOtpExpires = undefined;
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'OTP verified successfully'
+        });
+
+    } catch (error) {
+        console.error('Verify Email OTP error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to verify OTP'
         });
     }
 };
@@ -646,11 +1002,15 @@ const getAllUsers = async (req, res) => {
         if (role) query.role = role;
         if (isVerified !== undefined) query.isVerified = isVerified === 'true';
         if (search) {
-            query.phoneNumber = { $regex: search, $options: 'i' };
+            query.$or = [
+                { email: { $regex: search, $options: 'i' } },
+                { name: { $regex: search, $options: 'i' } },
+                { phoneNumber: { $regex: search, $options: 'i' } }
+            ];
         }
 
         const users = await User.find(query)
-            .select('-password')
+            .select('-password -emailOtp -emailOtpExpires')
             .limit(limit * 1)
             .skip((page - 1) * limit)
             .sort({ createdAt: -1 });
@@ -684,7 +1044,7 @@ const getUserById = async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const user = await User.findById(userId).select('-password');
+        const user = await User.findById(userId).select('-password -emailOtp -emailOtpExpires');
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -724,7 +1084,7 @@ const updateUserRole = async (req, res) => {
             userId,
             { role },
             { new: true, runValidators: true }
-        ).select('-password');
+        ).select('-password -emailOtp -emailOtpExpires');
 
         if (!user) {
             return res.status(404).json({
@@ -877,144 +1237,6 @@ const getDashboardStats = async (req, res) => {
     }
 };
 
-// Forgot Password - Send OTP
-const forgotPassword = async (req, res) => {
-    try {
-        const { phoneNumber } = req.body;
-
-        if (!phoneNumber) {
-            return res.status(400).json({
-                success: false,
-                message: 'Phone number is required'
-            });
-        }
-
-        // Validate phone number format
-        if (!/^[0-9]{10}$/.test(phoneNumber)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid phone number format. Must be 10 digits'
-            });
-        }
-
-        // Check if user exists
-        const user = await User.findOne({ phoneNumber });
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'No account found with this phone number'
-            });
-        }
-
-        // Check OTP rate limiting
-        if (!user.canSendOtp()) {
-            return res.status(429).json({
-                success: false,
-                message: 'Too many OTP attempts. Please try again later'
-            });
-        }
-
-        user.incrementOtpAttempts();
-        await user.save();
-
-        // Generate OTP
-        const otp = generateOTP();
-        
-        // Try to send via email as fallback
-        if (user.email) {
-            try {
-                await sendOTPEmail(user.email, user.name || 'User', otp, 'password-change');
-                return res.json({
-                    success: true,
-                    message: 'Password reset OTP sent to your email',
-                    data: {
-                        phoneNumber,
-                        email: user.email,
-                        ...(process.env.NODE_ENV === 'development' && { otp: otp })
-                    }
-                });
-            } catch (emailError) {
-                console.error('❌ Failed to send email OTP:', emailError);
-                // Continue to return OTP in response
-            }
-        }
-        
-        // Return OTP in response when email fails or no email
-        res.json({
-            success: true,
-            message: 'Password reset OTP generated',
-            data: {
-                phoneNumber,
-                otp: otp,
-                developmentMode: true,
-                note: user.email ? 'Email service unavailable - use this OTP' : 'No email registered - use this OTP'
-            }
-        });
-
-    } catch (error) {
-        console.error('Forgot password error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to send reset OTP'
-        });
-    }
-};
-
-// Reset Password with OTP
-const resetPassword = async (req, res) => {
-    try {
-        const { phoneNumber, otp, newPassword } = req.body;
-
-        if (!phoneNumber || !otp || !newPassword) {
-            return res.status(400).json({
-                success: false,
-                message: 'Phone number, OTP, and new password are required'
-            });
-        }
-
-        if (newPassword.length < 6) {
-            return res.status(400).json({
-                success: false,
-                message: 'Password must be at least 6 characters long'
-            });
-        }
-
-        // Verify OTP
-        if (otp !== process.env.STATIC_OTP) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid OTP'
-            });
-        }
-
-        // Find user
-        const user = await User.findOne({ phoneNumber });
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        // Update password
-        user.password = newPassword;
-        user.otpAttempts = 0; // Reset OTP attempts
-        await user.save();
-
-        res.json({
-            success: true,
-            message: 'Password reset successfully'
-        });
-
-    } catch (error) {
-        console.error('Reset password error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to reset password'
-        });
-    }
-};
-
 // Update KYC Details (Personal + Documents + Bank)
 const updateKYCDetails = async (req, res) => {
     try {
@@ -1129,7 +1351,7 @@ const getKYCDetails = async (req, res) => {
     try {
         const userId = req.user._id;
 
-        const user = await User.findById(userId).select('-password -otpAttempts -lastOtpSent');
+        const user = await User.findById(userId).select('-password -otpAttempts -lastOtpSent -emailOtp -emailOtpExpires');
         
         if (!user) {
             return res.status(404).json({
@@ -1219,7 +1441,7 @@ const getPendingKYCRequests = async (req, res) => {
         const sortOrder = order === 'desc' ? -1 : 1;
 
         const users = await User.find(filter)
-            .select('-password -otpAttempts -lastOtpSent')
+            .select('-password -otpAttempts -lastOtpSent -emailOtp -emailOtpExpires')
             .sort({ [sortBy]: sortOrder })
             .skip(skip)
             .limit(parseInt(limit));
@@ -1351,7 +1573,7 @@ const getKYCDetailsByUserId = async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const user = await User.findById(userId).select('-password -otpAttempts -lastOtpSent');
+        const user = await User.findById(userId).select('-password -otpAttempts -lastOtpSent -emailOtp -emailOtpExpires');
         
         if (!user) {
             return res.status(404).json({
@@ -1376,181 +1598,7 @@ const getKYCDetailsByUserId = async (req, res) => {
     }
 };
 
-// Send Email OTP for verification (for profile updates)
-const sendEmailOTP = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const { purpose } = req.body; // 'profile-update', 'login', etc.
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        if (!user.email) {
-            return res.status(400).json({
-                success: false,
-                message: 'No email associated with this account'
-            });
-        }
-
-        // Check rate limiting
-        if (!user.canSendOtp()) {
-            return res.status(429).json({
-                success: false,
-                message: 'Too many OTP attempts. Please try again later'
-            });
-        }
-
-        // Generate static OTP for development (always 1006)
-        const otp = '1006';
-        console.log('🔑 Generated Static OTP:', otp);
-
-        // Store OTP in user document
-        user.emailOtp = otp;
-        user.emailOtpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
-        user.incrementOtpAttempts();
-        await user.save();
-
-        // Try to send OTP to email
-        console.log('📧 Sending OTP to email:', user.email);
-        let emailResult = null;
-        let emailSent = false;
-        
-        try {
-            emailResult = await sendOTPEmail(user.email, user.name || 'User', otp, purpose || 'verification');
-            emailSent = true;
-            console.log('✅ Email sent successfully:', emailResult);
-        } catch (emailError) {
-            console.error('⚠️ Email sending failed:', emailError.message);
-            console.log('📱 Using fallback mode - OTP stored in database');
-            emailResult = {
-                success: false,
-                message: emailError.message,
-                isDevelopment: true
-            };
-        }
-
-        res.json({
-            success: true,
-            message: emailSent 
-                ? 'OTP sent to your email successfully' 
-                : 'OTP generated (Email service unavailable - check console)',
-            data: {
-                email: user.email,
-                expiresIn: 600, // seconds
-                otp: otp, // Include OTP in response for development
-                emailSent: emailSent,
-                isDevelopment: !emailSent
-            }
-        });
-
-    } catch (error) {
-        console.error('Send Email OTP error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to send OTP'
-        });
-    }
-};
-
-// Verify Email OTP
-const verifyEmailOTP = async (req, res) => {
-    try {
-        const userId = req.user._id;
-        const { otp } = req.body;
-
-        if (!otp) {
-            return res.status(400).json({
-                success: false,
-                message: 'OTP is required'
-            });
-        }
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        // Check if OTP exists and not expired
-        if (!user.emailOtp || !user.emailOtpExpires) {
-            return res.status(400).json({
-                success: false,
-                message: 'No OTP found. Please request a new one'
-            });
-        }
-
-        if (Date.now() > user.emailOtpExpires) {
-            return res.status(400).json({
-                success: false,
-                message: 'OTP has expired. Please request a new one'
-            });
-        }
-
-        // Verify OTP
-        if (user.emailOtp !== otp) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid OTP'
-            });
-        }
-
-        // Clear OTP after successful verification
-        user.emailOtp = undefined;
-        user.emailOtpExpires = undefined;
-        await user.save();
-
-        res.json({
-            success: true,
-            message: 'OTP verified successfully'
-        });
-
-    } catch (error) {
-        console.error('Verify Email OTP error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to verify OTP'
-        });
-    }
-};
-
-// Logout user (Clear active session)
-const logout = async (req, res) => {
-    try {
-        const user = req.user;
-
-        // Clear session info
-        user.activeSession = null;
-        user.sessionDevice = null;
-        user.sessionIP = null;
-        user.lastActivity = null;
-        await user.save();
-
-        console.log('✅ User logged out successfully:', user.phoneNumber);
-
-        res.json({
-            success: true,
-            message: 'Logged out successfully'
-        });
-
-    } catch (error) {
-        console.error('Logout error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to logout'
-        });
-    }
-};
-
-/**
- * Bulk upload users from Excel/CSV file
- */
+// Bulk upload users from Excel/CSV file
 const bulkUploadUsers = async (req, res) => {
     let filePath = null;
     
@@ -1681,14 +1729,25 @@ const bulkUploadUsers = async (req, res) => {
 };
 
 module.exports = {
-    sendOTP,
+    // Authentication
     register,
+    verifyRegistrationOTP, // NEW
     login,
-    logout,
-    verifyOTP,
+    verifyLoginOTP, // NEW
+    adminLogin,
+    verifyOTP: verifyLoginOTP, // Keep backward compatibility
+    logout, // ADDED BACK
+    
+    // Profile Management
     getProfile,
     updateProfile,
     changePassword,
+    
+    // Password Recovery
+    forgotPassword,
+    resetPassword,
+    
+    // Admin Functions
     getAllUsers,
     getUserById,
     updateUserRole,
@@ -1696,15 +1755,22 @@ module.exports = {
     markUserAsEx,
     deleteUser,
     getDashboardStats,
-    forgotPassword,
-    resetPassword,
+    
+    // KYC Management
     updateKYCDetails,
     getKYCDetails,
     getPendingKYCRequests,
     approveKYC,
     rejectKYC,
     getKYCDetailsByUserId,
+    
+    // Email OTP
     sendEmailOTP,
     verifyEmailOTP,
-    bulkUploadUsers
+    
+    // Bulk Operations
+    bulkUploadUsers,
+    
+    // Legacy functions (kept for backward compatibility)
+    sendOTP
 };
