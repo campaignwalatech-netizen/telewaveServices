@@ -111,7 +111,7 @@ export default function OtpModal({
     try {
       await onResend();
       setResendTimer(30);
-      setOtp(["", "", "", "", "", ""]);
+      setOtp(["", "", "", ""]);
       setError("");
       inputRefs.current[0]?.focus();
     } catch (err) {
