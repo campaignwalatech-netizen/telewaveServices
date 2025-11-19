@@ -33,7 +33,7 @@ const corsOptions = {
     
     const allowedOrigins = [
       'http://localhost:3000',
-      'http://localhost:3001',
+      'https://telewave-services.vercel.app',
       'http://localhost:5173',
       'https://telewaveservices.onrender.com',
       process.env.FRONTEND_URL
@@ -212,5 +212,6 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`🔐 JWT Secret: ${process.env.JWT_SECRET ? '✅ Set' : '❌ Not set'}`);
     console.log(`🗄️ Database: ${process.env.MONGODB_URI ? '✅ Connected' : '❌ Not configured'}`);
 });
+
 
 module.exports = app;
