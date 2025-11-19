@@ -132,18 +132,17 @@ const register = async (req, res) => {
         const emailResult = await sendOTPEmail(email, name, otp, 'registration');
 
         return res.json({
-            success: true,
-            message: emailResult.developmentMode 
-                ? 'OTP generated (Email service unavailable - check console)' 
-                : 'OTP sent to your email. Please verify to complete registration.',
-            requireOTP: true,
-            data: {
-                email: email,
-                name: name,
-                otpSent: !emailResult.developmentMode,
-                otp: otp, // Always include OTP for development/Render
-                developmentMode: emailResult.developmentMode || false
-            }
+    success: true,
+    message: emailResult.developmentMode 
+        ? 'OTP generated (Check console for OTP)' 
+        : 'OTP sent to your email successfully',
+    requireOTP: true,
+    data: {
+        email: email,
+        name: name,
+        otp: otp, // Always include OTP
+        developmentMode: emailResult.developmentMode || false
+    }
         });
 
     } catch (error) {
