@@ -35,6 +35,7 @@ const corsOptions = {
       'http://localhost:3000',
       'https://telewave-services.vercel.app',
       'http://localhost:5173',
+      "https://campaignwala-seven.vercel.app",
       'https://telewaveservices.onrender.com',
       process.env.FRONTEND_URL
     ].filter(Boolean);
@@ -215,3 +216,4 @@ app.listen(PORT, '0.0.0.0', () => {
 
 
 module.exports = app;
+
