@@ -52,7 +52,7 @@ export default function LoginPage() {
 
   const handleVerifyOTP = async (otp) => {
     try {
-      // Verify OTP and complete login
+      // Verify OTP and complete login process
       await verifyLoginOTP(userEmail, otp);
       // verifyLoginOTP will handle navigation on success
     } catch (error) {
