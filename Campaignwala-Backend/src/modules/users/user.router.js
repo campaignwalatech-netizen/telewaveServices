@@ -73,6 +73,39 @@ router.get('/test-email', async (req, res) => {
 // ==================== AUTHENTICATION ROUTES ====================
 
 /**
+ * 
+ * @swagger
+ * /api/users:
+ *   get:
+ *     summary: API Health Check
+ *    tags: [Authentication]
+ *    responses:
+ *     200:
+ *      description: API is healthy
+ *     content:
+ *      application/json:
+ *       schema:
+ *        type: object
+ *       properties:
+ *        success:
+ *        type: boolean
+ *       example: true
+ *       message:
+ *       type: string
+ *      example: "API is healthy"
+ *     timestamp:
+ *    type: string
+ *   example: "2024-06-01T12:00:00.000Z"
+ *   uptime:
+ *  type: number
+ *  example: 12345.67
+ * version:
+ * type: string
+ * example: "1.0.0"
+ */
+router.get('/', getAllUsers);
+
+ /* 
  * @swagger
  * /api/users/register:
  *   post:
@@ -692,7 +725,7 @@ router.put('/kyc', authenticateToken, updateKYCDetails);
  *       403:
  *         description: Forbidden - Admin access required
  */
-router.get('/admin/users', authenticateToken, requireAdmin, getAllUsers);
+// router.get('/admin/users', authenticateToken, requireAdmin, getAllUsers);
 
 /**
  * @swagger

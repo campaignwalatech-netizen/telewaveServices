@@ -45,6 +45,7 @@ const menuItems = [
     label: "User Management",
     key: "user-management",
     submenu: [
+      { key: "all-users", label: "All Users", icon: Users2 },
       { key: "all-active-users", label: "All Active Users", icon: Users2 },
       { key: "all-hold-users", label: "All Hold Users", icon: Users2 },
       { key: "all-ex-users", label: "All Ex Users", icon: Users2 },

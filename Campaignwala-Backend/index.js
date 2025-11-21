@@ -37,6 +37,7 @@ const corsOptions = {
       'http://localhost:5173',
       "https://campaignwala-seven.vercel.app",
       'https://telewaveservices.onrender.com',
+      'https://campaign-backend-production-8262.up.railway.app',
       process.env.FRONTEND_URL
     ].filter(Boolean);
 
