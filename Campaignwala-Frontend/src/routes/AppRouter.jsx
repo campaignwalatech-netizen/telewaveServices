@@ -26,6 +26,7 @@ import ABCAnalytics from "../adminDashboard/forms/ABCAnalytics";
 import LeadsTable from "../adminDashboard/forms/LeadsTable";
 
 // User Management
+import AllUsers from "../adminDashboard/forms/AllUsers"; // Updated import
 import UsersTable from "../adminDashboard/forms/UsersTable";
 
 // Slide Board
@@ -66,7 +67,6 @@ import NotificationsPage from "../userDashboard/layouts/NotificationPage";
 import SharedOfferForm from "../userDashboard/pages/SharedOfferForm";
 import UserQueryForm from "../userDashboard/pages/UserQueryForm";
 
-
 // Route Components
 import ProtectedRoute from "./ProtectedRoute";
 import RoleBasedRoute from "./RoleBasedRoute";
@@ -78,7 +78,6 @@ import LogoutPage from "../adminDashboard/pages/LogoutPage";
  * Main Application Router
  */
 export default function AppRouter() {
-  // ✅ Load and store theme preference
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem("darkMode") === "true";
   });
@@ -130,7 +129,8 @@ export default function AppRouter() {
           <Route path="leads-rejected" element={<LeadsTable status="rejected" />} />
           
           {/* User Management routes */}
-          <Route path="user-management" element={<Navigate to="all-active-users" replace />} />
+          <Route path="user-management" element={<Navigate to="all-users" replace />} />
+          <Route path="all-users" element={<AllUsers />} />
           <Route path="all-active-users" element={<UsersTable userType="active" />} />
           <Route path="all-hold-users" element={<UsersTable userType="hold" />} />
           <Route path="all-ex-users" element={<UsersTable userType="ex" />} />
@@ -155,11 +155,12 @@ export default function AppRouter() {
           <Route path="admin-logs" element={<AdminLogsTable />} />
           <Route path="user-queries" element={<UserQueriesTable />} />
           <Route path="kyc-review" element={<KYCReview />} />
+          
           {/* Settings and Logout routes */}
           <Route path="settings" element={<SettingsPage />} />
         </Route>
 
-        {/* ✅ User Dashboard */}
+        {/* User Dashboard */}
         <Route
           path="/user/*"
           element={
@@ -186,7 +187,6 @@ export default function AppRouter() {
           <Route path="total-balance" element={<TotalBalance darkMode={darkMode} />} />
           <Route path="notification-page" element={<NotificationsPage darkMode={darkMode} />} />
           <Route path="query" element={<UserQueryForm darkMode={darkMode} />} />
-
         </Route>
 
         {/* Fallback Route */}
@@ -195,4 +195,3 @@ export default function AppRouter() {
     </Router>
   );
 }
-
