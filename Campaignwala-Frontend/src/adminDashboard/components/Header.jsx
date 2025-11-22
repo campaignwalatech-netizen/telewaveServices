@@ -12,7 +12,7 @@ export default function Header({ isDark, onThemeToggle }) {
   useEffect(() => {
     const fetchActiveUsersCount = async () => {
       try {
-        const response = await userService.getAllUsersWithStats({ 
+        const response = await userService.getAllUsers({ 
           page: 1, 
           limit: 1000 
         });
@@ -55,7 +55,7 @@ export default function Header({ isDark, onThemeToggle }) {
             {getPageTitle()}
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            {activeUsersCount} active {activeUsersCount === 1 ? 'user' : 'users'}
+            {activeUsersCount} total {activeUsersCount === 1 ? 'user' : 'users'}
           </p>
         </div>
         <div className="flex items-center gap-3 flex-shrink-0">

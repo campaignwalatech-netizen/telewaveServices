@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Edit2, Trash2, X, Download, Search, Filter, Loader2 } from "lucide-react";
+import { Edit2, Trash2, X, Download, Search, Filter, Loader2, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getAllCategories, deleteCategory } from "../../services/categoryService";
 
@@ -154,7 +154,7 @@ export default function AllCategoriesTable() {
           onClick={handleExport}
           className="flex items-center gap-2 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold whitespace-nowrap"
         >
-          <Download className="w-4 h-4" />
+          <Upload className="w-4 h-4" />
           Export
         </button>
       </div>

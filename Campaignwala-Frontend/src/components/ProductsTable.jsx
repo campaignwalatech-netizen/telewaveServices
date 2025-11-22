@@ -1,4 +1,4 @@
-import { MoreVertical, Download } from "lucide-react";
+import { MoreVertical, Download, Upload } from "lucide-react";
 import { useState } from "react";
 
 const Offers = [
@@ -76,7 +76,7 @@ export default function OffersTable() {
             </p>
           </div>
           <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity font-medium text-sm whitespace-nowrap flex-shrink-0">
-            <Download className="w-4 h-4" />
+            <Upload className="w-4 h-4" />
             Export
           </button>
         </div>

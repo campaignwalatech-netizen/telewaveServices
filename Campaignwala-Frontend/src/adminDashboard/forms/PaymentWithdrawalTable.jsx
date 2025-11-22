@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { CheckCircle, XCircle, X, Download, Search, Filter, ChevronDown, Info } from "lucide-react";
+import { CheckCircle, XCircle, X, Download, Search, Filter, ChevronDown, Info, Upload } from "lucide-react";
 import withdrawalService from "../../services/withdrawalService";
 import { toast } from "react-hot-toast";
 
@@ -188,7 +188,7 @@ export default function PaymentWithdrawalTable() {
           onClick={handleExport}
           className="flex items-center gap-2 px-3 sm:px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors whitespace-nowrap"
         >
-          <Download className="w-4 h-4" />
+          <Upload className="w-4 h-4" />
           <span className="hidden sm:inline">Export Data</span>
           <span className="sm:hidden">Export</span>
         </button>

@@ -1,4 +1,4 @@
-import { Download, Search, Filter, X } from "lucide-react";
+import { Download, Search, Filter, X, Upload } from "lucide-react";
 import { useState, useEffect } from "react";
 import userService from "../../services/userService";
 
@@ -259,7 +259,7 @@ export default function UsersTable({ userType }) {
           onClick={handleExport}
           className="flex items-center gap-2 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold whitespace-nowrap"
         >
-          <Download className="w-4 h-4" />
+          <Upload className="w-4 h-4" />
           Export
         </button>
       </div>
