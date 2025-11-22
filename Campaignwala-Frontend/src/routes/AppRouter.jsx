@@ -11,6 +11,7 @@ import OtpVerification from "../pages/auth/OtpVerification";
 // Admin Components
 import App from "../App";
 import { DefaultView } from "../adminDashboard/components/DummyForms";
+import MainDashboard from "../adminDashboard/forms/Dashboard";
 
 // Manage Account
 import AllOffersTable from "../adminDashboard/forms/AllProductsTable";
@@ -26,7 +27,7 @@ import ABCAnalytics from "../adminDashboard/forms/ABCAnalytics";
 import LeadsTable from "../adminDashboard/forms/LeadsTable";
 
 // User Management
-import AllUsers from "../adminDashboard/forms/AllUsers"; // Updated import
+import AllUsers from "../adminDashboard/forms/AllUsers";
 import UsersTable from "../adminDashboard/forms/UsersTable";
 
 // Slide Board
@@ -106,8 +107,9 @@ export default function AppRouter() {
             </RoleBasedRoute>
           }
         >
-          {/* Default route - redirect to all-Offers */}
-          <Route index element={<Navigate to="all-Offers" replace />} />
+          {/* Default route - redirect to (dashboard) */}
+          <Route index element={<Navigate to="dashboard" replace />} /> 
+          <Route path="dashboard" element={<MainDashboard />} />
           
           {/* Manage Account routes */}
           <Route path="manage-account" element={<Navigate to="all-Offers" replace />} />
@@ -155,10 +157,9 @@ export default function AppRouter() {
           <Route path="admin-logs" element={<AdminLogsTable />} />
           <Route path="user-queries" element={<UserQueriesTable />} />
           <Route path="kyc-review" element={<KYCReview />} />
-          
+
           {/* Settings and Logout routes */}
-          <Route path="settings" element={<SettingsPage />} />
-        </Route>
+          <Route path="settings" element={<SettingsPage />} />       </Route>
 
         {/* User Dashboard */}
         <Route

@@ -6,6 +6,12 @@ import { NavLink, Link, useLocation } from "react-router-dom";
 
 const menuItems = [
   {
+    id: "dashboard",
+    icon: LayoutDashboard,
+    label: "Dashboard",
+    key: "dashboard"
+  },
+  {
     id: "manage-account",
     icon: Users,
     label: "Manage Account",
@@ -102,9 +108,11 @@ export default function Sidebar() {
     const expanded = {};
     menuItems.forEach(item => {
       if (item.submenu) {
-        const hasActiveSubmenu = item.submenu.some(subItem => 
-          location.pathname === `/admin/${subItem.key}`
-        );
+        const hasActiveSubmenu = item.submenu.some(subItem => {
+          const subItemPath = `/admin/${subItem.key}`;
+          return location.pathname === subItemPath || 
+                 (subItem.key === "all-users" && location.pathname === "/admin/all-users");
+        });
         if (hasActiveSubmenu) {
           expanded[item.id] = true;
         }
@@ -125,11 +133,6 @@ export default function Sidebar() {
       ...prev,
       [menuId]: !prev[menuId]
     }));
-  };
-
-  const isActive = (path) => {
-    // Only highlight exact route matches, no default selections
-    return location.pathname === `/admin/${path}`;
   };
 
   return (
@@ -164,7 +167,11 @@ export default function Sidebar() {
                   {hasSubmenu ? (
                     <button
                       onClick={() => toggleMenu(item.id)}
-                      className="w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg transition-all duration-200 text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/30 group"
+                      className={`w-full flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg transition-all duration-200 group ${
+                        expandedMenus[item.id] 
+                          ? "text-sidebar-foreground bg-sidebar-accent/30" 
+                          : "text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
+                      }`}
                     >
                       <div className="flex items-center gap-3">
                         <Icon className="w-5 h-5 flex-shrink-0" />
@@ -197,7 +204,8 @@ export default function Sidebar() {
                     <div className="ml-4 mt-1 space-y-1 border-l-2 border-sidebar-border/30 pl-4">
                       {item.submenu.map((subItem) => {
                         const SubIcon = subItem.icon;
-                        const isSubItemActive = location.pathname === `/admin/${subItem.key}`;
+                        const isSubItemActive = location.pathname === `/admin/${subItem.key}` || 
+                                               (subItem.key === "all-users" && location.pathname === "/admin/all-users");
                         return (
                           <Link
                             key={subItem.key}
