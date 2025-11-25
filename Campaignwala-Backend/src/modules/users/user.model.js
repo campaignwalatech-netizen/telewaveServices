@@ -216,6 +216,160 @@ const userSchema = new mongoose.Schema({
             type: String,
             trim: true,
             default: ''
+        },
+        isVerified: {
+            type: Boolean,
+            default: false
+        },
+        verifiedAt: {
+            type: Date
+        }
+    },
+    // Statistics Fields
+    statistics: {
+        totalLeads: {
+            type: Number,
+            default: 0
+        },
+        completedLeads: {
+            type: Number,
+            default: 0
+        },
+        pendingLeads: {
+            type: Number,
+            default: 0
+        },
+        rejectedLeads: {
+            type: Number,
+            default: 0
+        },
+        totalEarnings: {
+            type: Number,
+            default: 0
+        },
+        currentBalance: {
+            type: Number,
+            default: 0
+        },
+        totalWithdrawals: {
+            type: Number,
+            default: 0
+        },
+        lastLeadDate: {
+            type: Date
+        },
+        conversionRate: {
+            type: Number,
+            default: 0
+        }
+    },
+    // Performance Metrics
+    performance: {
+        rating: {
+            type: Number,
+            min: 0,
+            max: 5,
+            default: 0
+        },
+        completedTasks: {
+            type: Number,
+            default: 0
+        },
+        pendingTasks: {
+            type: Number,
+            default: 0
+        },
+        averageCompletionTime: {
+            type: Number, // in hours
+            default: 0
+        }
+    },
+    // Additional Profile Information
+    profile: {
+        avatar: {
+            type: String,
+            default: ''
+        },
+        bio: {
+            type: String,
+            maxlength: 500,
+            default: ''
+        },
+        skills: [{
+            type: String,
+            trim: true
+        }],
+        experience: {
+            type: Number, // in years
+            default: 0
+        },
+        education: {
+            type: String,
+            default: ''
+        }
+    },
+    // Notification Preferences
+    notifications: {
+        email: {
+            type: Boolean,
+            default: true
+        },
+        sms: {
+            type: Boolean,
+            default: true
+        },
+        push: {
+            type: Boolean,
+            default: true
+        },
+        leadUpdates: {
+            type: Boolean,
+            default: true
+        },
+        paymentUpdates: {
+            type: Boolean,
+            default: true
+        },
+        promotional: {
+            type: Boolean,
+            default: false
+        }
+    },
+    // Security Settings
+    security: {
+        twoFactorEnabled: {
+            type: Boolean,
+            default: false
+        },
+        lastPasswordChange: {
+            type: Date,
+            default: Date.now
+        },
+        loginAttempts: {
+            type: Number,
+            default: 0
+        },
+        lockUntil: {
+            type: Date
+        }
+    },
+    // Metadata
+    metadata: {
+        signupSource: {
+            type: String,
+            default: 'web'
+        },
+        referrer: {
+            type: String,
+            default: ''
+        },
+        campaign: {
+            type: String,
+            default: ''
+        },
+        deviceInfo: {
+            type: Object,
+            default: {}
         }
     }
 }, {
@@ -326,9 +480,74 @@ userSchema.methods.clearOtp = function (type) {
     this.otpAttempts = 0; // Reset attempts on successful verification
 };
 
+// Update statistics method
+userSchema.methods.updateStatistics = function (leadData, walletData) {
+    if (leadData) {
+        this.statistics.totalLeads = leadData.total || 0;
+        this.statistics.completedLeads = leadData.completed || 0;
+        this.statistics.pendingLeads = leadData.pending || 0;
+        this.statistics.rejectedLeads = leadData.rejected || 0;
+        
+        // Calculate conversion rate
+        if (leadData.total > 0) {
+            this.statistics.conversionRate = (leadData.completed / leadData.total) * 100;
+        }
+        
+        this.statistics.lastLeadDate = new Date();
+    }
+    
+    if (walletData) {
+        this.statistics.totalEarnings = walletData.totalEarned || 0;
+        this.statistics.currentBalance = walletData.currentBalance || 0;
+        this.statistics.totalWithdrawals = walletData.totalWithdrawn || 0;
+    }
+};
+
+// Check if account is locked
+userSchema.methods.isLocked = function () {
+    return !!(this.security.lockUntil && this.security.lockUntil > Date.now());
+};
+
+// Increment login attempts
+userSchema.methods.incrementLoginAttempts = function () {
+    this.security.loginAttempts += 1;
+    
+    if (this.security.loginAttempts >= 5) {
+        this.security.lockUntil = Date.now() + 30 * 60 * 1000; // Lock for 30 minutes
+    }
+};
+
+// Reset login attempts on successful login
+userSchema.methods.resetLoginAttempts = function () {
+    this.security.loginAttempts = 0;
+    this.security.lockUntil = undefined;
+};
+
+// Virtual for full name
+userSchema.virtual('fullName').get(function () {
+    return `${this.firstName} ${this.lastName}`.trim() || this.name;
+});
+
+// Virtual for age
+userSchema.virtual('age').get(function () {
+    if (!this.dob) return null;
+    const today = new Date();
+    const birthDate = new Date(this.dob);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    
+    return age;
+});
+
 // Remove sensitive fields from JSON output
 userSchema.methods.toJSON = function () {
     const userObject = this.toObject();
+    
+    // Remove sensitive fields
     delete userObject.password;
     delete userObject.otpAttempts;
     delete userObject.lastOtpSent;
@@ -339,8 +558,21 @@ userSchema.methods.toJSON = function () {
     delete userObject.loginOtpExpires;
     delete userObject.resetPasswordOtp;
     delete userObject.resetPasswordOtpExpires;
+    delete userObject.security;
+    
     return userObject;
 };
+
+// Index for better query performance
+userSchema.index({ email: 1 });
+userSchema.index({ phoneNumber: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ isActive: 1 });
+userSchema.index({ isEx: 1 });
+userSchema.index({ 'kycDetails.kycStatus': 1 });
+userSchema.index({ createdAt: -1 });
+userSchema.index({ 'statistics.totalLeads': -1 });
+userSchema.index({ 'statistics.totalEarnings': -1 });
 
 const User = mongoose.model('User', userSchema);
 
