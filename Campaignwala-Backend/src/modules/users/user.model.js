@@ -53,7 +53,7 @@ const userSchema = new mongoose.Schema({
     lastOtpSent: {
         type: Date
     },
-    // Registration OTP
+    // Registration OT
     registrationOtp: {
         type: String
     },

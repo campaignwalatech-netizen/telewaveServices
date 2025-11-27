@@ -1643,6 +1643,377 @@ const bulkUploadUsers = async (req, res) => {
     }
 };
 
+
+const getAllUsersWithStats = async (req, res) => {
+    try {
+        const { 
+            page = 1, 
+            limit = 10, 
+            role, 
+            status, 
+            search, 
+            sort = 'createdAt',
+            order = 'desc' 
+        } = req.query;
+
+        const query = {};
+
+        // Role filter
+        if (role && role !== 'all') query.role = role;
+
+        // Status filter
+        if (status && status !== 'all') {
+            if (status === 'ex') {
+                query.isEx = true;
+            } else if (status === 'active') {
+                query.isActive = true;
+                query.isEx = false;
+            } else if (status === 'inactive') {
+                query.isActive = false;
+                query.isEx = false;
+            }
+        }
+
+        // Search filter
+        if (search) {
+            query.$or = [
+                { email: { $regex: search, $options: 'i' } },
+                { name: { $regex: search, $options: 'i' } },
+                { phoneNumber: { $regex: search, $options: 'i' } },
+                { firstName: { $regex: search, $options: 'i' } },
+                { lastName: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        // Sort configuration
+        const sortConfig = {};
+        sortConfig[sort] = order === 'desc' ? -1 : 1;
+
+        const users = await User.find(query)
+            .select('-password -otpAttempts -lastOtpSent -registrationOtp -registrationOtpExpires -loginOtp -loginOtpExpires -resetPasswordOtp -resetPasswordOtpExpires -emailOtp -emailOtpExpires -activeSession -sessionDevice -sessionIP -security')
+            .limit(limit * 1)
+            .skip((page - 1) * limit)
+            .sort(sortConfig);
+
+        const total = await User.countDocuments(query);
+
+        // Enhanced users with statistics
+        const usersWithStats = await Promise.all(
+            users.map(async (user) => {
+                try {
+                    // Get leads statistics
+                    const leads = await Lead.find({ 
+                        hrUserId: user._id 
+                    });
+                    
+                    const totalLeads = leads.length;
+                    const completedLeads = leads.filter(lead => lead.status === 'completed').length;
+                    const pendingLeads = leads.filter(lead => lead.status === 'pending').length;
+                    const rejectedLeads = leads.filter(lead => lead.status === 'rejected').length;
+                    const approvedLeads = leads.filter(lead => lead.status === 'approved').length;
+
+                    // Get wallet statistics
+                    const wallet = await Wallet.findOne({ userId: user._id }) || {
+                        balance: 0,
+                        totalEarned: 0,
+                        totalWithdrawn: 0
+                    };
+
+                    return {
+                        ...user.toObject(),
+                        totalLeads,
+                        completedLeads,
+                        pendingLeads,
+                        rejectedLeads,
+                        approvedLeads,
+                        totalEarnings: wallet.totalEarned,
+                        currentBalance: wallet.balance,
+                        totalWithdrawals: wallet.totalWithdrawn,
+                        joinDate: user.createdAt.toISOString().split('T')[0],
+                        lastActive: user.lastActivity ? user.lastActivity.toISOString().split('T')[0] : 'Never'
+                    };
+                } catch (error) {
+                    console.error(`Error getting stats for user ${user._id}:`, error);
+                    return {
+                        ...user.toObject(),
+                        totalLeads: 0,
+                        completedLeads: 0,
+                        pendingLeads: 0,
+                        rejectedLeads: 0,
+                        approvedLeads: 0,
+                        totalEarnings: 0,
+                        currentBalance: 0,
+                        totalWithdrawals: 0,
+                        joinDate: user.createdAt.toISOString().split('T')[0],
+                        lastActive: user.lastActivity ? user.lastActivity.toISOString().split('T')[0] : 'Never'
+                    };
+                }
+            })
+        );
+
+        res.json({
+            success: true,
+            message: 'Users with statistics retrieved successfully',
+            data: {
+                users: usersWithStats,
+                pagination: {
+                    current: parseInt(page),
+                    pages: Math.ceil(total / limit),
+                    total,
+                    limit: parseInt(limit)
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Get all users with stats error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get users with statistics',
+            error: error.message
+        });
+    }
+};
+
+// NEW: Get user statistics
+const getUserStats = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const user = await User.findById(userId).select('-password -otpAttempts -lastOtpSent -registrationOtp -registrationOtpExpires -loginOtp -loginOtpExpires -resetPasswordOtp -resetPasswordOtpExpires -emailOtp -emailOtpExpires -activeSession -sessionDevice -sessionIP -security');
+        
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Get leads statistics
+        const leads = await Lead.find({ hrUserId: userId });
+        const totalLeads = leads.length;
+        const completedLeads = leads.filter(lead => lead.status === 'completed').length;
+        const pendingLeads = leads.filter(lead => lead.status === 'pending').length;
+        const rejectedLeads = leads.filter(lead => lead.status === 'rejected').length;
+        const approvedLeads = leads.filter(lead => lead.status === 'approved').length;
+
+        // Get wallet statistics
+        const wallet = await Wallet.findOne({ userId }) || {
+            balance: 0,
+            totalEarned: 0,
+            totalWithdrawn: 0
+        };
+
+        const stats = {
+            user: user.toObject(),
+            leads: {
+                total: totalLeads,
+                completed: completedLeads,
+                pending: pendingLeads,
+                rejected: rejectedLeads,
+                approved: approvedLeads,
+                conversionRate: totalLeads > 0 ? (completedLeads / totalLeads * 100).toFixed(2) : 0
+            },
+            wallet: {
+                currentBalance: wallet.balance,
+                totalEarned: wallet.totalEarned,
+                totalWithdrawn: wallet.totalWithdrawn,
+                availableBalance: wallet.balance
+            },
+            performance: {
+                rating: user.performance?.rating || 0,
+                completedTasks: user.performance?.completedTasks || 0,
+                averageCompletionTime: user.performance?.averageCompletionTime || 0
+            }
+        };
+
+        res.json({
+            success: true,
+            message: 'User statistics retrieved successfully',
+            data: stats
+        });
+
+    } catch (error) {
+        console.error('Get user stats error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get user statistics',
+            error: error.message
+        });
+    }
+};
+
+// NEW: Update user (comprehensive update)
+const updateUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const updateData = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Update allowed fields
+        const allowedFields = [
+            'name', 'firstName', 'lastName', 'phoneNumber', 'role', 
+            'isActive', 'isEx', 'dob', 'gender', 'address1', 'city', 
+            'state', 'zip', 'country', 'profile', 'notifications'
+        ];
+
+        allowedFields.forEach(field => {
+            if (updateData[field] !== undefined) {
+                user[field] = updateData[field];
+            }
+        });
+
+        // Update nested objects
+        if (updateData.kycDetails) {
+            Object.keys(updateData.kycDetails).forEach(key => {
+                if (updateData.kycDetails[key] !== undefined) {
+                    user.kycDetails[key] = updateData.kycDetails[key];
+                }
+            });
+        }
+
+        if (updateData.bankDetails) {
+            Object.keys(updateData.bankDetails).forEach(key => {
+                if (updateData.bankDetails[key] !== undefined) {
+                    user.bankDetails[key] = updateData.bankDetails[key];
+                }
+            });
+        }
+
+        if (updateData.statistics) {
+            Object.keys(updateData.statistics).forEach(key => {
+                if (updateData.statistics[key] !== undefined) {
+                    user.statistics[key] = updateData.statistics[key];
+                }
+            });
+        }
+
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'User updated successfully',
+            data: { user: user.toJSON() }
+        });
+
+    } catch (error) {
+        console.error('Update user error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update user',
+            error: error.message
+        });
+    }
+};
+
+// NEW: Export users to Excel
+const exportUsers = async (req, res) => {
+    try {
+        const { format = 'excel' } = req.query;
+
+        // Get all users with statistics
+        const users = await User.find({})
+            .select('-password -otpAttempts -lastOtpSent -registrationOtp -registrationOtpExpires -loginOtp -loginOtpExpires -resetPasswordOtp -resetPasswordOtpExpires -emailOtp -emailOtpExpires -activeSession -sessionDevice -sessionIP -security')
+            .sort({ createdAt: -1 });
+
+        const usersWithStats = await Promise.all(
+            users.map(async (user) => {
+                const leads = await Lead.find({ hrUserId: user._id });
+                const wallet = await Wallet.findOne({ userId: user._id }) || {
+                    balance: 0,
+                    totalEarned: 0,
+                    totalWithdrawn: 0
+                };
+
+                return {
+                    'User ID': user._id.toString(),
+                    'Name': user.name || 'N/A',
+                    'Email': user.email || 'N/A',
+                    'Phone': user.phoneNumber || 'N/A',
+                    'Role': user.role || 'user',
+                    'Status': user.isEx ? 'Ex User' : (user.isActive ? 'Active' : 'Inactive'),
+                    'KYC Status': user.kycDetails?.kycStatus || 'Not Submitted',
+                    'Total Leads': leads.length,
+                    'Completed Leads': leads.filter(l => l.status === 'completed').length,
+                    'Pending Leads': leads.filter(l => l.status === 'pending').length,
+                    'Rejected Leads': leads.filter(l => l.status === 'rejected').length,
+                    'Total Earnings': `₹${wallet.totalEarned.toLocaleString('en-IN')}`,
+                    'Current Balance': `₹${wallet.balance.toLocaleString('en-IN')}`,
+                    'Join Date': user.createdAt.toLocaleDateString('en-IN'),
+                    'Last Active': user.lastActivity ? user.lastActivity.toLocaleDateString('en-IN') : 'Never',
+                    'City': user.city || 'N/A',
+                    'State': user.state || 'N/A'
+                };
+            })
+        );
+
+        if (format === 'excel') {
+            // Create Excel workbook
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Users');
+
+            // Add headers
+            const headers = Object.keys(usersWithStats[0] || {});
+            worksheet.addRow(headers);
+
+            // Style headers
+            worksheet.getRow(1).font = { bold: true };
+            worksheet.getRow(1).fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FFE6E6FA' }
+            };
+
+            // Add data
+            usersWithStats.forEach(user => {
+                worksheet.addRow(Object.values(user));
+            });
+
+            // Auto-fit columns
+            worksheet.columns.forEach(column => {
+                let maxLength = 0;
+                column.eachCell({ includeEmpty: true }, cell => {
+                    const columnLength = cell.value ? cell.value.toString().length : 10;
+                    if (columnLength > maxLength) {
+                        maxLength = columnLength;
+                    }
+                });
+                column.width = Math.min(Math.max(maxLength + 2, 10), 50);
+            });
+
+            // Set response headers
+            res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+            res.setHeader('Content-Disposition', 'attachment; filename=users-export.xlsx');
+
+            // Write to response
+            await workbook.xlsx.write(res);
+            res.end();
+        } else {
+            // JSON format
+            res.json({
+                success: true,
+                message: 'Users exported successfully',
+                data: usersWithStats
+            });
+        }
+
+    } catch (error) {
+        console.error('Export users error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to export users',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     // Authentication
     register,
@@ -1687,5 +2058,9 @@ module.exports = {
     bulkUploadUsers,
     
     // Legacy functions (kept for backward compatibility)
-    sendOTP
+    sendOTP,
+    getAllUsersWithStats,
+    getUserStats,
+    exportUsers,
+    updateUser
 };

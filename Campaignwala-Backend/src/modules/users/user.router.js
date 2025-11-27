@@ -29,7 +29,12 @@ const {
     sendEmailOTP,
     verifyEmailOTP,
     bulkUploadUsers,
-    sendOTP // Legacy function
+    sendOTP, // Legacy function
+    // New enhanced methods
+    getAllUsersWithStats,
+    getUserStats,
+    exportUsers,
+    updateUser
 } = require('./user.controller');
 
 const {
@@ -1038,5 +1043,18 @@ router.put('/admin/kyc/:userId/reject', authenticateToken, requireAdmin, rejectK
  *         description: OTP sent successfully
  */
 router.post('/send-otp', sendOTP);
+
+// User management
+router.get('/admin/users', authenticateToken, requireAdmin, getAllUsers);
+router.get('/admin/users-with-stats', authenticateToken, requireAdmin, getAllUsersWithStats); // NEW
+router.get('/admin/export-users', authenticateToken, requireAdmin, exportUsers); // NEW
+router.get('/admin/users/:userId/stats', authenticateToken, requireAdmin, getUserStats); // NEW
+router.put('/admin/users/:userId', authenticateToken, requireAdmin, updateUser); // NEW
+router.get('/admin/users/:userId', authenticateToken, requireAdmin, getUserById);
+router.put('/admin/users/:userId/role', authenticateToken, requireAdmin, updateUserRole);
+router.put('/admin/users/:userId/toggle-status', authenticateToken, requireAdmin, toggleUserStatus);
+router.put('/admin/users/:userId/mark-ex', authenticateToken, requireAdmin, markUserAsEx);
+router.delete('/admin/users/:userId', authenticateToken, requireAdmin, deleteUser);
+
 
 module.exports = router;
