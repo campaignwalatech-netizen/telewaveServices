@@ -53,9 +53,6 @@ import HistoryPage from "../adminDashboard/notifications/HistoryPage";
 import { UserDashboardLayout } from "../userDashboard/pages";
 import Dashboard from "../userDashboard/components/Dashboard";
 import AllLeads from "../userDashboard/pages/AllLeads";
-import ApprovedLeads from "../userDashboard/layouts/ApprovedLeads";
-import PendingLeads from "../userDashboard/layouts/PendingLeads";
-import RejectedLeads from "../userDashboard/layouts/RejectedLeads";
 import Wallet from "../userDashboard/pages/wallet";
 import Profile from "../userDashboard/pages/profile";
 import DematAccount from "../userDashboard/layouts/DematAccount";
@@ -173,9 +170,6 @@ export default function AppRouter() {
           <Route index element={<Dashboard darkMode={darkMode} />} />
           <Route path="dashboard" element={<Dashboard darkMode={darkMode} />} />
           <Route path="all-leads" element={<AllLeads darkMode={darkMode} />} />
-          <Route path="pending-leads" element={<PendingLeads darkMode={darkMode} />} />
-          <Route path="approved-leads" element={<ApprovedLeads darkMode={darkMode} />} />
-          <Route path="rejected-leads" element={<RejectedLeads darkMode={darkMode} />} />
           <Route path="wallet" element={<Wallet darkMode={darkMode} />} />
           <Route path="profile" element={<Profile darkMode={darkMode} />} />
           <Route path="demat-account" element={<DematAccount darkMode={darkMode} />} />

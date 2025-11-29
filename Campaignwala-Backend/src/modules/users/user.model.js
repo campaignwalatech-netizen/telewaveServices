@@ -53,7 +53,7 @@ const userSchema = new mongoose.Schema({
     lastOtpSent: {
         type: Date
     },
-    // Registration OT
+    // Registration OTP
     registrationOtp: {
         type: String
     },
@@ -373,8 +373,81 @@ const userSchema = new mongoose.Schema({
         }
     }
 }, {
-    timestamps: true
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
 });
+
+// ==================== VIRTUAL FIELDS ====================
+
+// Virtual for leads created by this user (as HR)
+userSchema.virtual('leads', {
+    ref: 'Lead',
+    localField: '_id',
+    foreignField: 'hrUserId'
+});
+
+// Virtual for wallet
+userSchema.virtual('wallet', {
+    ref: 'Wallet',
+    localField: '_id',
+    foreignField: 'userId',
+    justOne: true
+});
+
+// Virtual for withdrawals
+userSchema.virtual('withdrawals', {
+    ref: 'Withdrawal',
+    localField: '_id',
+    foreignField: 'userId'
+});
+
+// Virtual for queries submitted
+userSchema.virtual('queries', {
+    ref: 'Query',
+    localField: '_id',
+    foreignField: 'userId'
+});
+
+// Virtual for admin logs
+userSchema.virtual('adminLogs', {
+    ref: 'AdminLog',
+    localField: '_id',
+    foreignField: 'adminId'
+});
+
+// Virtual for full name
+userSchema.virtual('fullName').get(function () {
+    return `${this.firstName} ${this.lastName}`.trim() || this.name;
+});
+
+// Virtual for age
+userSchema.virtual('age').get(function () {
+    if (!this.dob) return null;
+    const today = new Date();
+    const birthDate = new Date(this.dob);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    
+    return age;
+});
+
+// Virtual for lead statistics (computed)
+userSchema.virtual('leadStats').get(function () {
+    return {
+        total: this.statistics.totalLeads || 0,
+        completed: this.statistics.completedLeads || 0,
+        pending: this.statistics.pendingLeads || 0,
+        rejected: this.statistics.rejectedLeads || 0,
+        conversionRate: this.statistics.conversionRate || 0
+    };
+});
+
+// ==================== METHODS ====================
 
 // Hash password before saving
 userSchema.pre('save', async function (next) {
@@ -523,26 +596,6 @@ userSchema.methods.resetLoginAttempts = function () {
     this.security.lockUntil = undefined;
 };
 
-// Virtual for full name
-userSchema.virtual('fullName').get(function () {
-    return `${this.firstName} ${this.lastName}`.trim() || this.name;
-});
-
-// Virtual for age
-userSchema.virtual('age').get(function () {
-    if (!this.dob) return null;
-    const today = new Date();
-    const birthDate = new Date(this.dob);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
-    }
-    
-    return age;
-});
-
 // Remove sensitive fields from JSON output
 userSchema.methods.toJSON = function () {
     const userObject = this.toObject();
@@ -563,7 +616,25 @@ userSchema.methods.toJSON = function () {
     return userObject;
 };
 
-// Index for better query performance
+// ==================== STATICS ====================
+
+// Static method to find active users
+userSchema.statics.findActiveUsers = function() {
+    return this.find({ isActive: true, isEx: false });
+};
+
+// Static method to find users by role
+userSchema.statics.findByRole = function(role) {
+    return this.find({ role, isActive: true });
+};
+
+// Static method to get users with pending KYC
+userSchema.statics.findPendingKYC = function() {
+    return this.find({ 'kycDetails.kycStatus': 'pending' });
+};
+
+// ==================== INDEXES ====================
+
 userSchema.index({ email: 1 });
 userSchema.index({ phoneNumber: 1 });
 userSchema.index({ role: 1 });
@@ -573,6 +644,7 @@ userSchema.index({ 'kycDetails.kycStatus': 1 });
 userSchema.index({ createdAt: -1 });
 userSchema.index({ 'statistics.totalLeads': -1 });
 userSchema.index({ 'statistics.totalEarnings': -1 });
+userSchema.index({ name: 'text', email: 'text' }); // Text search
 
 const User = mongoose.model('User', userSchema);
 

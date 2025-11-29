@@ -4,7 +4,7 @@ import leadService from "../../services/leadService";
 import api from "../../services/api";
 
 const AllLeads = ({ darkMode = useOutletContext() }) => {
-  const [activeTab, setActiveTab] = useState("");
+  const [activeTab, setActiveTab] = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [leadsData, setLeadsData] = useState([]);
@@ -72,30 +72,42 @@ const AllLeads = ({ darkMode = useOutletContext() }) => {
 
   const handleTabClick = (tab) => {
     setActiveTab(tab);
-    switch (tab) {
-      case "Pending":
-        navigate("/user/pending-leads");
-        break;
-      case "Approved":
-        navigate("/user/approved-leads");
-        break;
-      case "Rejected":
-        navigate("/user/rejected-leads");
-        break;
-      default:
-        break;
-    }
   };
 
-  // 🔍 Filter leads by category + search
+  // 🔍 Filter leads by status + category + search
   const filteredLeads = leadsData.filter((lead) => {
+    // Status filter based on active tab
+    let matchesStatus = true;
+    switch (activeTab) {
+      case "Pending":
+        matchesStatus = lead.status === "pending";
+        break;
+      case "Approved":
+        matchesStatus = lead.status === "approved";
+        break;
+      case "Completed":
+        matchesStatus = lead.status === "completed";
+        break;
+      case "Rejected":
+        matchesStatus = lead.status === "rejected";
+        break;
+      case "All":
+      default:
+        matchesStatus = true;
+        break;
+    }
+
+    // Category filter
     const matchesCategory =
       categoryFilter === "All" || lead.category === categoryFilter;
+    
+    // Search filter
     const matchesSearch =
       (lead.customerName?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
       (lead.customerContact || '').includes(searchQuery) ||
       (lead.leadId || '').toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+    
+    return matchesStatus && matchesCategory && matchesSearch;
   });
 
   const formatDate = (dateString) => {
@@ -123,11 +135,14 @@ const AllLeads = ({ darkMode = useOutletContext() }) => {
                   ? "bg-green-100 text-green-800 border-green-200"
                   : lead.status === "pending"
                   ? "bg-yellow-100 text-yellow-800 border-yellow-200"
+                  : lead.status === "completed"
+                  ? "bg-blue-100 text-blue-800 border-blue-200"
                   : "bg-red-100 text-red-800 border-red-200"
               }`}
             >
               {lead.status === "approved" && "✅"}
               {lead.status === "pending" && "⏳"}
+              {lead.status === "completed" && "✅✅"}
               {lead.status === "rejected" && "❌"}
               {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
             </span>
@@ -178,10 +193,12 @@ const AllLeads = ({ darkMode = useOutletContext() }) => {
           <h2
             className={`text-xl sm:text-2xl md:text-3xl font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent`}
           >
-            All Leads
+            {activeTab === "All" ? "All Leads" : `${activeTab} Leads`}
           </h2>
           <p className={`text-xs sm:text-sm mt-1 sm:mt-2 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-            Manage and track all your leads in one place
+            {activeTab === "All" 
+              ? "Manage and track all your leads in one place" 
+              : `Viewing ${activeTab.toLowerCase()} leads`}
           </p>
         </div>
 
@@ -277,7 +294,7 @@ const AllLeads = ({ darkMode = useOutletContext() }) => {
 
         {/* Tabs */}
         <div className="flex flex-wrap justify-center sm:justify-start gap-2 mb-4 sm:mb-6 border-b pb-2">
-          {["Pending", "Approved", "Rejected"].map((tab) => (
+          {["All", "Pending", "Approved", "Completed", "Rejected"].map((tab) => (
             <button
               key={tab}
               className={`px-3 sm:px-4 md:px-6 py-2 text-xs sm:text-sm md:text-base font-medium rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center gap-1 ${
@@ -289,11 +306,15 @@ const AllLeads = ({ darkMode = useOutletContext() }) => {
               }`}
               onClick={() => handleTabClick(tab)}
             >
+              {tab === "All" && "📊"}
               {tab === "Pending" && "⏳"}
               {tab === "Approved" && "✅"}
+              {tab === "Completed" && "✅✅"}
               {tab === "Rejected" && "❌"}
               <span className="hidden sm:inline">{tab}</span>
-              <span className="sm:hidden">{tab.slice(0, 3)}</span>
+              <span className="sm:hidden">
+                {tab === "All" ? "All" : tab.slice(0, 3)}
+              </span>
             </button>
           ))}
         </div>
@@ -317,7 +338,7 @@ const AllLeads = ({ darkMode = useOutletContext() }) => {
             <div className="text-center py-8 text-gray-500">
               <div className="flex flex-col items-center gap-2">
                 <div className="text-4xl">📭</div>
-                <p>No leads found matching your criteria.</p>
+                <p>No {activeTab.toLowerCase()} leads found.</p>
                 <p className="text-sm">Try adjusting your filters or search terms.</p>
               </div>
             </div>
@@ -344,7 +365,7 @@ const AllLeads = ({ darkMode = useOutletContext() }) => {
                 <h3
                   className={`text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent`}
                 >
-                  Recent Leads Overview
+                  {activeTab === "All" ? "All Leads Overview" : `${activeTab} Leads Overview`}
                 </h3>
               </div>
               <p
@@ -352,7 +373,9 @@ const AllLeads = ({ darkMode = useOutletContext() }) => {
                   darkMode ? "text-gray-400" : "text-gray-600"
                 }`}
               >
-                Showing your most recent leads across all statuses.
+                {activeTab === "All" 
+                  ? "Showing your most recent leads across all statuses." 
+                  : `Showing ${filteredLeads.length} ${activeTab.toLowerCase()} leads.`}
               </p>
             </div>
 
@@ -417,11 +440,14 @@ const AllLeads = ({ darkMode = useOutletContext() }) => {
                                 ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-green-200"
                                 : lead.status === "pending"
                                 ? "bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 border-yellow-200"
+                                : lead.status === "completed"
+                                ? "bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 border-blue-200"
                                 : "bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border-red-200"
                             }`}
                           >
                             {lead.status === "approved" && "✅ "}
                             {lead.status === "pending" && "⏳ "}
+                            {lead.status === "completed" && "✅✅ "}
                             {lead.status === "rejected" && "❌ "}
                             {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
                           </span>
@@ -433,7 +459,7 @@ const AllLeads = ({ darkMode = useOutletContext() }) => {
                       <td colSpan="8" className="text-center py-8 text-gray-500">
                         <div className="flex flex-col items-center gap-2">
                           <div className="text-4xl">📭</div>
-                          <p>No leads found matching your criteria.</p>
+                          <p>No {activeTab.toLowerCase()} leads found.</p>
                           <p className="text-sm">Try adjusting your filters or search terms.</p>
                         </div>
                       </td>

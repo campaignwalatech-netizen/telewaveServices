@@ -55,6 +55,17 @@ const WalletAndWithdrawl = ({ darkMode }) => {
     }
   };
 
+  // Calculate available balance after deducting pending withdrawals
+  const calculateAvailableBalance = () => {
+    if (!wallet) return 0;
+    
+    const pendingWithdrawals = withdrawals
+      .filter(w => w.status === "pending")
+      .reduce((total, w) => total + w.amount, 0);
+    
+    return Math.max(0, wallet.balance - pendingWithdrawals);
+  };
+
   const generateReceipt = (withdrawal) => {
     const canvas = document.createElement("canvas");
     canvas.width = 800;
@@ -167,13 +178,16 @@ const WalletAndWithdrawl = ({ darkMode }) => {
       return;
     }
 
-    if (amount < 200) {
-      toast.error("Minimum withdrawal amount is ₹200");
+    // Updated minimum withdrawal to ₹500
+    if (amount < 500) {
+      toast.error("Minimum withdrawal amount is ₹500");
       return;
     }
 
-    if (!wallet || wallet.balance < amount) {
-      toast.error("Insufficient balance");
+    const availableBalance = calculateAvailableBalance();
+    
+    if (amount > availableBalance) {
+      toast.error(`Insufficient balance. Available: ₹${availableBalance.toFixed(2)}`);
       return;
     }
 
@@ -188,7 +202,10 @@ const WalletAndWithdrawl = ({ darkMode }) => {
       if (response.success) {
         toast.success("Withdrawal request submitted successfully!");
         setWithdrawAmount("");
-        fetchWithdrawals();
+        
+        // Refresh data to show updated balances
+        await fetchWithdrawals();
+        await fetchWallet();
       }
     } catch (error) {
       console.error("Error creating withdrawal:", error);
@@ -220,9 +237,13 @@ const WalletAndWithdrawl = ({ darkMode }) => {
     );
   };
 
+  const availableBalance = calculateAvailableBalance();
+  const pendingWithdrawals = withdrawals.filter(w => w.status === "pending");
+  const totalPendingAmount = pendingWithdrawals.reduce((total, w) => total + w.amount, 0);
+  
   const parsedAmount = parseFloat(withdrawAmount);
   const isInvalidAmount =
-    isNaN(parsedAmount) || parsedAmount < 200 || !wallet || parsedAmount > wallet.balance;
+    isNaN(parsedAmount) || parsedAmount < 500 || parsedAmount > availableBalance;
 
   return (
     <div
@@ -241,8 +262,8 @@ const WalletAndWithdrawl = ({ darkMode }) => {
 
       <div className="relative z-10 space-y-8">
         {/* Balance Card */}
-<div
-  className={`border-2 rounded-2xl p-6 sm:p-8 shadow-lg text-center sm:text-left relative overflow-hidden
+        <div
+          className={`border-2 rounded-2xl p-6 sm:p-8 shadow-lg text-center sm:text-left relative overflow-hidden
   ${darkMode
     ? "bg-gradient-to-br from-gray-800 to-gray-700 border-purple-500 text-white"
     : "bg-white border-gray-200 text-gray-900"
@@ -251,18 +272,49 @@ const WalletAndWithdrawl = ({ darkMode }) => {
 
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full -translate-y-16 translate-x-16 opacity-20"></div>
-          <p className="text-sm text-gray-500 mb-1 relative z-10">Current Available Balance</p>
+          
           {loading ? (
-            <h2 className="text-4xl font-semibold mb-1 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Loading...</h2>
+            <>
+              <p className="text-sm text-gray-500 mb-1 relative z-10">Current Available Balance</p>
+              <h2 className="text-4xl font-semibold mb-1 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Loading...</h2>
+            </>
           ) : (
             <>
-              <h2 className="text-4xl font-semibold mb-1 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                ₹{wallet?.balance?.toFixed(2) || "0.00"}
-              </h2>
-              <p className="text-xs text-gray-400">
-                Total Earned: ₹{wallet?.totalEarned?.toFixed(2) || "0.00"} | Total Withdrawn: ₹
-                {wallet?.totalWithdrawn?.toFixed(2) || "0.00"}
-              </p>
+              {/* Available Balance */}
+              <div className="mb-6">
+                <p className="text-sm text-gray-500 mb-1 relative z-10">Current Available Balance</p>
+                <h2 className="text-4xl font-semibold mb-1 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  ₹{availableBalance.toFixed(2)}
+                </h2>
+                <p className="text-xs text-gray-400">
+                  This amount is available for immediate withdrawal
+                </p>
+              </div>
+
+              {/* Detailed Balance Information */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                  <p className="text-gray-500">Total Balance</p>
+                  <p className="font-semibold text-lg">₹{wallet?.balance?.toFixed(2) || "0.00"}</p>
+                </div>
+                
+                <div className={`p-3 rounded-lg ${darkMode ? 'bg-yellow-900' : 'bg-yellow-100'}`}>
+                  <p className="text-yellow-600">Pending Withdrawals</p>
+                  <p className="font-semibold text-lg text-yellow-600">
+                    ₹{totalPendingAmount.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-yellow-500">
+                    {pendingWithdrawals.length} request(s)
+                  </p>
+                </div>
+                
+                <div className={`p-3 rounded-lg ${darkMode ? 'bg-green-900' : 'bg-green-100'}`}>
+                  <p className="text-green-600">Total Earned</p>
+                  <p className="font-semibold text-lg text-green-600">
+                    ₹{wallet?.totalEarned?.toFixed(2) || "0.00"}
+                  </p>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -283,35 +335,74 @@ const WalletAndWithdrawl = ({ darkMode }) => {
               </span>
             </div>
             <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Initiate Withdrawal</h3>
+            
+            {/* Available Balance Display */}
+            <div className={`mb-4 p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-blue-50'} border ${darkMode ? 'border-gray-600' : 'border-blue-200'}`}>
+              <p className="text-sm text-gray-500">Available for withdrawal</p>
+              <p className="text-xl font-bold text-green-600">₹{availableBalance.toFixed(2)}</p>
+            </div>
+
             <label className="block text-sm mb-2 text-gray-500">
               Amount to Withdraw (INR)
             </label>
             <input
-              type="text"
+              type="number"
               value={withdrawAmount}
               onChange={(e) => setWithdrawAmount(e.target.value)}
               placeholder="e.g., 500.00"
               disabled={submitting}
+              min="500"
+              step="100"
               className={`w-full p-3 border-2 rounded-md mb-2 text-sm outline-none transition-all ${
                 darkMode
                   ? "bg-gray-900 border-gray-600 text-white placeholder-gray-400 focus:border-purple-500"
                   : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500"
               } ${submitting ? "opacity-50 cursor-not-allowed" : ""}`}
             />
+            
+            {/* Amount Validation Messages */}
+            {parsedAmount < 500 && withdrawAmount !== "" && (
+              <p className="text-xs text-red-500 mb-2">
+                ❌ Minimum withdrawal amount is ₹500
+              </p>
+            )}
+            {parsedAmount > availableBalance && withdrawAmount !== "" && (
+              <p className="text-xs text-red-500 mb-2">
+                ❌ Amount exceeds available balance
+              </p>
+            )}
+            
             <p className="text-xs text-gray-500 mb-4">
-              Minimum withdrawal amount: <span className="font-semibold text-blue-600">₹200</span>
+              Minimum withdrawal amount: <span className="font-semibold text-blue-600">₹500</span>
             </p>
+            
             <button
               onClick={handleWithdraw}
-              disabled={submitting || isInvalidAmount}
+              disabled={submitting || isInvalidAmount || withdrawAmount === ""}
               className={`w-full py-3 text-white rounded-md font-medium transition-all duration-300 transform ${
-                isInvalidAmount
+                isInvalidAmount || withdrawAmount === ""
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 hover:scale-105 shadow-lg"
               }`}
             >
-              {submitting ? "🔄 SUBMITTING..." : "💰 REQUEST WITHDRAWAL"}
+              {submitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  SUBMITTING...
+                </span>
+              ) : (
+                "💰 REQUEST WITHDRAWAL"
+              )}
             </button>
+
+            {/* Pending Withdrawals Info */}
+            {pendingWithdrawals.length > 0 && (
+              <div className={`mt-4 p-3 rounded-lg ${darkMode ? 'bg-yellow-900' : 'bg-yellow-50'} border ${darkMode ? 'border-yellow-700' : 'border-yellow-200'}`}>
+                <p className="text-xs text-yellow-600 font-medium">
+                  ⏳ You have {pendingWithdrawals.length} pending withdrawal(s) totaling ₹{totalPendingAmount.toFixed(2)}
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Right - Important Note */}
@@ -328,13 +419,13 @@ const WalletAndWithdrawl = ({ darkMode }) => {
               </span>
             </div>
             <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">Important Note</h3>
-            <p className="text-sm text-gray-500 leading-relaxed">
-              All withdrawal requests are subject to admin review and approval, and will be
-              processed within 24–48 hours. <br />
-              <br />
-              Please ensure your bank details are updated in your profile settings to avoid
-              delays.
-            </p>
+            <div className="space-y-3 text-sm text-gray-500 leading-relaxed">
+              <p>• <strong>Minimum withdrawal:</strong> ₹500</p>
+              <p>• <strong>Pending withdrawals</strong> are deducted from your available balance immediately</p>
+              <p>• Withdrawal requests are processed within <strong>24–48 hours</strong></p>
+              <p>• Ensure your bank details are updated to avoid delays</p>
+              <p>• Pending amounts will be refunded if withdrawal is rejected</p>
+            </div>
           </div>
         </div>
 
@@ -354,9 +445,12 @@ const WalletAndWithdrawl = ({ darkMode }) => {
           <h3 className="text-lg font-semibold mb-4 bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">Withdrawal History</h3>
 
           {loadingWithdrawals ? (
-            <p className="text-center py-4 text-gray-500">Loading withdrawals...</p>
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
+              <p className="text-gray-500 mt-2">Loading withdrawals...</p>
+            </div>
           ) : withdrawals.length === 0 ? (
-            <p className="text-center py-4 text-gray-500">No withdrawal history found</p>
+            <p className="text-center py-8 text-gray-500">No withdrawal history found</p>
           ) : (
             <>
               <div className="hidden sm:block overflow-x-auto">
