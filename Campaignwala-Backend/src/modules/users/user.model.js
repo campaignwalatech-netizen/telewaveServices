@@ -42,6 +42,78 @@ const userSchema = new mongoose.Schema({
         enum: ['user', 'admin', 'TL'],
         default: 'user'
     },
+    // TL specific fields
+    tlDetails: {
+        assignedTeam: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        }],
+        totalTeamMembers: {
+            type: Number,
+            default: 0
+        },
+        teamPerformance: {
+            type: Number,
+            default: 0
+        },
+        assignedLeads: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Lead'
+        }],
+        canAssignLeads: {
+            type: Boolean,
+            default: true
+        },
+        canApproveLeads: {
+            type: Boolean,
+            default: false
+        },
+        canViewReports: {
+            type: Boolean,
+            default: true
+        },
+        permissions: {
+            addUsers: {
+                type: Boolean,
+                default: false
+            },
+            editUsers: {
+                type: Boolean,
+                default: false
+            },
+            viewUsers: {
+                type: Boolean,
+                default: true
+            },
+            assignLeads: {
+                type: Boolean,
+                default: true
+            },
+            approveLeads: {
+                type: Boolean,
+                default: false
+            },
+            viewReports: {
+                type: Boolean,
+                default: true
+            },
+            manageTeam: {
+                type: Boolean,
+                default: true
+            }
+        }
+    },
+    // Team Leader hierarchy
+    reportingTo: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        default: null
+    },
+    teamMembers: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    }],
+    
     isVerified: {
         type: Boolean,
         default: false
@@ -416,6 +488,30 @@ userSchema.virtual('adminLogs', {
     foreignField: 'adminId'
 });
 
+// Virtual for team statistics (for TL)
+userSchema.virtual('teamStats').get(async function() {
+    if (this.role !== 'TL') return null;
+    
+    const teamMembers = await User.find({ _id: { $in: this.teamMembers } });
+    let teamTotalLeads = 0;
+    let teamCompletedLeads = 0;
+    let teamTotalEarnings = 0;
+    
+    teamMembers.forEach(member => {
+        teamTotalLeads += member.statistics.totalLeads || 0;
+        teamCompletedLeads += member.statistics.completedLeads || 0;
+        teamTotalEarnings += member.statistics.totalEarnings || 0;
+    });
+    
+    return {
+        teamSize: teamMembers.length,
+        teamTotalLeads,
+        teamCompletedLeads,
+        teamTotalEarnings,
+        teamConversionRate: teamTotalLeads > 0 ? (teamCompletedLeads / teamTotalLeads * 100) : 0
+    };
+});
+
 // Virtual for full name
 userSchema.virtual('fullName').get(function () {
     return `${this.firstName} ${this.lastName}`.trim() || this.name;
@@ -596,6 +692,42 @@ userSchema.methods.resetLoginAttempts = function () {
     this.security.lockUntil = undefined;
 };
 
+// TL Methods
+userSchema.methods.addTeamMember = async function (memberId) {
+    if (this.role !== 'TL') {
+        throw new Error('Only TL can add team members');
+    }
+    
+    if (!this.teamMembers.includes(memberId)) {
+        this.teamMembers.push(memberId);
+        this.tlDetails.totalTeamMembers = this.teamMembers.length;
+        await this.save();
+    }
+};
+
+userSchema.methods.removeTeamMember = async function (memberId) {
+    if (this.role !== 'TL') {
+        throw new Error('Only TL can remove team members');
+    }
+    
+    this.teamMembers = this.teamMembers.filter(id => id.toString() !== memberId.toString());
+    this.tlDetails.totalTeamMembers = this.teamMembers.length;
+    await this.save();
+};
+
+userSchema.methods.assignLeadToTeam = async function (leadId, memberId = null) {
+    if (this.role !== 'TL') {
+        throw new Error('Only TL can assign leads');
+    }
+    
+    if (memberId && !this.teamMembers.includes(memberId)) {
+        throw new Error('Cannot assign to non-team member');
+    }
+    
+    this.tlDetails.assignedLeads.push(leadId);
+    await this.save();
+};
+
 // Remove sensitive fields from JSON output
 userSchema.methods.toJSON = function () {
     const userObject = this.toObject();
@@ -628,6 +760,20 @@ userSchema.statics.findByRole = function(role) {
     return this.find({ role, isActive: true });
 };
 
+// Static method to get TLs with their teams
+userSchema.statics.findTLsWithTeams = function() {
+    return this.find({ role: 'TL' })
+        .populate('teamMembers', 'name email phoneNumber statistics')
+        .populate('reportingTo', 'name email');
+};
+
+// Static method to get team members of a TL
+userSchema.statics.findTeamMembers = function(tlId) {
+    return this.find({ reportingTo: tlId, role: 'user' })
+        .populate('leads')
+        .populate('wallet');
+};
+
 // Static method to get users with pending KYC
 userSchema.statics.findPendingKYC = function() {
     return this.find({ 'kycDetails.kycStatus': 'pending' });
@@ -645,6 +791,8 @@ userSchema.index({ createdAt: -1 });
 userSchema.index({ 'statistics.totalLeads': -1 });
 userSchema.index({ 'statistics.totalEarnings': -1 });
 userSchema.index({ name: 'text', email: 'text' }); // Text search
+userSchema.index({ reportingTo: 1 }); // For TL hierarchy
+userSchema.index({ 'tlDetails.assignedLeads': 1 }); // For TL leads assignment
 
 const User = mongoose.model('User', userSchema);
 

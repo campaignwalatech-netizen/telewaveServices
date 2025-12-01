@@ -1,12 +1,24 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff, LogIn } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { useAuth } from "../../hooks/useAuth";
 import OtpModal from "../../components/OtpModal";
+import {
+  selectIsAuthenticated,
+  selectUser,
+  selectUserRole,
+} from "../../redux/slices/authSlice";
 
 export default function LoginPage() {
   const { login, verifyLoginOTP, isLoading, error, clearAuthError } = useAuth();
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const user = useSelector(selectUser);
+  const userRole = useSelector(selectUserRole);
+
+  const navigate = useNavigate();
+
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,43 +28,66 @@ export default function LoginPage() {
   const [successMessage, setSuccessMessage] = useState("");
   const [developmentOTP, setDevelopmentOTP] = useState("");
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      // Map roles to dashboard routes - change as needed
+      const roleToRoute = {
+        admin: "/admin",
+        TL: "/tl",
+        user: "/user",
+      };
+      const target = roleToRoute[userRole] || "/";
+
+      // If user object contains a preferred route, prefer it
+      // (optional override, e.g., user?.preferredRoute)
+      if (user?.preferredRoute) {
+        navigate(user.preferredRoute, { replace: true });
+      } else {
+        navigate(target, { replace: true });
+      }
+    }
+  }, [isAuthenticated, userRole, user, navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     setSuccessMessage("");
     setDevelopmentOTP("");
     setSendingOtp(true);
     clearAuthError();
 
     try {
-      console.log('🔐 Login attempt with:', { email });
-      
+      console.log("🔐 Login attempt with:", { email });
+
       const response = await login({ email, password });
-      console.log('✅ Login response:', response);
-      
-      if (response.requireOTP) {
+      console.log("✅ Login response:", response);
+
+      if (response?.requireOTP) {
         // OTP required - show modal
         setUserEmail(response.data?.email || email);
-        
+
         // Show appropriate message based on development mode
         if (response.data?.developmentMode) {
           const devOtp = response.data.otp;
           setDevelopmentOTP(devOtp);
-          setSuccessMessage(`🔑 OTP Generated: ${devOtp} (Email service unavailable - use this OTP)`);
-          console.log('🔑 Development OTP:', devOtp);
+          setSuccessMessage(
+            `🔑 OTP Generated: ${devOtp} (Email service unavailable - use this OTP)`
+          );
+          console.log("🔑 Development OTP:", devOtp);
         } else {
           setSuccessMessage("📧 OTP sent to your email!");
         }
-        
+
         setSendingOtp(false);
         setShowOtpModal(true);
       } else {
-        // Login successful without OTP (shouldn't happen with new flow)
-        console.log('✅ Login successful without OTP');
+        // Login successful without OTP (the hook should have set auth state and navigation)
+        console.log("✅ Login successful without OTP");
         setSendingOtp(false);
       }
     } catch (err) {
-      console.error('❌ Login error:', err);
+      console.error("❌ Login error:", err);
       setSendingOtp(false);
     }
   };
@@ -61,9 +96,9 @@ export default function LoginPage() {
     try {
       // Verify OTP and complete login process
       await verifyLoginOTP(userEmail, otp);
-      // verifyLoginOTP will handle navigation on success
+      // verifyLoginOTP should handle navigation on success
     } catch (error) {
-      console.error('OTP verification error:', error);
+      console.error("OTP verification error:", error);
       throw error;
     }
   };
@@ -72,24 +107,26 @@ export default function LoginPage() {
     try {
       // Resend OTP by making login call again
       const response = await login({ email: userEmail, password });
-      
-      if (!response.requireOTP) {
-        throw new Error('Failed to resend OTP');
+
+      if (!response?.requireOTP) {
+        throw new Error("Failed to resend OTP");
       }
-      
+
       // Update success message based on development mode
       if (response.data?.developmentMode) {
         const devOtp = response.data.otp;
         setDevelopmentOTP(devOtp);
-        setSuccessMessage(`🔑 OTP Regenerated: ${devOtp} (Email service unavailable)`);
-        console.log('🔑 New Development OTP:', devOtp);
+        setSuccessMessage(
+          `🔑 OTP Regenerated: ${devOtp} (Email service unavailable)`
+        );
+        console.log("🔑 New Development OTP:", devOtp);
       } else {
         setSuccessMessage("📧 OTP resent to your email!");
       }
-      
-      console.log('✅ OTP resent successfully');
+
+      console.log("✅ OTP resent successfully");
     } catch (error) {
-      console.error('Error resending OTP:', error);
+      console.error("Error resending OTP:", error);
       throw error;
     }
   };
@@ -170,11 +207,13 @@ export default function LoginPage() {
             )}
 
             {successMessage && (
-              <div className={`${
-                developmentOTP ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' : 'bg-green-500/10 border-green-500/30 text-green-600'
-              } px-4 py-3 rounded-lg text-sm border`}>
+              <div
+                className={`${
+                  developmentOTP ? "bg-amber-500/10 border-amber-500/30 text-amber-600" : "bg-green-500/10 border-green-500/30 text-green-600"
+                } px-4 py-3 rounded-lg text-sm border`}
+              >
                 <div className="flex items-start gap-2">
-                  <span>{developmentOTP ? '🔑' : '📧'}</span>
+                  <span>{developmentOTP ? "🔑" : "📧"}</span>
                   <div>
                     <div className="font-medium">{successMessage}</div>
                     {developmentOTP && (

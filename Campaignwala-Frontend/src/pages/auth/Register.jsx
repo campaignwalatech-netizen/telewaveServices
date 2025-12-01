@@ -1,10 +1,22 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { useAuth } from "../../hooks/useAuth";
 import OtpModal from "../../components/OtpModal";
+import {
+  selectIsAuthenticated,
+  selectUser,
+  selectUserRole,
+} from "../../redux/slices/authSlice";
 
 export default function RegisterPage() {
   const { register, verifyRegistrationOTP, isLoading, error, clearAuthError } = useAuth();
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const user = useSelector(selectUser);
+  const userRole = useSelector(selectUserRole);
+
+  const navigate = useNavigate();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,6 +29,23 @@ export default function RegisterPage() {
   const [registrationEmail, setRegistrationEmail] = useState("");
   const [developmentOTP, setDevelopmentOTP] = useState("");
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      const roleToRoute = {
+        admin: "/admin",
+        TL: "/tl",
+        user: "/user",
+      };
+      const target = roleToRoute[userRole] || "/";
+      if (user?.preferredRoute) {
+        navigate(user.preferredRoute, { replace: true });
+      } else {
+        navigate(target, { replace: true });
+      }
+    }
+  }, [isAuthenticated, userRole, user, navigate]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError("");
@@ -24,13 +53,13 @@ export default function RegisterPage() {
     setDevelopmentOTP("");
     clearAuthError();
 
-    console.log('=== REGISTRATION FORM SUBMITTED ===');
-    console.log('Form Data:', {
+    console.log("=== REGISTRATION FORM SUBMITTED ===");
+    console.log("Form Data:", {
       name,
       email,
-      password: password ? '***' : 'EMPTY',
-      confirmPassword: confirmPassword ? '***' : 'EMPTY',
-      phoneNumber
+      password: password ? "***" : "EMPTY",
+      confirmPassword: confirmPassword ? "***" : "EMPTY",
+      phoneNumber,
     });
 
     // Validation
@@ -60,7 +89,7 @@ export default function RegisterPage() {
       return;
     }
 
-    console.log('✅ All validations passed');
+    console.log("✅ All validations passed");
 
     try {
       const registrationData = {
@@ -68,50 +97,49 @@ export default function RegisterPage() {
         email,
         password,
         confirmPassword,
-        phoneNumber
+        phoneNumber,
       };
-      
-      console.log('🔍 Registration data before sending:', registrationData);
-      
+
+      console.log("🔍 Registration data before sending:", registrationData);
+
       const result = await register(registrationData);
-      console.log('✅ Registration step 1 successful!', result);
-      
-      if (result.requireOTP) {
+      console.log("✅ Registration step 1 successful!", result);
+
+      if (result?.requireOTP) {
         // Show OTP modal
         setRegistrationEmail(email);
-        
+
         // Show appropriate message based on development mode
         if (result.data?.developmentMode) {
           const devOtp = result.data.otp;
           setDevelopmentOTP(devOtp);
           setSuccessMessage(`🔑 OTP Generated: ${devOtp} (Email service unavailable - use this OTP)`);
-          console.log('🔑 Development OTP:', devOtp);
+          console.log("🔑 Development OTP:", devOtp);
         } else {
           setSuccessMessage("📧 OTP sent to your email! Please verify to complete registration.");
         }
-        
+
         setShowOtpModal(true);
       } else {
         // Should not happen with new flow
         setSuccessMessage("Registration successful! Redirecting...");
         setTimeout(() => {
-          window.location.href = '/user';
+          window.location.href = "/user";
         }, 2000);
       }
-      
     } catch (err) {
-      console.error('❌ Registration error:', err);
+      console.error("❌ Registration error:", err);
       setFormError(err.message || "Registration failed. Please try again.");
     }
   };
 
   const handleVerifyOTP = async (otp) => {
     try {
-      console.log('🔑 Verifying registration OTP:', otp);
+      console.log("🔑 Verifying registration OTP:", otp);
       await verifyRegistrationOTP(registrationEmail, otp);
-      // verifyRegistrationOTP will handle navigation on success
+      // verifyRegistrationOTP should handle navigation on success
     } catch (error) {
-      console.error('OTP verification error:', error);
+      console.error("OTP verification error:", error);
       throw error;
     }
   };
@@ -124,28 +152,28 @@ export default function RegisterPage() {
         email: registrationEmail,
         password,
         confirmPassword,
-        phoneNumber
+        phoneNumber,
       };
-      
+
       const result = await register(registrationData);
-      
-      if (!result.requireOTP) {
-        throw new Error('Failed to resend OTP');
+
+      if (!result?.requireOTP) {
+        throw new Error("Failed to resend OTP");
       }
-      
+
       // Update success message based on development mode
       if (result.data?.developmentMode) {
         const devOtp = result.data.otp;
         setDevelopmentOTP(devOtp);
         setSuccessMessage(`🔑 OTP Regenerated: ${devOtp} (Email service unavailable)`);
-        console.log('🔑 New Development OTP:', devOtp);
+        console.log("🔑 New Development OTP:", devOtp);
       } else {
         setSuccessMessage("📧 OTP resent to your email!");
       }
-      
-      console.log('✅ OTP resent successfully');
+
+      console.log("✅ OTP resent successfully");
     } catch (error) {
-      console.error('Error resending OTP:', error);
+      console.error("Error resending OTP:", error);
       throw error;
     }
   };

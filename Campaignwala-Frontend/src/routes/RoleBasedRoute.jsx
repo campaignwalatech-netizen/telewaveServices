@@ -1,58 +1,68 @@
-import { Suspense } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { selectIsAuthenticated, selectUserRole } from '../redux/slices/authSlice';
+import { selectIsAuthenticated, selectUserRole, selectIsLoading } from '../redux/slices/authSlice';
 import Loader from '../components/Loader';
 
 /**
- * Role-based Route Component with automatic redirection
- * @param {Object} props
- * @param {React.ReactNode} props.children - Child components to render
- * @param {string} props.role - Required role for this route
- * @param {React.ReactNode} props.fallback - Component to show while loading
+ * Role-based Route Component
+ * Restricts access based on user role
  */
 const RoleBasedRoute = ({
   children,
-  role,
+  role, // Expected role: 'admin', 'user', or 'TL'
+  redirectTo = '/',
   fallback = <Loader />
 }) => {
+  const location = useLocation();
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const userRole = useSelector(selectUserRole);
+  const isLoading = useSelector(selectIsLoading);
 
-  // Check authentication first
+  // Show loading fallback while auth state is being determined
+  if (isLoading) {
+    return fallback;
+  }
+
+  // Check authentication
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return (
+      <Navigate 
+        to={redirectTo} 
+        state={{ from: location.pathname }} 
+        replace 
+      />
+    );
   }
 
-  // Check if user has the required role
+  // Check role-based access
   if (userRole !== role) {
-    // Redirect to appropriate dashboard based on actual role
-    const redirectPath = getRedirectPath(userRole);
-    return <Navigate to={redirectPath} replace />;
+    // Redirect to appropriate dashboard based on user role
+    let dashboardRoute = '/';
+    switch (userRole) {
+      case 'admin':
+        dashboardRoute = '/admin';
+        break;
+      case 'TL':
+        dashboardRoute = '/tl';
+        break;
+      case 'user':
+        dashboardRoute = '/user';
+        break;
+      default:
+        dashboardRoute = '/';
+    }
+    
+    return (
+      <Navigate 
+        to={dashboardRoute} 
+        state={{ from: location.pathname }} 
+        replace 
+      />
+    );
   }
 
-  // Wrap in Suspense for code splitting support
-  return (
-    <Suspense fallback={fallback}>
-      {children}
-    </Suspense>
-  );
-};
-
-/**
- * Get redirect path based on user role
- * @param {string} userRole - Current user role
- * @returns {string} - Redirect path
- */
-const getRedirectPath = (userRole) => {
-  const rolePaths = {
-    admin: '/admin',
-    user: '/user',
-    moderator: '/moderator',
-    guest: '/'
-  };
-
-  return rolePaths[userRole] || '/unauthorized';
+  // All checks passed, render the protected content
+  return children;
 };
 
 export default RoleBasedRoute;

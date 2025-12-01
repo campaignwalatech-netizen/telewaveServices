@@ -3,6 +3,7 @@ const router = express.Router();
 
 // Import route modules
 const userRoutes = require('../modules/users/user.router');
+const dashboardRoutes = require('../modules/dashboard/dashboard.router'); // NEW
 const categoryRoutes = require('../modules/categories/categories.router');
 const offerRoutes = require('../modules/offers/offers.router');
 const slideRoutes = require('../modules/slides/slides.router');
@@ -37,6 +38,7 @@ router.get('/status', (req, res) => {
 
 // Mount route modules
 router.use('/users', userRoutes);
+router.use('/dashboard', dashboardRoutes); // NEW
 router.use('/categories', categoryRoutes);
 router.use('/offers', offerRoutes);
 router.use('/slides', slideRoutes);

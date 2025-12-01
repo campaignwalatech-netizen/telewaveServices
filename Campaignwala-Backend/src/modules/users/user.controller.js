@@ -2,6 +2,9 @@ const jwt = require('jsonwebtoken');
 const User = require('./user.model');
 const { sendOTPEmail, sendWelcomeEmail } = require('../../utils/emailService');
 const { parseExcelFile, deleteFile, validateRequiredFields } = require('../../utils/excelParser');
+const Lead = require('../leads/leads.model');
+const Wallet = require('../wallet/wallet.model');
+const ExcelJS = require('exceljs');
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -31,14 +34,15 @@ const sendOTP = async (req, res) => {
 // Register user - Step 1: Send OTP to email
 const register = async (req, res) => {
     try {
-        const { name, email, password, confirmPassword, phoneNumber } = req.body;
+        const { name, email, password, confirmPassword, phoneNumber, role } = req.body;
 
         console.log('📥 Registration request received:', {
             name: name || 'MISSING',
             email: email || 'MISSING',
             password: password ? '***' : 'MISSING',
             confirmPassword: confirmPassword ? '***' : 'MISSING',
-            phoneNumber: phoneNumber || 'MISSING'
+            phoneNumber: phoneNumber || 'MISSING',
+            role: role || 'user'
         });
 
         // Validation
@@ -75,6 +79,14 @@ const register = async (req, res) => {
             });
         }
 
+        // Validate role
+        if (role && !['user', 'admin', 'TL'].includes(role)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid role. Must be user, admin, or TL'
+            });
+        }
+
         // Check if user already exists with email
         const existingEmail = await User.findOne({ email });
         if (existingEmail) {
@@ -101,6 +113,7 @@ const register = async (req, res) => {
             user.name = name;
             user.password = password;
             user.phoneNumber = phoneNumber;
+            if (role) user.role = role;
         } else {
             // Create new temporary user (not verified yet)
             user = new User({
@@ -108,6 +121,7 @@ const register = async (req, res) => {
                 email,
                 password,
                 phoneNumber,
+                role: role || 'user',
                 isVerified: false
             });
         }
@@ -132,17 +146,18 @@ const register = async (req, res) => {
         const emailResult = await sendOTPEmail(email, name, otp, 'registration');
 
         return res.json({
-    success: true,
-    message: emailResult.developmentMode 
-        ? 'OTP generated (Check console for OTP)' 
-        : 'OTP sent to your email successfully',
-    requireOTP: true,
-    data: {
-        email: email,
-        name: name,
-        otp: otp, // Always include OTP
-        developmentMode: emailResult.developmentMode || false
-    }
+            success: true,
+            message: emailResult.developmentMode 
+                ? 'OTP generated (Check console for OTP)' 
+                : 'OTP sent to your email successfully',
+            requireOTP: true,
+            data: {
+                email: email,
+                name: name,
+                role: role || 'user',
+                otp: otp, // Always include OTP
+                developmentMode: emailResult.developmentMode || false
+            }
         });
 
     } catch (error) {
@@ -207,6 +222,29 @@ const verifyRegistrationOTP = async (req, res) => {
         // Mark user as verified and complete registration
         user.isVerified = true;
         user.clearOtp('registration');
+        
+        // If user is TL, initialize TL details
+        if (user.role === 'TL') {
+            user.tlDetails = {
+                assignedTeam: [],
+                totalTeamMembers: 0,
+                teamPerformance: 0,
+                assignedLeads: [],
+                canAssignLeads: true,
+                canApproveLeads: false,
+                canViewReports: true,
+                permissions: {
+                    addUsers: false,
+                    editUsers: false,
+                    viewUsers: true,
+                    assignLeads: true,
+                    approveLeads: false,
+                    viewReports: true,
+                    manageTeam: true
+                }
+            };
+        }
+        
         await user.save();
 
         // Send welcome email (don't block registration if it fails)
@@ -228,6 +266,7 @@ const verifyRegistrationOTP = async (req, res) => {
         await user.save();
 
         console.log('✅ User registered successfully:', user.email);
+        console.log('👤 Role:', user.role);
 
         res.status(201).json({
             success: true,
@@ -492,6 +531,90 @@ const adminLogin = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Admin login failed'
+        });
+    }
+};
+
+// TL Login - Special login for Team Leaders
+const tlLogin = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        console.log('📥 TL login request received for email:', email);
+
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email and password are required'
+            });
+        }
+
+        // Find user by email and check if TL
+        const user = await User.findOne({ email, role: 'TL', isVerified: true });
+        if (!user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password, or insufficient permissions'
+            });
+        }
+
+        // Check if account is active
+        if (!user.isActive) {
+            return res.status(401).json({
+                success: false,
+                message: 'Team Leader account is deactivated.'
+            });
+        }
+
+        // Check password
+        const isPasswordValid = await user.comparePassword(password);
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid email or password'
+            });
+        }
+
+        // Check OTP rate limiting
+        if (!user.canSendOtp()) {
+            return res.status(429).json({
+                success: false,
+                message: 'Too many OTP attempts. Please try again later.'
+            });
+        }
+
+        // Generate and set login OTP
+        const otp = user.setOtp('login');
+        user.incrementOtpAttempts();
+        await user.save();
+
+        console.log('📧 Sending TL login OTP to email:', user.email);
+        console.log('🔑 TL Login OTP:', otp);
+
+        // Send OTP via email with improved error handling
+        const emailResult = await sendOTPEmail(user.email, user.name || 'Team Leader', otp, 'login');
+
+        return res.json({
+            success: true,
+            message: emailResult.developmentMode
+                ? 'OTP generated (Email service unavailable - check console)'
+                : 'OTP sent to your email. Please verify to complete TL login.',
+            requireOTP: true,
+            data: {
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                otpSent: !emailResult.developmentMode,
+                otp: otp,
+                developmentMode: emailResult.developmentMode || false
+            }
+        });
+
+    } catch (error) {
+        console.error('TL login error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'TL login failed'
         });
     }
 };
@@ -906,7 +1029,6 @@ const verifyEmailOTP = async (req, res) => {
     }
 };
 
-
 // Admin: Get all users
 const getAllUsers = async (req, res) => {
     try {
@@ -988,19 +1110,14 @@ const updateUserRole = async (req, res) => {
         const { userId } = req.params;
         const { role } = req.body;
 
-        if (!['user', 'admin'].includes(role)) {
+        if (!['user', 'admin', 'TL'].includes(role)) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid role. Must be "user" or "admin"'
+                message: 'Invalid role. Must be "user", "admin", or "TL"'
             });
         }
 
-        const user = await User.findByIdAndUpdate(
-            userId,
-            { role },
-            { new: true, runValidators: true }
-        ).select('-password -emailOtp -emailOtpExpires');
-
+        const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({
                 success: false,
@@ -1008,10 +1125,44 @@ const updateUserRole = async (req, res) => {
             });
         }
 
+        const oldRole = user.role;
+        user.role = role;
+
+        // If changing to TL, initialize TL details
+        if (role === 'TL' && oldRole !== 'TL') {
+            user.tlDetails = {
+                assignedTeam: [],
+                totalTeamMembers: 0,
+                teamPerformance: 0,
+                assignedLeads: [],
+                canAssignLeads: true,
+                canApproveLeads: false,
+                canViewReports: true,
+                permissions: {
+                    addUsers: false,
+                    editUsers: false,
+                    viewUsers: true,
+                    assignLeads: true,
+                    approveLeads: false,
+                    viewReports: true,
+                    manageTeam: true
+                }
+            };
+        }
+
+        // If changing from TL to another role, remove TL details
+        if (oldRole === 'TL' && role !== 'TL') {
+            user.tlDetails = undefined;
+            user.teamMembers = [];
+            user.reportingTo = null;
+        }
+
+        await user.save();
+
         res.json({
             success: true,
             message: 'User role updated successfully',
-            data: { user }
+            data: { user: user.toJSON() }
         });
 
     } catch (error) {
@@ -1019,6 +1170,300 @@ const updateUserRole = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Failed to update user role'
+        });
+    }
+};
+
+// Admin: Update TL permissions
+const updateTLPermissions = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { permissions } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        if (user.role !== 'TL') {
+            return res.status(400).json({
+                success: false,
+                message: 'User is not a Team Leader'
+            });
+        }
+
+        // Update permissions
+        if (permissions) {
+            user.tlDetails.permissions = {
+                ...user.tlDetails.permissions,
+                ...permissions
+            };
+        }
+
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'TL permissions updated successfully',
+            data: { user: user.toJSON() }
+        });
+
+    } catch (error) {
+        console.error('Update TL permissions error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update TL permissions'
+        });
+    }
+};
+
+// TL: Get team members
+const getTeamMembers = async (req, res) => {
+    try {
+        const tlId = req.user._id;
+
+        const teamMembers = await User.find({ 
+            reportingTo: tlId,
+            role: 'user'
+        }).select('-password -emailOtp -emailOtpExpires');
+
+        // Get team statistics
+        let teamTotalLeads = 0;
+        let teamCompletedLeads = 0;
+        let teamTotalEarnings = 0;
+
+        teamMembers.forEach(member => {
+            teamTotalLeads += member.statistics.totalLeads || 0;
+            teamCompletedLeads += member.statistics.completedLeads || 0;
+            teamTotalEarnings += member.statistics.totalEarnings || 0;
+        });
+
+        res.json({
+            success: true,
+            message: 'Team members retrieved successfully',
+            data: {
+                teamMembers,
+                teamStats: {
+                    totalMembers: teamMembers.length,
+                    totalLeads: teamTotalLeads,
+                    completedLeads: teamCompletedLeads,
+                    totalEarnings: teamTotalEarnings,
+                    conversionRate: teamTotalLeads > 0 ? (teamCompletedLeads / teamTotalLeads * 100) : 0
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Get team members error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get team members'
+        });
+    }
+};
+
+// TL: Add team member
+const addTeamMember = async (req, res) => {
+    try {
+        const tlId = req.user._id;
+        const { memberId } = req.body;
+
+        if (!memberId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Member ID is required'
+            });
+        }
+
+        const tl = await User.findById(tlId);
+        if (!tl || tl.role !== 'TL') {
+            return res.status(403).json({
+                success: false,
+                message: 'Only Team Leaders can add team members'
+            });
+        }
+
+        const member = await User.findById(memberId);
+        if (!member) {
+            return res.status(404).json({
+                success: false,
+                message: 'Member not found'
+            });
+        }
+
+        if (member.role !== 'user') {
+            return res.status(400).json({
+                success: false,
+                message: 'Only regular users can be added to team'
+            });
+        }
+
+        // Check if member already in team
+        if (tl.teamMembers.includes(memberId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'User is already in your team'
+            });
+        }
+
+        // Add to TL's team
+        tl.teamMembers.push(memberId);
+        tl.tlDetails.totalTeamMembers = tl.teamMembers.length;
+
+        // Update member's reportingTo
+        member.reportingTo = tlId;
+
+        await Promise.all([tl.save(), member.save()]);
+
+        res.json({
+            success: true,
+            message: 'Team member added successfully',
+            data: {
+                teamMember: member,
+                teamSize: tl.tlDetails.totalTeamMembers
+            }
+        });
+
+    } catch (error) {
+        console.error('Add team member error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to add team member'
+        });
+    }
+};
+
+// TL: Remove team member
+const removeTeamMember = async (req, res) => {
+    try {
+        const tlId = req.user._id;
+        const { memberId } = req.params;
+
+        const tl = await User.findById(tlId);
+        if (!tl || tl.role !== 'TL') {
+            return res.status(403).json({
+                success: false,
+                message: 'Only Team Leaders can remove team members'
+            });
+        }
+
+        // Check if member is in team
+        if (!tl.teamMembers.includes(memberId)) {
+            return res.status(400).json({
+                success: false,
+                message: 'User is not in your team'
+            });
+        }
+
+        // Remove from TL's team
+        tl.teamMembers = tl.teamMembers.filter(id => id.toString() !== memberId);
+        tl.tlDetails.totalTeamMembers = tl.teamMembers.length;
+
+        // Update member's reportingTo
+        const member = await User.findById(memberId);
+        if (member) {
+            member.reportingTo = null;
+            await member.save();
+        }
+
+        await tl.save();
+
+        res.json({
+            success: true,
+            message: 'Team member removed successfully',
+            data: {
+                teamSize: tl.tlDetails.totalTeamMembers
+            }
+        });
+
+    } catch (error) {
+        console.error('Remove team member error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to remove team member'
+        });
+    }
+};
+
+// TL: Get team performance report
+const getTeamPerformance = async (req, res) => {
+    try {
+        const tlId = req.user._id;
+
+        const teamMembers = await User.find({ 
+            reportingTo: tlId,
+            role: 'user'
+        }).select('name email phoneNumber statistics performance createdAt');
+
+        // Calculate team performance metrics
+        let teamPerformance = {
+            totalMembers: teamMembers.length,
+            activeMembers: 0,
+            totalLeads: 0,
+            completedLeads: 0,
+            pendingLeads: 0,
+            totalEarnings: 0,
+            averageRating: 0,
+            members: []
+        };
+
+        let totalRating = 0;
+        let membersWithRating = 0;
+
+        teamMembers.forEach(member => {
+            const stats = member.statistics || {};
+            const perf = member.performance || {};
+            
+            teamPerformance.totalLeads += stats.totalLeads || 0;
+            teamPerformance.completedLeads += stats.completedLeads || 0;
+            teamPerformance.pendingLeads += stats.pendingLeads || 0;
+            teamPerformance.totalEarnings += stats.totalEarnings || 0;
+
+            if (perf.rating && perf.rating > 0) {
+                totalRating += perf.rating;
+                membersWithRating++;
+            }
+
+            if ((stats.totalLeads || 0) > 0) {
+                teamPerformance.activeMembers++;
+            }
+
+            teamPerformance.members.push({
+                _id: member._id,
+                name: member.name,
+                email: member.email,
+                phoneNumber: member.phoneNumber,
+                leads: {
+                    total: stats.totalLeads || 0,
+                    completed: stats.completedLeads || 0,
+                    pending: stats.pendingLeads || 0,
+                    conversionRate: stats.totalLeads > 0 ? (stats.completedLeads / stats.totalLeads * 100) : 0
+                },
+                earnings: stats.totalEarnings || 0,
+                rating: perf.rating || 0,
+                joinDate: member.createdAt
+            });
+        });
+
+        teamPerformance.averageRating = membersWithRating > 0 ? (totalRating / membersWithRating) : 0;
+        teamPerformance.conversionRate = teamPerformance.totalLeads > 0 
+            ? (teamPerformance.completedLeads / teamPerformance.totalLeads * 100) 
+            : 0;
+
+        res.json({
+            success: true,
+            message: 'Team performance report retrieved successfully',
+            data: teamPerformance
+        });
+
+    } catch (error) {
+        console.error('Get team performance error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get team performance report'
         });
     }
 };
@@ -1114,34 +1559,98 @@ const deleteUser = async (req, res) => {
     }
 };
 
-// Get dashboard stats (Admin)
+// Get dashboard stats (Admin/TL)
 const getDashboardStats = async (req, res) => {
     try {
-        const totalUsers = await User.countDocuments();
-        const verifiedUsers = await User.countDocuments({ isVerified: true });
-        const adminUsers = await User.countDocuments({ role: 'admin' });
-        const activeUsers = await User.countDocuments({ isActive: true });
+        const user = req.user;
+        
+        if (user.role === 'admin') {
+            // Admin dashboard stats
+            const totalUsers = await User.countDocuments();
+            const verifiedUsers = await User.countDocuments({ isVerified: true });
+            const adminUsers = await User.countDocuments({ role: 'admin' });
+            const tlUsers = await User.countDocuments({ role: 'TL' });
+            const activeUsers = await User.countDocuments({ isActive: true });
 
-        // Get recent registrations (last 7 days)
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        const recentRegistrations = await User.countDocuments({
-            createdAt: { $gte: weekAgo }
-        });
+            // Get recent registrations (last 7 days)
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const recentRegistrations = await User.countDocuments({
+                createdAt: { $gte: weekAgo }
+            });
 
-        res.json({
-            success: true,
-            message: 'Dashboard stats retrieved successfully',
-            data: {
-                totalUsers,
-                verifiedUsers,
-                adminUsers,
-                activeUsers,
-                recentRegistrations,
-                unverifiedUsers: totalUsers - verifiedUsers,
-                inactiveUsers: totalUsers - activeUsers
-            }
-        });
+            res.json({
+                success: true,
+                message: 'Admin dashboard stats retrieved successfully',
+                data: {
+                    totalUsers,
+                    verifiedUsers,
+                    adminUsers,
+                    tlUsers,
+                    activeUsers,
+                    recentRegistrations,
+                    unverifiedUsers: totalUsers - verifiedUsers,
+                    inactiveUsers: totalUsers - activeUsers
+                }
+            });
+        } else if (user.role === 'TL') {
+            // TL dashboard stats
+            const teamMembers = await User.find({ reportingTo: user._id, role: 'user' });
+            const teamSize = teamMembers.length;
+            
+            let teamTotalLeads = 0;
+            let teamCompletedLeads = 0;
+            let teamTotalEarnings = 0;
+            let activeTeamMembers = 0;
+
+            teamMembers.forEach(member => {
+                teamTotalLeads += member.statistics.totalLeads || 0;
+                teamCompletedLeads += member.statistics.completedLeads || 0;
+                teamTotalEarnings += member.statistics.totalEarnings || 0;
+                
+                if ((member.statistics.totalLeads || 0) > 0) {
+                    activeTeamMembers++;
+                }
+            });
+
+            // Get recent team activity (last 7 days)
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const recentTeamActivity = await User.countDocuments({
+                reportingTo: user._id,
+                role: 'user',
+                'statistics.lastLeadDate': { $gte: weekAgo }
+            });
+
+            res.json({
+                success: true,
+                message: 'TL dashboard stats retrieved successfully',
+                data: {
+                    teamSize,
+                    activeTeamMembers,
+                    teamTotalLeads,
+                    teamCompletedLeads,
+                    teamTotalEarnings,
+                    teamConversionRate: teamTotalLeads > 0 ? (teamCompletedLeads / teamTotalLeads * 100) : 0,
+                    recentTeamActivity
+                }
+            });
+        } else {
+            // User dashboard stats
+            res.json({
+                success: true,
+                message: 'User dashboard stats retrieved successfully',
+                data: {
+                    totalLeads: user.statistics.totalLeads || 0,
+                    completedLeads: user.statistics.completedLeads || 0,
+                    pendingLeads: user.statistics.pendingLeads || 0,
+                    totalEarnings: user.statistics.totalEarnings || 0,
+                    currentBalance: user.statistics.currentBalance || 0,
+                    conversionRate: user.statistics.conversionRate || 0,
+                    lastLeadDate: user.statistics.lastLeadDate
+                }
+            });
+        }
 
     } catch (error) {
         console.error('Get dashboard stats error:', error);
@@ -1566,7 +2075,8 @@ const bulkUploadUsers = async (req, res) => {
             name: row.name?.toString().trim(),
             email: row.email?.toString().trim().toLowerCase(),
             password: row.password?.toString().trim(),
-            role: row.role?.toString().toLowerCase() === 'admin' ? 'admin' : 'user',
+            role: row.role?.toString().toLowerCase() === 'admin' ? 'admin' : 
+                  row.role?.toString().toLowerCase() === 'tl' ? 'TL' : 'user',
             isVerified: row.isVerified === true || row.isVerified === 'true' || row.isVerified === 'TRUE' || true,
             isActive: row.isActive === false || row.isActive === 'false' || row.isActive === 'FALSE' ? false : true,
             firstName: row.firstName?.toString().trim() || '',
@@ -1642,7 +2152,6 @@ const bulkUploadUsers = async (req, res) => {
         });
     }
 };
-
 
 const getAllUsersWithStats = async (req, res) => {
     try {
@@ -1895,6 +2404,15 @@ const updateUser = async (req, res) => {
             });
         }
 
+        // Update TL specific fields
+        if (updateData.tlDetails && user.role === 'TL') {
+            Object.keys(updateData.tlDetails).forEach(key => {
+                if (updateData.tlDetails[key] !== undefined) {
+                    user.tlDetails[key] = updateData.tlDetails[key];
+                }
+            });
+        }
+
         await user.save();
 
         res.json({
@@ -2017,12 +2535,13 @@ const exportUsers = async (req, res) => {
 module.exports = {
     // Authentication
     register,
-    verifyRegistrationOTP, // NEW
+    verifyRegistrationOTP,
     login,
-    verifyLoginOTP, // NEW
+    verifyLoginOTP,
     adminLogin,
-    verifyOTP: verifyLoginOTP, // Keep backward compatibility
-    logout, // ADDED BACK
+    tlLogin, // NEW TL login
+    verifyOTP: verifyLoginOTP,
+    logout,
     
     // Profile Management
     getProfile,
@@ -2037,10 +2556,17 @@ module.exports = {
     getAllUsers,
     getUserById,
     updateUserRole,
+    updateTLPermissions, // NEW
     toggleUserStatus,
     markUserAsEx,
     deleteUser,
     getDashboardStats,
+    
+    // TL Functions
+    getTeamMembers, // NEW
+    addTeamMember, // NEW
+    removeTeamMember, // NEW
+    getTeamPerformance, // NEW
     
     // KYC Management
     updateKYCDetails,
@@ -2057,7 +2583,7 @@ module.exports = {
     // Bulk Operations
     bulkUploadUsers,
     
-    // Legacy functions (kept for backward compatibility)
+    // Legacy functions
     sendOTP,
     getAllUsersWithStats,
     getUserStats,

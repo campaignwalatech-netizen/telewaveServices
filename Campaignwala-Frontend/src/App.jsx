@@ -1,12 +1,5 @@
 import { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
 import { Outlet } from "react-router-dom";
-import { 
-  selectIsAuthenticated, 
-  selectUserRole, 
-  updateLastActivity,
-  logoutUser
-} from "./redux/slices/authSlice";
 
 // Components
 import Sidebar from "./adminDashboard/components/Sidebar";
@@ -17,37 +10,11 @@ import Header from "./adminDashboard/components/Header";
  * Main layout component for admin users
  */
 export default function App() {
-  const dispatch = useDispatch();
-  
-  // Redux state
-  const isAuthenticated = useSelector(selectIsAuthenticated);
-  const userRole = useSelector(selectUserRole);
-  
-  // Local state
+  // Local state for theme
   const [isDark, setIsDark] = useState(() => {
     const savedTheme = localStorage.getItem('theme');
     return savedTheme === 'light' ? false : true;
   });
-
-  // Session management
-  useEffect(() => {
-    // Update last activity on component mount and user interactions
-    const handleUserActivity = () => {
-      dispatch(updateLastActivity());
-    };
-
-    // Add event listeners for user activity
-    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
-    events.forEach(event => {
-      document.addEventListener(event, handleUserActivity, true);
-    });
-
-    return () => {
-      events.forEach(event => {
-        document.removeEventListener(event, handleUserActivity, true);
-      });
-    };
-  }, [dispatch]);
 
   // Theme management
   useEffect(() => {

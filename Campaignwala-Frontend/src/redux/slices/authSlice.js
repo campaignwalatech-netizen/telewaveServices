@@ -1,10 +1,11 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import authService from '../../services/authService';
 
-// Define user roles
+// Define user roles - ADDED 'TL' role
 export const USER_ROLES = {
   ADMIN: 'admin',
   USER: 'user',
+  TL: 'TL', // Added TL role
   GUEST: 'guest'
 };
 
@@ -68,16 +69,19 @@ export const registerUser = createAsyncThunk(
   }
 );
 
-// Login user async thunk
+// Login user async thunk - UPDATED to handle TL role
 export const loginUser = createAsyncThunk(
   'auth/login',
-  async ({ phoneNumber, password, email, isAdmin = false }, { rejectWithValue }) => {
+  async ({ phoneNumber, password, email, isAdmin = false, isTL = false }, { rejectWithValue }) => {
     try {
       let response;
       
       if (isAdmin) {
         // Admin login with email/password
         response = await authService.adminLogin({ email, password });
+      } else if (isTL) {
+        // TL login - you might need a separate service or modify existing one
+        response = await authService.tlLogin({ email, password });
       } else {
         // User login with phone/password
         response = await authService.login({ phoneNumber, password });
@@ -88,8 +92,9 @@ export const loginUser = createAsyncThunk(
         return {
           requireOTP: true,
           email: response.email,
-          tempData: { phoneNumber, password, email, isAdmin },
-          isAdmin
+          tempData: { phoneNumber, password, email, isAdmin, isTL },
+          isAdmin,
+          isTL
         };
       }
       
@@ -146,9 +151,11 @@ export const verifyOTPForAuth = createAsyncThunk(
         // Complete registration
         response = await authService.completeRegistration({ email, otp });
       } else {
-        // Complete login (admin or user)
+        // Complete login (admin, TL, or user)
         if (tempAuthData.isAdmin) {
           response = await authService.completeAdminLogin({ email, otp });
+        } else if (tempAuthData.isTL) {
+          response = await authService.completeTLLogin({ email, otp });
         } else {
           response = await authService.completeLogin({ email, otp });
         }
@@ -200,6 +207,19 @@ export const logoutUserAsync = createAsyncThunk(
   }
 );
 
+// Check TL permissions async thunk
+export const checkTLPermissions = createAsyncThunk(
+  'auth/checkTLPermissions',
+  async (tlId, { rejectWithValue }) => {
+    try {
+      const response = await authService.getTLPermissions(tlId);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.message || 'Failed to fetch TL permissions');
+    }
+  }
+);
+
 // Initial state
 const initialState = {
   // Authentication status
@@ -223,6 +243,10 @@ const initialState = {
   // OTP flow management
   requireOTP: false,
   tempAuthData: null, // Store temporary data during OTP flow
+  
+  // TL specific state
+  tlPermissions: null,
+  teamMembers: [],
   
   // Additional state
   lastActivity: Date.now()
@@ -250,7 +274,8 @@ const authSlice = createSlice({
         state.tempAuthData = {
           email: action.payload.email,
           credentials: action.payload.tempData,
-          isAdmin: action.payload.isAdmin || false
+          isAdmin: action.payload.isAdmin || false,
+          isTL: action.payload.isTL || false
         };
       } else {
         // Login completed
@@ -260,6 +285,12 @@ const authSlice = createSlice({
         state.accessToken = action.payload.token;
         state.requireOTP = false;
         state.tempAuthData = null;
+        
+        // If user is TL, initialize TL state
+        if (action.payload.user.role === USER_ROLES.TL) {
+          state.tlPermissions = action.payload.user.tlDetails?.permissions || null;
+          state.teamMembers = action.payload.user.teamMembers || [];
+        }
       }
     },
     loginFailure: (state, action) => {
@@ -296,6 +327,12 @@ const authSlice = createSlice({
         state.accessToken = action.payload.token;
         state.requireOTP = false;
         state.tempAuthData = null;
+        
+        // If registered as TL, initialize TL state
+        if (action.payload.user.role === USER_ROLES.TL) {
+          state.tlPermissions = action.payload.user.tlDetails?.permissions || null;
+          state.teamMembers = action.payload.user.teamMembers || [];
+        }
       }
     },
     registerFailure: (state, action) => {
@@ -317,6 +354,8 @@ const authSlice = createSlice({
       state.error = null;
       state.requireOTP = false;
       state.tempAuthData = null;
+      state.tlPermissions = null;
+      state.teamMembers = [];
     },
 
     // Clear error
@@ -336,6 +375,12 @@ const authSlice = createSlice({
         state.user = { ...state.user, ...action.payload };
         // Update localStorage
         localStorage.setItem('user', JSON.stringify(state.user));
+        
+        // If TL, update TL state
+        if (state.user.role === USER_ROLES.TL && action.payload.tlDetails) {
+          state.tlPermissions = action.payload.tlDetails.permissions || state.tlPermissions;
+          state.teamMembers = action.payload.tlDetails.assignedTeam || state.teamMembers;
+        }
       }
     },
 
@@ -351,6 +396,67 @@ const authSlice = createSlice({
     setAccessToken: (state, action) => {
       state.accessToken = action.payload;
       localStorage.setItem('accessToken', action.payload);
+    },
+    
+    // TL specific reducers
+    updateTLPermissions: (state, action) => {
+      state.tlPermissions = action.payload;
+      if (state.user && state.user.role === USER_ROLES.TL) {
+        state.user.tlDetails = {
+          ...state.user.tlDetails,
+          permissions: action.payload
+        };
+        localStorage.setItem('user', JSON.stringify(state.user));
+      }
+    },
+    
+    updateTeamMembers: (state, action) => {
+      state.teamMembers = action.payload;
+      if (state.user && state.user.role === USER_ROLES.TL) {
+        state.user.tlDetails = {
+          ...state.user.tlDetails,
+          assignedTeam: action.payload
+        };
+        state.user.teamMembers = action.payload;
+        localStorage.setItem('user', JSON.stringify(state.user));
+      }
+    },
+    
+    addTeamMember: (state, action) => {
+      if (state.teamMembers) {
+        state.teamMembers.push(action.payload);
+      }
+      if (state.user && state.user.role === USER_ROLES.TL) {
+        state.user.teamMembers = state.user.teamMembers || [];
+        state.user.teamMembers.push(action.payload);
+        state.user.tlDetails = {
+          ...state.user.tlDetails,
+          assignedTeam: state.user.tlDetails?.assignedTeam || [],
+          totalTeamMembers: (state.user.tlDetails?.totalTeamMembers || 0) + 1
+        };
+        localStorage.setItem('user', JSON.stringify(state.user));
+      }
+    },
+    
+    removeTeamMember: (state, action) => {
+      if (state.teamMembers) {
+        state.teamMembers = state.teamMembers.filter(member => 
+          member._id !== action.payload._id
+        );
+      }
+      if (state.user && state.user.role === USER_ROLES.TL) {
+        state.user.teamMembers = state.user.teamMembers.filter(member => 
+          member._id !== action.payload._id
+        );
+        state.user.tlDetails = {
+          ...state.user.tlDetails,
+          assignedTeam: state.user.tlDetails?.assignedTeam.filter(member => 
+            member._id !== action.payload._id
+          ),
+          totalTeamMembers: Math.max(0, (state.user.tlDetails?.totalTeamMembers || 0) - 1)
+        };
+        localStorage.setItem('user', JSON.stringify(state.user));
+      }
     }
   },
   
@@ -406,6 +512,12 @@ const authSlice = createSlice({
         state.error = null;
         state.requireOTP = false;
         state.tempAuthData = null;
+        
+        // Initialize TL state if applicable
+        if (action.payload.user.role === USER_ROLES.TL) {
+          state.tlPermissions = action.payload.user.tlDetails?.permissions || null;
+          state.teamMembers = action.payload.user.teamMembers || [];
+        }
       })
       .addCase(registerUser.rejected, (state, action) => {
         state.status = 'failed';
@@ -417,6 +529,8 @@ const authSlice = createSlice({
         state.userRole = USER_ROLES.GUEST;
         state.requireOTP = false;
         state.tempAuthData = null;
+        state.tlPermissions = null;
+        state.teamMembers = [];
       })
       
       // Login cases
@@ -436,7 +550,8 @@ const authSlice = createSlice({
           state.tempAuthData = {
             email: action.payload.email,
             credentials: action.payload.tempData,
-            isAdmin: action.payload.isAdmin || false
+            isAdmin: action.payload.isAdmin || false,
+            isTL: action.payload.isTL || false
           };
         } else {
           // Login completed
@@ -446,6 +561,12 @@ const authSlice = createSlice({
           state.accessToken = action.payload.token;
           state.requireOTP = false;
           state.tempAuthData = null;
+          
+          // Initialize TL state if applicable
+          if (action.payload.user.role === USER_ROLES.TL) {
+            state.tlPermissions = action.payload.user.tlDetails?.permissions || null;
+            state.teamMembers = action.payload.user.teamMembers || [];
+          }
         }
       })
       .addCase(loginUser.rejected, (state, action) => {
@@ -458,6 +579,8 @@ const authSlice = createSlice({
         state.userRole = USER_ROLES.GUEST;
         state.requireOTP = false;
         state.tempAuthData = null;
+        state.tlPermissions = null;
+        state.teamMembers = [];
       })
       
       // Verify OTP for Auth cases
@@ -476,6 +599,12 @@ const authSlice = createSlice({
         state.error = null;
         state.requireOTP = false;
         state.tempAuthData = null;
+        
+        // Initialize TL state if applicable
+        if (action.payload.user.role === USER_ROLES.TL) {
+          state.tlPermissions = action.payload.user.tlDetails?.permissions || null;
+          state.teamMembers = action.payload.user.teamMembers || [];
+        }
       })
       .addCase(verifyOTPForAuth.rejected, (state, action) => {
         state.status = 'failed';
@@ -518,6 +647,25 @@ const authSlice = createSlice({
         state.error = action.payload;
       })
       
+      // Check TL permissions cases
+      .addCase(checkTLPermissions.pending, (state) => {
+        state.status = 'loading';
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(checkTLPermissions.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        state.isLoading = false;
+        state.tlPermissions = action.payload.permissions;
+        state.teamMembers = action.payload.teamMembers || [];
+        state.error = null;
+      })
+      .addCase(checkTLPermissions.rejected, (state, action) => {
+        state.status = 'failed';
+        state.isLoading = false;
+        state.error = action.payload;
+      })
+      
       // Logout cases
       .addCase(logoutUserAsync.fulfilled, (state) => {
         state.status = 'idle';
@@ -529,6 +677,8 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.requireOTP = false;
         state.tempAuthData = null;
+        state.tlPermissions = null;
+        state.teamMembers = [];
       })
       .addCase(logoutUserAsync.rejected, (state) => {
         // Still reset state even if API call fails
@@ -541,6 +691,8 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.requireOTP = false;
         state.tempAuthData = null;
+        state.tlPermissions = null;
+        state.teamMembers = [];
       });
   }
 });
@@ -559,7 +711,11 @@ export const {
   updateUserProfile,
   resetAuthState,
   updateLastActivity,
-  setAccessToken
+  setAccessToken,
+  updateTLPermissions,
+  updateTeamMembers,
+  addTeamMember,
+  removeTeamMember
 } = authSlice.actions;
 
 // Selectors
@@ -574,6 +730,47 @@ export const selectAuthStatus = (state) => state.auth.status;
 export const selectAccessToken = (state) => state.auth.accessToken;
 export const selectIsAdmin = (state) => state.auth.userRole === USER_ROLES.ADMIN;
 export const selectIsUser = (state) => state.auth.userRole === USER_ROLES.USER;
+export const selectIsTL = (state) => state.auth.userRole === USER_ROLES.TL; // New selector for TL
 export const selectAuth = (state) => state.auth;
+
+// TL specific selectors
+export const selectTLPermissions = (state) => state.auth.tlPermissions;
+export const selectTeamMembers = (state) => state.auth.teamMembers;
+export const selectCanAssignLeads = (state) => 
+  state.auth.tlPermissions?.assignLeads || false;
+export const selectCanApproveLeads = (state) => 
+  state.auth.tlPermissions?.approveLeads || false;
+export const selectCanViewReports = (state) => 
+  state.auth.tlPermissions?.viewReports || false;
+export const selectCanManageTeam = (state) => 
+  state.auth.tlPermissions?.manageTeam || false;
+
+// Permission check helper
+export const selectHasPermission = (permission) => (state) => {
+  const role = state.auth.userRole;
+  
+  // Admin has all permissions
+  if (role === USER_ROLES.ADMIN) return true;
+  
+  // TL specific permissions
+  if (role === USER_ROLES.TL) {
+    const permissions = state.auth.tlPermissions;
+    return permissions ? permissions[permission] : false;
+  }
+  
+  // User specific permissions
+  if (role === USER_ROLES.USER) {
+    // Define user permissions if needed
+    const userPermissions = {
+      'view_dashboard': true,
+      'view_leads': true,
+      'view_wallet': true,
+      'update_profile': true
+    };
+    return userPermissions[permission] || false;
+  }
+  
+  return false;
+};
 
 export default authSlice.reducer;

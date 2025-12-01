@@ -3,6 +3,20 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-d
 import { useSelector } from "react-redux";
 import { selectIsAuthenticated, selectUserRole } from "../redux/slices/authSlice";
 
+// TL Dashboard imports
+import TLDashboardLayout from "../tlDashboard/components/TLDashboardLayout";
+import TLDashboard from "../tlDashboard/pages/Dashboard";
+import TeamManagement from "../tlDashboard/pages/TeamManagement";
+import LeadsManagement from "../tlDashboard/pages/LeadsManagement";
+import TLPerformance from "../tlDashboard/pages/Performance";
+import TLReports from "../tlDashboard/pages/Reports";
+import TLAssignments from "../tlDashboard/pages/Assignments";
+import TLApprovals from "../tlDashboard/pages/Approvals";
+import TLNotifications from "../tlDashboard/pages/Notifications";
+import TLWallet from "../tlDashboard/pages/Wallet";
+import TLQueries from "../tlDashboard/pages/Queries";
+import TLSettings from "../tlDashboard/pages/Settings";
+
 // Auth Pages
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/Register";
@@ -10,7 +24,6 @@ import OtpVerification from "../pages/auth/OtpVerification";
 
 // Admin Components
 import App from "../App";
-import { DefaultView } from "../adminDashboard/components/DummyForms";
 import MainDashboard from "../adminDashboard/forms/Dashboard";
 
 // Manage Account
@@ -70,7 +83,6 @@ import ProtectedRoute from "./ProtectedRoute";
 import RoleBasedRoute from "./RoleBasedRoute";
 import Loader from "../components/Loader";
 import SettingsPage from "../adminDashboard/pages/SettingsPage";
-import LogoutPage from "../adminDashboard/pages/LogoutPage";
 
 /**
  * Main Application Router
@@ -87,7 +99,7 @@ export default function AppRouter() {
   return (
     <Router>
       <Routes>
-        {/* Auth Routes */}
+        {/* Auth Routes - Public routes */}
         <Route path="/" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-otp" element={<OtpVerification />} />
@@ -104,7 +116,7 @@ export default function AppRouter() {
             </RoleBasedRoute>
           }
         >
-          {/* Default route - redirect to (dashboard) */}
+          {/* Default route - redirect to dashboard */}
           <Route index element={<Navigate to="dashboard" replace />} /> 
           <Route path="dashboard" element={<MainDashboard />} />
           
@@ -155,8 +167,32 @@ export default function AppRouter() {
           <Route path="user-queries" element={<UserQueriesTable />} />
           <Route path="kyc-review" element={<KYCReview />} />
 
-          {/* Settings and Logout routes */}
-          <Route path="settings" element={<SettingsPage />} />       </Route>
+          {/* Settings */}
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
+
+        {/* TL Dashboard Routes */}
+        <Route
+          path="/tl/*"
+          element={
+            <RoleBasedRoute role="TL">
+              <TLDashboardLayout />
+            </RoleBasedRoute>
+          }
+        >
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<TLDashboard />} />
+          <Route path="team" element={<TeamManagement />} />
+          <Route path="leads" element={<LeadsManagement />} />
+          <Route path="performance" element={<TLPerformance />} />
+          <Route path="reports" element={<TLReports />} />
+          <Route path="assignments" element={<TLAssignments />} />
+          <Route path="approvals" element={<TLApprovals />} />
+          <Route path="notifications" element={<TLNotifications />} />
+          <Route path="wallet" element={<TLWallet />} />
+          <Route path="queries" element={<TLQueries />} />
+          <Route path="settings" element={<TLSettings />} />
+        </Route>
 
         {/* User Dashboard */}
         <Route
@@ -184,7 +220,7 @@ export default function AppRouter() {
           <Route path="query" element={<UserQueryForm darkMode={darkMode} />} />
         </Route>
 
-        {/* Fallback Route */}
+        {/* Fallback Route - Redirect to login if not authenticated */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

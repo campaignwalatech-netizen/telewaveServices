@@ -85,6 +85,28 @@ const requireAdmin = (req, res, next) => {
     next();
 };
 
+// Check if user is TL
+const requireTL = (req, res, next) => {
+    if (req.user.role !== 'TL') {
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
+            success: false,
+            message: 'Team Leader access required'
+        });
+    }
+    next();
+};
+
+// Check if user is admin or TL
+const requireAdminOrTL = (req, res, next) => {
+    if (!['admin', 'TL'].includes(req.user.role)) {
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
+            success: false,
+            message: 'Admin or Team Leader access required'
+        });
+    }
+    next();
+};
+
 // Check if user is verified
 const requireVerified = (req, res, next) => {
     if (!req.user.isVerified) {
@@ -94,6 +116,74 @@ const requireVerified = (req, res, next) => {
         });
     }
     next();
+};
+
+// Check TL permissions for team management
+const requireTLTeamAccess = async (req, res, next) => {
+    try {
+        if (req.user.role === 'admin') {
+            return next(); // Admin has full access
+        }
+
+        if (req.user.role !== 'TL') {
+            return res.status(HTTP_STATUS.FORBIDDEN).json({
+                success: false,
+                message: 'Team Leader access required for team management'
+            });
+        }
+
+        const { userId } = req.params;
+        
+        // TL can only manage their own team members
+        const isTeamMember = req.user.teamMembers.includes(userId);
+        
+        if (!isTeamMember && userId !== req.user._id.toString()) {
+            return res.status(HTTP_STATUS.FORBIDDEN).json({
+                success: false,
+                message: 'You can only manage your own team members'
+            });
+        }
+
+        next();
+    } catch (error) {
+        console.error('TL team access check error:', error);
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+            success: false,
+            message: 'Access check failed'
+        });
+    }
+};
+
+// Check lead assignment permissions
+const requireLeadAssignmentPermission = (req, res, next) => {
+    if (req.user.role === 'admin') {
+        return next(); // Admin has full access
+    }
+
+    if (req.user.role === 'TL' && req.user.tlDetails?.permissions?.assignLeads) {
+        return next(); // TL with assign permission
+    }
+
+    return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        message: 'Insufficient permissions to assign leads'
+    });
+};
+
+// Check lead approval permissions
+const requireLeadApprovalPermission = (req, res, next) => {
+    if (req.user.role === 'admin') {
+        return next(); // Admin has full access
+    }
+
+    if (req.user.role === 'TL' && req.user.tlDetails?.permissions?.approveLeads) {
+        return next(); // TL with approval permission
+    }
+
+    return res.status(HTTP_STATUS.FORBIDDEN).json({
+        success: false,
+        message: 'Insufficient permissions to approve leads'
+    });
 };
 
 // Optional authentication - doesn't fail if no token
@@ -121,6 +211,11 @@ const optionalAuth = async (req, res, next) => {
 module.exports = {
     authenticateToken,
     requireAdmin,
+    requireTL,
+    requireAdminOrTL,
     requireVerified,
+    requireTLTeamAccess,
+    requireLeadAssignmentPermission,
+    requireLeadApprovalPermission,
     optionalAuth
 };
