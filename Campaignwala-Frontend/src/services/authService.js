@@ -15,6 +15,48 @@ class AuthService {
    * @param {string} userData.phoneNumber - Phone number
    * @returns {Promise<Object>} - Registration response with OTP requirement
    */
+
+  async sendEmailOTP(purpose = 'verification') {
+    try {
+      const response = await api.post('/users/send-email-otp', { purpose });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Verify Email OTP
+   * @param {string} otp - OTP code to verify
+   * @returns {Promise<Object>} - Verification response
+   */
+  async verifyEmailOTP(otp) {
+    try {
+      const response = await api.post('/users/verify-email-otp', { otp });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Handle API errors consistently
+   * @param {Error} error - Axios error object
+   * @returns {Error} - Processed error
+   */
+  handleError(error) {
+    if (error.response) {
+      // Server responded with error status
+      const message = error.response.data?.message || 'Operation failed';
+      return new Error(message);
+    } else if (error.request) {
+      // Request made but no response received
+      return new Error('Network error. Please check your connection.');
+    } else {
+      // Something else happened
+      return new Error('An unexpected error occurred.');
+    }
+  }
   async register(userData) {
     try {
       console.log('📤 [AuthService] Sending registration data:', { 

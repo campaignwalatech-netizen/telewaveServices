@@ -183,7 +183,7 @@ const SharedOfferForm = ({ darkMode }) => {
           <h2 className={`text-2xl font-bold text-center px-6 pb-6 ${
             darkMode ? "text-white" : "text-gray-900"
           }`}>
-            {offer?.category}
+            {offer?.name || "Special Offer"}
           </h2>
 
           {/* Form Section */}
