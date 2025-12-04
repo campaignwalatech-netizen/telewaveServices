@@ -5,16 +5,16 @@ import api from './api';
  * Handles all user management API calls with comprehensive statistics
  */
 class UserService {
+  // ==================== USER MANAGEMENT ====================
+
   /**
-   * Get all users with filters and enhanced statistics
+   * Get all users with filters
    * @param {Object} params - Query parameters
    * @param {number} params.page - Page number
    * @param {number} params.limit - Items per page
    * @param {string} params.role - Filter by role
-   * @param {string} params.status - Filter by status (active, inactive, ex)
+   * @param {boolean} params.isVerified - Filter by verification status
    * @param {string} params.search - Search term
-   * @param {string} params.sort - Sort field
-   * @param {string} params.order - Sort order (asc/desc)
    * @returns {Promise<Object>} - Users list response
    */
   async getAllUsers(params = {}) {
@@ -25,6 +25,24 @@ class UserService {
       return response.data;
     } catch (error) {
       console.error('❌ userService.getAllUsers error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get users by status (for admin dashboard)
+   * @param {string} status - User status (active, inactive, hold, blocked, pending, ex)
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Object>} - Users list
+   */
+  async getUsersByStatus(status, params = {}) {
+    try {
+      console.log('🌐 userService.getUsersByStatus called with:', status, params);
+      const response = await api.get(`/users/admin/users/status/${status}`, { params });
+      console.log('✅ userService.getUsersByStatus response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getUsersByStatus error:', error);
       throw this.handleError(error);
     }
   }
@@ -47,7 +65,7 @@ class UserService {
   }
 
   /**
-   * Update user profile
+   * Update user profile (comprehensive update)
    * @param {string} userId - User ID
    * @param {Object} data - Updated user data
    * @returns {Promise<Object>} - Updated user
@@ -70,17 +88,124 @@ class UserService {
    * @param {string} role - New role (user/admin/TL)
    * @returns {Promise<Object>} - Updated user
    */
-  // async updateUserRole(userId, role) {
-  //   try {
-  //     console.log('🌐 userService.updateUserRole called with:', userId, role);
-  //     const response = await api.put(`/users/admin/users/${userId}/role`, { role });
-  //     console.log('✅ userService.updateUserRole response:', response.data);
-  //     return response.data;
-  //   } catch (error) {
-  //     console.error('❌ userService.updateUserRole error:', error);
-  //     throw this.handleError(error);
-  //   }
-  // }
+  async updateUserRole(userId, role) {
+    try {
+      console.log('🌐 userService.updateUserRole called with:', userId, role);
+      const response = await api.put(`/users/admin/users/${userId}/role`, { role });
+      console.log('✅ userService.updateUserRole response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.updateUserRole error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Update TL permissions
+   * @param {string} userId - User ID
+   * @param {Object} permissions - TL permissions object
+   * @returns {Promise<Object>} - Updated TL
+   */
+  async updateTLPermissions(userId, permissions) {
+    try {
+      console.log('🌐 userService.updateTLPermissions called with:', userId, permissions);
+      const response = await api.put(`/users/admin/users/${userId}/tl-permissions`, { permissions });
+      console.log('✅ userService.updateTLPermissions response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.updateTLPermissions error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Approve user registration
+   * @param {string} userId - User ID
+   * @returns {Promise<Object>} - Approval response
+   */
+  async approveUserRegistration(userId) {
+    try {
+      console.log('🌐 userService.approveUserRegistration called with:', userId);
+      const response = await api.post(`/users/admin/users/${userId}/approve`);
+      console.log('✅ userService.approveUserRegistration response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.approveUserRegistration error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Mark user as Hold
+   * @param {string} userId - User ID
+   * @param {Object} data - Hold data (reason, holdUntil)
+   * @returns {Promise<Object>} - Hold response
+   */
+  async markUserHold(userId, data) {
+    try {
+      console.log('🌐 userService.markUserHold called with:', userId, data);
+      const response = await api.post(`/users/admin/users/${userId}/hold`, data);
+      console.log('✅ userService.markUserHold response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.markUserHold error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Mark user as Active (from Hold)
+   * @param {string} userId - User ID
+   * @param {Object} data - Activation data (reason)
+   * @returns {Promise<Object>} - Activation response
+   */
+  async markUserActive(userId, data = {}) {
+    try {
+      console.log('🌐 userService.markUserActive called with:', userId, data);
+      const response = await api.post(`/users/admin/users/${userId}/active`, data);
+      console.log('✅ userService.markUserActive response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.markUserActive error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Block user
+   * @param {string} userId - User ID
+   * @param {Object} data - Block data (reason)
+   * @returns {Promise<Object>} - Block response
+   */
+  async blockUser(userId, data) {
+    try {
+      console.log('🌐 userService.blockUser called with:', userId, data);
+      const response = await api.post(`/users/admin/users/${userId}/block`, data);
+      console.log('✅ userService.blockUser response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.blockUser error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Change user role (User ↔ TL)
+   * @param {string} userId - User ID
+   * @param {Object} data - Role change data (newRole, reason)
+   * @returns {Promise<Object>} - Role change response
+   */
+  async changeUserRole(userId, data) {
+    try {
+      console.log('🌐 userService.changeUserRole called with:', userId, data);
+      const response = await api.post(`/users/admin/users/${userId}/change-role`, data);
+      console.log('✅ userService.changeUserRole response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.changeUserRole error:', error);
+      throw this.handleError(error);
+    }
+  }
 
   /**
    * Toggle user active status (Admin only)
@@ -95,23 +220,6 @@ class UserService {
       return response.data;
     } catch (error) {
       console.error('❌ userService.toggleUserStatus error:', error);
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Delete user (Admin only)
-   * @param {string} userId - User ID
-   * @returns {Promise<Object>} - Deletion confirmation
-   */
-  async deleteUser(userId) {
-    try {
-      console.log('🌐 userService.deleteUser called with:', userId);
-      const response = await api.delete(`/users/admin/users/${userId}`);
-      console.log('✅ userService.deleteUser response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('❌ userService.deleteUser error:', error);
       throw this.handleError(error);
     }
   }
@@ -134,6 +242,25 @@ class UserService {
   }
 
   /**
+   * Delete user (Admin only)
+   * @param {string} userId - User ID
+   * @returns {Promise<Object>} - Deletion confirmation
+   */
+  async deleteUser(userId) {
+    try {
+      console.log('🌐 userService.deleteUser called with:', userId);
+      const response = await api.delete(`/users/admin/users/${userId}`);
+      console.log('✅ userService.deleteUser response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.deleteUser error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  // ==================== USER STATISTICS ====================
+
+  /**
    * Get user statistics with leads and wallet data
    * @param {string} userId - User ID
    * @returns {Promise<Object>} - User stats
@@ -141,39 +268,9 @@ class UserService {
   async getUserStats(userId) {
     try {
       console.log('🌐 userService.getUserStats called with:', userId);
-      
-      // Fetch user details, leads, and wallet in parallel
-      const [userResponse, leadsResponse, walletResponse] = await Promise.all([
-        api.get(`/users/admin/users/${userId}`),
-        api.get(`/leads?hrUserId=${userId}`),
-        api.get(`/wallet/user/${userId}`)
-      ]);
-
-      const user = userResponse.data.data.user;
-      const leads = leadsResponse.data.data.leads || [];
-      const wallet = walletResponse.data.data || { balance: 0, totalEarned: 0, totalWithdrawn: 0 };
-
-      // Calculate lead statistics
-      const totalLeads = leads.length;
-      const completed = leads.filter(l => l.status === 'completed').length;
-      const pending = leads.filter(l => l.status === 'pending').length;
-      const rejected = leads.filter(l => l.status === 'rejected').length;
-      const approved = leads.filter(l => l.status === 'approved').length;
-
-      const stats = {
-        ...user,
-        totalLeads,
-        completedLeads: completed,
-        pendingLeads: pending,
-        rejectedLeads: rejected,
-        approvedLeads: approved,
-        totalEarnings: `₹${wallet.totalEarned?.toLocaleString('en-IN') || '0'}`,
-        currentBalance: `₹${wallet.balance?.toLocaleString('en-IN') || '0'}`,
-        wallet
-      };
-
-      console.log('✅ userService.getUserStats response:', stats);
-      return { success: true, data: stats };
+      const response = await api.get(`/users/admin/users/${userId}/stats`);
+      console.log('✅ userService.getUserStats response:', response.data);
+      return response.data;
     } catch (error) {
       console.error('❌ userService.getUserStats error:', error);
       throw this.handleError(error);
@@ -188,134 +285,173 @@ class UserService {
   async getAllUsersWithStats(params = {}) {
     try {
       console.log('🌐 userService.getAllUsersWithStats called with:', params);
-      
-      // Get all users
-      const usersResponse = await this.getAllUsers(params);
-      const users = usersResponse.data.users || [];
-
-      // Enhanced user data with statistics
-      const usersWithStats = await Promise.all(
-        users.map(async (user) => {
-          try {
-            // Get user statistics
-            const statsResponse = await this.getUserStats(user._id);
-            const stats = statsResponse.data;
-            
-            return {
-              _id: user._id,
-              id: user._id,
-              name: user.name || 'N/A',
-              email: user.email || 'N/A',
-              phoneNumber: user.phoneNumber || 'N/A',
-              role: user.role || 'user',
-              isActive: user.isActive,
-              isEx: user.isEx || false,
-              isVerified: user.isVerified,
-              kycDetails: user.kycDetails || {},
-              bankDetails: user.bankDetails || {},
-              statistics: user.statistics || {},
-              createdAt: user.createdAt,
-              lastActivity: user.lastActivity,
-              // Lead statistics
-              totalLeads: stats.totalLeads || 0,
-              completedLeads: stats.completedLeads || 0,
-              pendingLeads: stats.pendingLeads || 0,
-              rejectedLeads: stats.rejectedLeads || 0,
-              approvedLeads: stats.approvedLeads || 0,
-              // Financial statistics
-              totalEarnings: stats.totalEarnings || '₹0',
-              currentBalance: stats.currentBalance || '₹0',
-              // Additional fields for table
-              joinDate: new Date(user.createdAt).toLocaleDateString('en-IN'),
-              lastActive: user.lastActivity ? new Date(user.lastActivity).toLocaleDateString('en-IN') : 'Never'
-            };
-          } catch (error) {
-            console.error(`Error getting stats for user ${user._id}:`, error);
-            // Return user with default stats if there's an error
-            return {
-              _id: user._id,
-              id: user._id,
-              name: user.name || 'N/A',
-              email: user.email || 'N/A',
-              phoneNumber: user.phoneNumber || 'N/A',
-              role: user.role || 'user',
-              isActive: user.isActive,
-              isEx: user.isEx || false,
-              isVerified: user.isVerified,
-              kycDetails: user.kycDetails || {},
-              bankDetails: user.bankDetails || {},
-              statistics: user.statistics || {},
-              createdAt: user.createdAt,
-              lastActivity: user.lastActivity,
-              totalLeads: 0,
-              completedLeads: 0,
-              pendingLeads: 0,
-              rejectedLeads: 0,
-              approvedLeads: 0,
-              totalEarnings: '₹0',
-              currentBalance: '₹0',
-              joinDate: new Date(user.createdAt).toLocaleDateString('en-IN'),
-              lastActive: user.lastActivity ? new Date(user.lastActivity).toLocaleDateString('en-IN') : 'Never'
-            };
-          }
-        })
-      );
-
-      console.log('✅ userService.getAllUsersWithStats response:', usersWithStats);
-      return {
-        success: true,
-        data: {
-          users: usersWithStats,
-          pagination: usersResponse.data.pagination
-        }
-      };
+      const response = await api.get('/users/admin/users-with-stats', { params });
+      console.log('✅ userService.getAllUsersWithStats response:', response.data);
+      return response.data;
     } catch (error) {
       console.error('❌ userService.getAllUsersWithStats error:', error);
       throw this.handleError(error);
     }
   }
 
+  // ==================== ATTENDANCE MANAGEMENT ====================
+
   /**
-   * Get dashboard statistics
-   * @returns {Promise<Object>} - Dashboard stats
+   * Mark attendance (for regular users only)
+   * @param {Object} data - Attendance data (status)
+   * @returns {Promise<Object>} - Attendance response
    */
-  async getDashboardStats() {
+  async markAttendance(data = {}) {
     try {
-      console.log('🌐 userService.getDashboardStats called');
-      const response = await api.get('/users/admin/dashboard-stats');
-      console.log('✅ userService.getDashboardStats response:', response.data);
+      console.log('🌐 userService.markAttendance called with:', data);
+      const response = await api.post('/users/mark-attendance', data);
+      console.log('✅ userService.markAttendance response:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getDashboardStats error:', error);
+      console.error('❌ userService.markAttendance error:', error);
       throw this.handleError(error);
     }
   }
 
   /**
-   * Bulk upload users
-   * @param {File} file - Excel/CSV file
-   * @returns {Promise<Object>} - Upload result
+   * Get today's attendance
+   * @returns {Promise<Object>} - Today's attendance
    */
-  async bulkUploadUsers(file) {
+  async getTodayAttendance() {
     try {
-      console.log('🌐 userService.bulkUploadUsers called');
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const response = await api.post('/users/admin/bulk-upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      console.log('✅ userService.bulkUploadUsers response:', response.data);
+      console.log('🌐 userService.getTodayAttendance called');
+      const response = await api.get('/users/today-attendance');
+      console.log('✅ userService.getTodayAttendance response:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.bulkUploadUsers error:', error);
+      console.error('❌ userService.getTodayAttendance error:', error);
       throw this.handleError(error);
     }
   }
 
-  // ==================== KYC Methods ====================
+  /**
+   * Get attendance history
+   * @param {Object} params - Query parameters (startDate, endDate, limit)
+   * @returns {Promise<Object>} - Attendance history
+   */
+  async getAttendanceHistory(params = {}) {
+    try {
+      console.log('🌐 userService.getAttendanceHistory called with:', params);
+      const response = await api.get('/users/attendance-history', { params });
+      console.log('✅ userService.getAttendanceHistory response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getAttendanceHistory error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get attendance report (Admin only)
+   * @param {Object} params - Query parameters (startDate, endDate)
+   * @returns {Promise<Object>} - Attendance report
+   */
+  async getAttendanceReport(params = {}) {
+    try {
+      console.log('🌐 userService.getAttendanceReport called with:', params);
+      const response = await api.get('/users/admin/attendance/report', { params });
+      console.log('✅ userService.getAttendanceReport response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getAttendanceReport error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  // ==================== LEAD MANAGEMENT ====================
+
+  /**
+   * Distribute leads (Admin only)
+   * @param {Object} data - Distribution data
+   * @returns {Promise<Object>} - Distribution response
+   */
+  async distributeLeads(data) {
+    try {
+      console.log('🌐 userService.distributeLeads called with:', data);
+      const response = await api.post('/users/admin/leads/distribute', data);
+      console.log('✅ userService.distributeLeads response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.distributeLeads error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Withdraw leads from user (Admin only)
+   * @param {string} userId - User ID
+   * @param {Object} data - Withdrawal data (leadIds)
+   * @returns {Promise<Object>} - Withdrawal response
+   */
+  async withdrawLeads(userId, data) {
+    try {
+      console.log('🌐 userService.withdrawLeads called with:', userId, data);
+      const response = await api.post(`/users/admin/users/${userId}/withdraw-leads`, data);
+      console.log('✅ userService.withdrawLeads response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.withdrawLeads error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get user's today leads
+   * @returns {Promise<Object>} - Today's leads
+   */
+  async getUserTodaysLeads() {
+    try {
+      console.log('🌐 userService.getUserTodaysLeads called');
+      const response = await api.get('/users/my-leads/today');
+      console.log('✅ userService.getUserTodaysLeads response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getUserTodaysLeads error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Start working on a lead
+   * @param {string} leadId - Lead ID
+   * @returns {Promise<Object>} - Start response
+   */
+  async startLead(leadId) {
+    try {
+      console.log('🌐 userService.startLead called with:', leadId);
+      const response = await api.post(`/users/my-leads/${leadId}/start`);
+      console.log('✅ userService.startLead response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.startLead error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Complete a lead
+   * @param {string} leadId - Lead ID
+   * @param {Object} data - Completion data (remarks)
+   * @returns {Promise<Object>} - Completion response
+   */
+  async completeLead(leadId, data = {}) {
+    try {
+      console.log('🌐 userService.completeLead called with:', leadId, data);
+      const response = await api.post(`/users/my-leads/${leadId}/complete`, data);
+      console.log('✅ userService.completeLead response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.completeLead error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  // ==================== KYC MANAGEMENT ====================
 
   /**
    * Get user's KYC details
@@ -346,6 +482,39 @@ class UserService {
       return response.data;
     } catch (error) {
       console.error('❌ userService.updateKYCDetails error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Submit KYC for approval
+   * @param {Object} data - KYC data
+   * @returns {Promise<Object>} - Submission response
+   */
+  async submitKYC(data) {
+    try {
+      console.log('🌐 userService.submitKYC called with:', data);
+      const response = await api.post('/users/kyc/submit', data);
+      console.log('✅ userService.submitKYC response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.submitKYC error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Request KYC approval
+   * @returns {Promise<Object>} - Approval request response
+   */
+  async requestKYCApproval() {
+    try {
+      console.log('🌐 userService.requestKYCApproval called');
+      const response = await api.post('/users/kyc/request-approval');
+      console.log('✅ userService.requestKYCApproval response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.requestKYCApproval error:', error);
       throw this.handleError(error);
     }
   }
@@ -387,7 +556,7 @@ class UserService {
   /**
    * Approve KYC (Admin only)
    * @param {string} userId - User ID
-   * @param {Object} data - Approval data (optional remarks)
+   * @param {Object} data - Approval data (remarks)
    * @returns {Promise<Object>} - Approval confirmation
    */
   async approveKYC(userId, data = {}) {
@@ -405,7 +574,7 @@ class UserService {
   /**
    * Reject KYC (Admin only)
    * @param {string} userId - User ID
-   * @param {Object} data - Rejection data (reason required)
+   * @param {Object} data - Rejection data (reason)
    * @returns {Promise<Object>} - Rejection confirmation
    */
   async rejectKYC(userId, data) {
@@ -419,6 +588,210 @@ class UserService {
       throw this.handleError(error);
     }
   }
+
+  // ==================== WALLET MANAGEMENT ====================
+
+  /**
+   * Get wallet balance
+   * @returns {Promise<Object>} - Wallet balance
+   */
+  async getWalletBalance() {
+    try {
+      console.log('🌐 userService.getWalletBalance called');
+      const response = await api.get('/users/wallet');
+      console.log('✅ userService.getWalletBalance response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getWalletBalance error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  // ==================== QUERY MANAGEMENT ====================
+
+  /**
+   * Submit a query
+   * @param {Object} data - Query data (subject, message, category, priority)
+   * @returns {Promise<Object>} - Query submission response
+   */
+  async riseQuery(data) {
+    try {
+      console.log('🌐 userService.riseQuery called with:', data);
+      const response = await api.post('/users/queries', data);
+      console.log('✅ userService.riseQuery response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.riseQuery error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  // ==================== DASHBOARD & REPORTS ====================
+
+  /**
+   * Get dashboard statistics
+   * @returns {Promise<Object>} - Dashboard stats
+   */
+  async getDashboardStats() {
+    try {
+      console.log('🌐 userService.getDashboardStats called');
+      const response = await api.get('/users/admin/dashboard-stats');
+      console.log('✅ userService.getDashboardStats response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getDashboardStats error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Export users to Excel/JSON
+   * @param {Object} params - Export parameters (format)
+   * @returns {Promise<Blob>} - Export file
+   */
+  async exportUsers(params = {}) {
+    try {
+      console.log('🌐 userService.exportUsers called with:', params);
+      const response = await api.get('/users/admin/export-users', {
+        params,
+        responseType: 'blob'
+      });
+      console.log('✅ userService.exportUsers response received');
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.exportUsers error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  // ==================== BULK OPERATIONS ====================
+
+  /**
+   * Bulk upload users
+   * @param {File} file - Excel/CSV file
+   * @returns {Promise<Object>} - Upload result
+   */
+  async bulkUploadUsers(file) {
+    try {
+      console.log('🌐 userService.bulkUploadUsers called');
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await api.post('/users/admin/bulk-upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      console.log('✅ userService.bulkUploadUsers response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.bulkUploadUsers error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  // ==================== TL TEAM MANAGEMENT ====================
+
+  /**
+   * Get team members (for TL)
+   * @returns {Promise<Object>} - Team members
+   */
+  async getTeamMembers() {
+    try {
+      console.log('🌐 userService.getTeamMembers called');
+      const response = await api.get('/users/tl/team-members');
+      console.log('✅ userService.getTeamMembers response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getTeamMembers error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Add team member (for TL)
+   * @param {Object} data - Team member data (memberId)
+   * @returns {Promise<Object>} - Added member
+   */
+  async addTeamMember(data) {
+    try {
+      console.log('🌐 userService.addTeamMember called with:', data);
+      const response = await api.post('/users/tl/team-members', data);
+      console.log('✅ userService.addTeamMember response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.addTeamMember error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Remove team member (for TL)
+   * @param {string} memberId - Team member ID
+   * @returns {Promise<Object>} - Removal confirmation
+   */
+  async removeTeamMember(memberId) {
+    try {
+      console.log('🌐 userService.removeTeamMember called with:', memberId);
+      const response = await api.delete(`/users/tl/team-members/${memberId}`);
+      console.log('✅ userService.removeTeamMember response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.removeTeamMember error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get team performance (for TL)
+   * @returns {Promise<Object>} - Team performance
+   */
+  async getTeamPerformance() {
+    try {
+      console.log('🌐 userService.getTeamPerformance called');
+      const response = await api.get('/users/tl/team-performance');
+      console.log('✅ userService.getTeamPerformance response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getTeamPerformance error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get team attendance (for TL)
+   * @returns {Promise<Object>} - Team attendance
+   */
+  async getTeamAttendance() {
+    try {
+      console.log('🌐 userService.getTeamAttendance called');
+      const response = await api.get('/users/tl/team-attendance');
+      console.log('✅ userService.getTeamAttendance response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getTeamAttendance error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Distribute leads to team members (for TL)
+   * @param {Object} data - Distribution data (leadIds, memberId, dailyQuota)
+   * @returns {Promise<Object>} - Distribution response
+   */
+  async distributeLeadsToTeam(data) {
+    try {
+      console.log('🌐 userService.distributeLeadsToTeam called with:', data);
+      const response = await api.post('/users/tl/leads/distribute', data);
+      console.log('✅ userService.distributeLeadsToTeam response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.distributeLeadsToTeam error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  // ==================== ERROR HANDLING ====================
 
   /**
    * Handle API errors

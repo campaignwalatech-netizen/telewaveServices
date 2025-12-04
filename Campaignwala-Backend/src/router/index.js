@@ -4,10 +4,10 @@ const router = express.Router();
 // Import route modules
 const userRoutes = require('../modules/users/user.router');
 const dashboardRoutes = require('../modules/dashboard/dashboard.router'); // NEW
+const leadsRoutes = require('../modules/leads/leads.router');
 const categoryRoutes = require('../modules/categories/categories.router');
 const offerRoutes = require('../modules/offers/offers.router');
 const slideRoutes = require('../modules/slides/slides.router');
-const leadRoutes = require('../modules/leads/leads.router');
 const walletRoutes = require('../modules/wallet/wallet.router');
 const withdrawalRoutes = require('../modules/withdrawal/withdrawal.router');
 const notificationRoutes = require('../modules/notifications/notification.router');
@@ -39,10 +39,10 @@ router.get('/status', (req, res) => {
 // Mount route modules
 router.use('/users', userRoutes);
 router.use('/dashboard', dashboardRoutes); // NEW
+router.use('/leads', leadsRoutes);
 router.use('/categories', categoryRoutes);
 router.use('/offers', offerRoutes);
 router.use('/slides', slideRoutes);
-router.use('/leads', leadRoutes);
 router.use('/wallet', walletRoutes);
 router.use('/withdrawals', withdrawalRoutes);
 router.use('/notifications', notificationRoutes);

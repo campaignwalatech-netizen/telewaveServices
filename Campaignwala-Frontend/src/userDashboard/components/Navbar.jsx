@@ -1,81 +1,107 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Bell, Search, User, Menu, Sun, Moon, LogOut, MessageCircle } from "lucide-react";
+import { Bell, User, Menu, Sun, Moon, LogOut, MessageCircle, Wallet, CheckCircle2, XCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
+import walletService from "../../services/walletService"; // <-- Added
+import { useSelector } from "react-redux";
+import { selectUser } from "../../redux/slices/authSlice";
 
 const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
-  const [showSearch, setShowSearch] = useState(false);
+  const user = useSelector(selectUser);
+
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [userInitial, setUserInitial] = useState("");
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+
+  const [isPresent, setIsPresent] = useState(() => {
+    const savedStatus = localStorage.getItem("attendanceStatus");
+    return savedStatus === "present";
+  });
+
+  const [walletBalance, setWalletBalance] = useState(() => {
+    const savedBalance = localStorage.getItem("walletBalance");
+    return savedBalance ? parseFloat(savedBalance) : 0;
+  });
+
   const profileRef = useRef(null);
   const avatarRef = useRef(null);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
-  // Get user initial from localStorage on component mount
+  // ---------------------------
+  // GET USER INITIAL
+  // ---------------------------
   useEffect(() => {
     const getUserInitial = () => {
       try {
-        const userData = localStorage.getItem('user');
-        console.log('🟢 Raw user data from localStorage:', userData);
-        
-        if (userData && userData !== 'undefined' && userData !== 'null') {
-          const user = JSON.parse(userData);
-          console.log('🟢 Parsed user object:', user);
-          
-          // Get first letter - prioritize firstName, then name, then email
-          let name = '';
-          if (user.firstName && user.firstName.trim() !== '') {
-            name = user.firstName;
-          } else if (user.name && user.name.trim() !== '') {
-            name = user.name;
-          } else if (user.username && user.username.trim() !== '') {
-            name = user.username;
-          } else if (user.email && user.email.trim() !== '') {
-            name = user.email;
-          } else {
-            name = 'User';
-          }
-          
-          console.log('🟢 Selected name for initial:', name);
-          
-          const initial = name.charAt(0).toUpperCase();
-          console.log('🟢 Final initial to display:', initial);
-          setUserInitial(initial);
-        } else {
-          console.log('🟡 No user data found in localStorage');
-          setUserInitial('U');
+        const stored = localStorage.getItem("user");
+        if (!stored || stored === "undefined" || stored === "null") {
+          setUserInitial("U");
+          return;
         }
-      } catch (error) {
-        console.error('🔴 Error getting user initial:', error);
-        setUserInitial('U');
+
+        const userObj = JSON.parse(stored);
+        const name =
+          userObj.firstName ||
+          userObj.name ||
+          userObj.username ||
+          userObj.email ||
+          "User";
+
+        setUserInitial(name.charAt(0).toUpperCase());
+      } catch {
+        setUserInitial("U");
       }
     };
 
     getUserInitial();
   }, []);
 
-  // Update dropdown position when avatar is clicked
+  // ---------------------------
+  // FETCH LIVE WALLET BALANCE
+  // ---------------------------
+  useEffect(() => {
+    if (!user?._id) return;
+
+    const getBalance = async () => {
+      try {
+        const res = await walletService.getWalletByUserId(user._id);
+        if (res.success && res.data) {
+          const freshBalance = res.data.balance || 0;
+          setWalletBalance(freshBalance);
+          localStorage.setItem("walletBalance", freshBalance.toString());
+        }
+      } catch (err) {
+        console.error("Wallet fetch error:", err);
+      }
+    };
+
+    getBalance();
+  }, [user]);
+
+  // ---------------------------
+  // UPDATE DROPDOWN POSITION
+  // ---------------------------
   useEffect(() => {
     if (showProfileMenu && avatarRef.current) {
       const rect = avatarRef.current.getBoundingClientRect();
       setDropdownPosition({
         top: rect.bottom + 8,
-        right: window.innerWidth - rect.right - 10 // Adjusted for better positioning
+        right: window.innerWidth - rect.right - 10,
       });
     }
   }, [showProfileMenu]);
 
-  // Close dropdown when clicking outside
+  // ---------------------------
+  // CLOSE DROPDOWN ON OUTSIDE CLICK
+  // ---------------------------
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      // Check if click is outside both avatar and dropdown
+    const handleClickOutside = (e) => {
       if (
-        avatarRef.current && 
-        !avatarRef.current.contains(event.target) &&
-        dropdownRef.current && 
-        !dropdownRef.current.contains(event.target)
+        avatarRef.current &&
+        !avatarRef.current.contains(e.target) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target)
       ) {
         setShowProfileMenu(false);
       }
@@ -85,17 +111,34 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Handle dropdown menu item clicks
+  // ---------------------------
+  // ATTENDANCE TOGGLE
+  // ---------------------------
+  const handleAttendanceToggle = () => {
+    const newStatus = !isPresent;
+    setIsPresent(newStatus);
+    localStorage.setItem("attendanceStatus", newStatus ? "present" : "absent");
+  };
+
+  const formatWalletBalance = (amount) => {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: 2,
+    }).format(amount);
+  };
+
   const handleMenuClick = (path) => {
     setShowProfileMenu(false);
     navigate(path);
   };
 
-  // Logout handler
+  const handleWalletClick = () => navigate("/user/wallet-withdrawl");
+
   const handleLogout = () => {
     setShowProfileMenu(false);
     localStorage.clear();
-    navigate("/"); // logout redirect
+    navigate("/");
   };
 
   return (
@@ -105,113 +148,107 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
       }`}
       style={{ zIndex: 9999 }}
     >
-      <div className="flex items-center justify-between px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4 w-full max-w-[100vw] overflow-x-hidden">
-        {/* LEFT SECTION */}
-        <div className="flex items-center gap-1 sm:gap-3 md:gap-6 flex-shrink min-w-0">
-          {/* Sidebar Toggle (mobile) */}
+      <div className="flex items-center justify-between px-4 py-3 w-full max-w-[100vw] overflow-x-hidden">
+        
+        {/* LEFT */}
+        <div className="flex items-center gap-4">
+          {/* Menu toggle */}
           <button
-            className="lg:hidden p-1.5 sm:p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 transition flex-shrink-0"
+            className="lg:hidden p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700"
             onClick={toggleSidebar}
           >
-            <Menu
-              className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                darkMode ? "text-gray-300" : "text-gray-700"
-              }`}
-            />
+            <Menu className={`w-5 h-5 ${darkMode ? "text-gray-300" : "text-gray-700"}`} />
           </button>
 
-          {/* Brand Logo with Professional Styling */}
-          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 cursor-default select-none min-w-0">
-            {/* CW Logo SVG */}
-            <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 flex-shrink-0">
+          {/* LOGO */}
+          <div className="flex items-center gap-2 cursor-default select-none">
+            <div className="w-8 h-8">
               <svg viewBox="0 0 1189 1189" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <circle cx="594.5" cy="594.5" r="594.5" fill="#000000"/>
-                <circle cx="594.5" cy="594.5" r="534.5" fill="none" stroke="#ffffff" strokeWidth="40"/>
-                <circle cx="594.5" cy="594.5" r="474.5" fill="none" stroke="#ffffff" strokeWidth="40"/>
-                <text x="594.5" y="700" fontFamily="Georgia, serif" fontSize="380" fill="#ffffff" textAnchor="middle" fontWeight="bold">CW</text>
+                <circle cx="594.5" cy="594.5" r="594.5" fill="#000"/>
+                <circle cx="594.5" cy="594.5" r="534.5" fill="none" stroke="#fff" strokeWidth="40"/>
+                <circle cx="594.5" cy="594.5" r="474.5" fill="none" stroke="#fff" strokeWidth="40"/>
+                <text x="594.5" y="700" fontFamily="Georgia" fontSize="380" fill="#fff" textAnchor="middle" fontWeight="bold">CW</text>
               </svg>
             </div>
-            <div className="flex flex-col leading-tight min-w-0">
-              <h1
-                className={`text-sm sm:text-base md:text-lg lg:text-xl font-bold tracking-tight truncate ${
-                  darkMode ? "text-white" : "text-gray-900"
-                }`}
-                style={{ fontFamily: "'Poppins', 'SF Pro Display', -apple-system, sans-serif", letterSpacing: '0.02em' }}
-              >
-                Campaign<span className="text-black font-bold">wala</span>
-              </h1>
-              <span className={`text-[9px] sm:text-[10px] md:text-xs font-medium tracking-wider uppercase ${
-                darkMode ? "text-gray-400" : "text-gray-500"
-              }`}>
-              
-              </span>
-            </div>
+            <h1 className={`text-lg font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>
+              Campaign<span className="text-black">wala</span>
+            </h1>
           </div>
         </div>
 
-        {/* RIGHT SECTION */}
-        <div className="flex items-center gap-1 sm:gap-2 md:gap-4 relative flex-shrink-0">
-          {/* Search (Desktop) */}
-          <div className="relative hidden md:block">
-            <input
-              type="text"
-              placeholder="Search offers, leads, or profile..."
-              className={`w-48 sm:w-64 lg:w-80 pl-10 pr-4 py-2 border rounded-md text-sm focus:outline-none transition-all ${
-                darkMode
-                  ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                  : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
-              }`}
-            />
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-          </div>
+        {/* RIGHT */}
+        <div className="flex items-center gap-4">
 
-          {/* Mobile Search Icon */}
+          {/* STRONGER ATTENDANCE BUTTON */}
           <button
-            className="block md:hidden p-1.5 sm:p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 flex-shrink-0"
-            onClick={() => setShowSearch(!showSearch)}
+            onClick={handleAttendanceToggle}
+            className={`px-4 py-1.5 rounded-full flex items-center gap-2 font-semibold shadow-md transition-all border ${
+              isPresent
+                ? darkMode
+                  ? "bg-green-900 border-green-700 text-gray-200 hover:bg-green-800"
+                  : "bg-green-900 border-green-400 text-gray-100 hover:bg-green-800"
+                : darkMode
+                ? "bg-red-900 border-red-700 text-gray-100 hover:bg-red-800"
+                : "bg-red-900 border-red-400 text-gray-100 hover:bg-red-800"
+            }`}
           >
-            <Search
-              className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                darkMode ? "text-gray-300" : "text-gray-700"
+            <span
+              className={`w-3 h-3 rounded-full animate-pulse ${
+                isPresent ? "bg-green-500" : "bg-red-500"
               }`}
-            />
+            ></span>
+
+            {isPresent ? (
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                Present
+              </>
+            ) : (
+              <>
+                <XCircle className="w-4 h-4" />
+                Absent
+              </>
+            )}
           </button>
 
-          {/* Theme Toggle */}
+          {/* WALLET */}
+          <button
+            onClick={handleWalletClick}
+            className={`px-3 py-1.5 rounded-md flex items-center gap-2 hover:scale-105 transition ${
+              darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-800"
+            }`}
+          >
+            <Wallet className="w-4 h-4" />
+            <span className="font-semibold">{formatWalletBalance(walletBalance)}</span>
+          </button>
+
+          {/* THEME TOGGLE */}
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className={`p-1.5 sm:p-2 rounded-md border transition-all flex-shrink-0 ${
-              darkMode
-                ? "bg-gray-700 border-gray-600 text-yellow-400 hover:bg-gray-600"
-                : "bg-white border-gray-300 text-gray-700 hover:bg-gray-100"
+            className={`p-2 rounded-md border ${
+              darkMode ? "bg-gray-700 border-gray-600 text-yellow-400" : "bg-white border-gray-300"
             }`}
-            title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
           >
-            {darkMode ? <Sun className="w-4 h-4 sm:w-5 sm:h-5" /> : <Moon className="w-4 h-4 sm:w-5 sm:h-5" />}
+            {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
 
-          {/* Notifications */}
+          {/* NOTIFICATIONS */}
           <button
             onClick={() => navigate("/user/notification-page")}
-            className={`relative p-1.5 sm:p-2 rounded-full transition-all flex-shrink-0 ${
+            className={`relative p-2 rounded-full ${
               darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
             }`}
-            title="Notifications"
           >
-            <Bell
-              className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                darkMode ? "text-gray-300" : "text-gray-600"
-              }`}
-            />
-            <span className="absolute top-0.5 right-0.5 sm:top-1 sm:right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            <Bell className={darkMode ? "text-gray-300" : "text-gray-600"} />
+            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
           </button>
 
-          {/* Profile Avatar with Dropdown */}
-          <div className="flex-shrink-0" ref={profileRef}>
+          {/* PROFILE ICON */}
+          <div ref={profileRef}>
             <div
               ref={avatarRef}
-              className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 bg-gradient-to-r from-orange-400 to-red-400 rounded-full flex items-center justify-center cursor-pointer hover:scale-105 transition-transform font-semibold text-white text-xs sm:text-sm md:text-base"
               onClick={() => setShowProfileMenu(!showProfileMenu)}
+              className="w-9 h-9 bg-gradient-to-r from-orange-400 to-red-400 rounded-full flex items-center justify-center cursor-pointer text-white font-bold hover:scale-105 transition"
             >
               {userInitial}
             </div>
@@ -219,80 +256,64 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
         </div>
       </div>
 
-      {/* Mobile Search Dropdown */}
-      {showSearch && (
-        <div className="p-3 border-t md:hidden">
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search..."
-              className={`w-full pl-10 pr-4 py-2 border rounded-md text-sm focus:outline-none transition-all ${
-                darkMode
-                  ? "bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                  : "bg-white border-gray-300 text-gray-900 placeholder-gray-500"
+      {/* DROPDOWN */}
+      {showProfileMenu &&
+        createPortal(
+          <div
+            ref={dropdownRef}
+            className={`rounded-md shadow-lg border py-1 ${
+              darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
+            }`}
+            style={{
+              position: "fixed",
+              top: `${dropdownPosition.top}px`,
+              right: `${dropdownPosition.right}px`,
+              width: "12rem",
+              zIndex: 100000,
+              animation: "fadeIn 0.2s ease-in-out",
+            }}
+          >
+            <button
+              onClick={() => handleMenuClick("/user/profile-overview")}
+              className={`flex items-center gap-2 px-4 py-2 text-sm w-full ${
+                darkMode ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-100 text-gray-700"
               }`}
-            />
-          </div>
-        </div>
-      )}
+            >
+              <User className="w-4 h-4" /> Profile
+            </button>
 
-      {/* Dropdown Menu - Rendered via Portal */}
-      {showProfileMenu && createPortal(
-        <div
-          ref={dropdownRef}
-          className={`rounded-md shadow-lg border py-1 ${
-            darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
-          }`}
-          style={{ 
-            position: 'fixed',
-            top: `${dropdownPosition.top}px`,
-            right: `${dropdownPosition.right}px`,
-            width: '12rem',
-            zIndex: 100000,
-            animation: 'fadeIn 0.2s ease-in-out'
-          }}
-        >
-          {/* Profile Button */}
-          <button
-            onClick={() => handleMenuClick("/user/profile-overview")}
-            className={`flex items-center gap-2 w-full text-left px-4 py-2 text-sm transition-colors ${
-              darkMode
-                ? "text-gray-300 hover:bg-gray-700"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <User className="w-4 h-4" /> Profile
-          </button>
+            <button
+              onClick={() => handleMenuClick("/user/query")}
+              className={`flex items-center gap-2 px-4 py-2 text-sm w-full ${
+                darkMode ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-100 text-gray-700"
+              }`}
+            >
+              <MessageCircle className="w-4 h-4" /> User Query
+            </button>
 
-          {/* User Query Button */}
-          <button
-            onClick={() => handleMenuClick("/user/query")}
-            className={`flex items-center gap-2 w-full text-left px-4 py-2 text-sm transition-colors ${
-              darkMode
-                ? "text-gray-300 hover:bg-gray-700"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <MessageCircle className="w-4 h-4" /> User Query
-          </button>
+            <button
+              onClick={() => handleMenuClick("/user/wallet-withdrawl")}
+              className={`flex items-center gap-2 px-4 py-2 text-sm w-full ${
+                darkMode ? "hover:bg-gray-700 text-gray-300" : "hover:bg-gray-100 text-gray-700"
+              }`}
+            >
+              <Wallet className="w-4 h-4" /> Wallet
+            </button>
 
-          {/* Logout Button */}
-          <button
-            onClick={handleLogout}
-            className={`flex items-center gap-2 w-full text-left px-4 py-2 text-sm transition-colors ${
-              darkMode
-                ? "text-gray-300 hover:bg-gray-700"
-                : "text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <LogOut className="w-4 h-4" /> Logout
-          </button>
-        </div>,
-        document.body
-      )}
+            <button
+              onClick={handleLogout}
+              className={`flex items-center gap-2 px-4 py-2 text-sm w-full border-t ${
+                darkMode
+                  ? "text-gray-300 hover:bg-gray-700 border-gray-700"
+                  : "text-gray-700 hover:bg-gray-100 border-gray-200"
+              }`}
+            >
+              <LogOut className="w-4 h-4" /> Logout
+            </button>
+          </div>,
+          document.body
+        )}
 
-      {/* Add fade-in animation */}
       <style jsx>{`
         @keyframes fadeIn {
           from {

@@ -1,8 +1,11 @@
 const Lead = require('./leads.model');
 const Offer = require('../offers/offers.model');
-const User = require('../users/user.model'); // Import User model
-const Wallet = require('../wallet/wallet.model'); // Import Wallet model
+const User = require('../users/user.model');
+const Wallet = require('../wallet/wallet.model');
 const { parseExcelFile, deleteFile, validateRequiredFields } = require('../../utils/excelParser');
+const ExcelJS = require('exceljs');
+
+// ==================== ORIGINAL FUNCTIONS (Maintenance) ====================
 
 // Get all leads with filters
 const getAllLeads = async (req, res) => {
@@ -444,8 +447,6 @@ const getLeadAnalytics = async (req, res) => {
     ]);
     console.log('📊 [ANALYTICS] Approved by category count:', approvedByCategory.length);
 
-    console.log('📊 [ANALYTICS] Approved by category count:', approvedByCategory.length);
-
     // Get user-wise stats
     console.log('📊 [ANALYTICS] Fetching user-wise stats...');
     const userStats = await Lead.aggregate([
@@ -528,7 +529,6 @@ const getLeadAnalytics = async (req, res) => {
     console.log('📊 [ANALYTICS] Sending response with metrics:', responseData.data.metrics);
     console.log('📊 [ANALYTICS] Response sent successfully ✅');
 
-    res.status(200).json(responseData);
     res.status(200).json(responseData);
   } catch (error) {
     console.error('❌ [ANALYTICS] Error fetching analytics:', error);
@@ -704,9 +704,7 @@ const rejectLead = async (req, res) => {
   }
 };
 
-/**
- * Bulk upload leads from Excel/CSV file
- */
+// Bulk upload leads from Excel/CSV file
 const bulkUploadLeads = async (req, res) => {
   let filePath = null;
   
@@ -822,16 +820,545 @@ const bulkUploadLeads = async (req, res) => {
   }
 };
 
+// ==================== ADMIN LEAD DISTRIBUTION METHODS ====================
+
+// Get users for lead distribution (with filters)
+const getUsersForDistribution = async (req, res) => {
+  try {
+    const { distributionType } = req.query;
+    
+    let users = [];
+    let query = { role: 'user', status: 'active', isActive: true, isEx: false };
+
+    switch(distributionType) {
+      case 'all_active':
+        // All active users
+        users = await User.find(query)
+          .select('_id name email phoneNumber statistics attendance.todayStatus')
+          .sort({ name: 1 });
+        break;
+
+      case 'present_today':
+        // Users present today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        query['attendance.todayStatus'] = 'present';
+        query['attendance.todayMarkedAt'] = { $gte: today };
+        
+        users = await User.find(query)
+          .select('_id name email phoneNumber statistics attendance.todayStatus attendance.todayMarkedAt')
+          .sort({ name: 1 });
+        break;
+
+      case 'without_leads_today':
+        // Users who haven't received leads today
+        const todayDate = new Date();
+        todayDate.setHours(0, 0, 0, 0);
+        
+        query.$or = [
+          { 'leadDistribution.lastLeadDistributionDate': { $lt: todayDate } },
+          { 'leadDistribution.lastLeadDistributionDate': { $exists: false } }
+        ];
+        
+        users = await User.find(query)
+          .select('_id name email phoneNumber statistics leadDistribution.lastLeadDistributionDate')
+          .sort({ name: 1 });
+        break;
+
+      default:
+        // All users for dropdown
+        users = await User.find({ role: 'user' })
+          .select('_id name email phoneNumber')
+          .sort({ name: 1 });
+    }
+
+    // Add lead distribution eligibility info
+    const usersWithInfo = users.map(user => {
+      const userObj = user.toObject();
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const canReceiveLeads = 
+        user.status === 'active' &&
+        user.isActive === true &&
+        user.isEx === false &&
+        (user.role === 'user' ? 
+          (user.attendance?.todayStatus === 'present' && 
+           new Date(user.attendance?.todayMarkedAt || 0) >= today) : 
+          true) &&
+        (!user.leadDistribution?.lastLeadDistributionDate || 
+         new Date(user.leadDistribution.lastLeadDistributionDate) < today);
+
+      return {
+        ...userObj,
+        canReceiveLeads,
+        lastLeadDistribution: user.leadDistribution?.lastLeadDistributionDate || null,
+        todaysLeadCount: user.leadDistribution?.todaysLeadCount || 0,
+        attendanceStatus: user.attendance?.todayStatus || 'absent'
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Users for distribution retrieved successfully',
+      data: {
+        users: usersWithInfo,
+        totalCount: usersWithInfo.length,
+        distributionType
+      }
+    });
+
+  } catch (error) {
+    console.error('Get users for distribution error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get users for distribution',
+      error: error.message
+    });
+  }
+};
+
+// Get Team Leaders for distribution
+const getTeamLeadersForDistribution = async (req, res) => {
+  try {
+    const teamLeaders = await User.find({ 
+      role: 'TL', 
+      status: 'active',
+      isActive: true 
+    })
+    .select('_id name email phoneNumber tlDetails teamMembers')
+    .populate('teamMembers', 'name email')
+    .sort({ name: 1 });
+
+    res.status(200).json({
+      success: true,
+      message: 'Team Leaders retrieved successfully',
+      data: {
+        teamLeaders,
+        totalCount: teamLeaders.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Get Team Leaders error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get Team Leaders',
+      error: error.message
+    });
+  }
+};
+
+// Get leads available for distribution
+const getLeadsForDistribution = async (req, res) => {
+  try {
+    const { status = 'pending', page = 1, limit = 50 } = req.query;
+
+    // Find leads that are not assigned yet
+    const query = {
+      status: status,
+      assignedTo: { $exists: false }
+    };
+
+    const leads = await Lead.find(query)
+      .populate('offerId', 'name category image')
+      .populate('hrUserId', 'name email')
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 });
+
+    const total = await Lead.countDocuments(query);
+
+    res.status(200).json({
+      success: true,
+      message: 'Leads for distribution retrieved successfully',
+      data: {
+        leads,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(total / limit)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get leads for distribution error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get leads for distribution',
+      error: error.message
+    });
+  }
+};
+
+// ==================== USER LEAD METHODS ====================
+
+// User: Get lead statistics
+const getUserLeadStats = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Today's leads
+    const todaysLeads = await Lead.countDocuments({
+      assignedTo: userId,
+      assignedAt: { $gte: today },
+      isTodayLead: true
+    });
+
+    // Yesterday's pending leads
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setHours(0, 0, 0, 0);
+
+    const yesterdaysPending = await Lead.countDocuments({
+      assignedTo: userId,
+      assignedAt: { $gte: yesterday, $lt: today },
+      status: { $in: ['assigned', 'in_progress'] },
+      isYesterdayPending: true
+    });
+
+    // Completed leads
+    const completedLeads = await Lead.countDocuments({
+      assignedTo: userId,
+      status: 'completed'
+    });
+
+    // In progress leads
+    const inProgressLeads = await Lead.countDocuments({
+      assignedTo: userId,
+      status: 'in_progress'
+    });
+
+    // Total earnings from completed leads
+    const earningsAggregation = await Lead.aggregate([
+      {
+        $match: {
+          assignedTo: userId,
+          status: 'completed'
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          totalEarnings: { $sum: { $add: ['$commission1', '$commission2'] } }
+        }
+      }
+    ]);
+
+    const totalEarnings = earningsAggregation[0]?.totalEarnings || 0;
+
+    // Get user's lead distribution info
+    const user = await User.findById(userId).select('leadDistribution');
+
+    res.status(200).json({
+      success: true,
+      message: 'User lead statistics retrieved successfully',
+      data: {
+        todaysLeads,
+        yesterdaysPending,
+        completedLeads,
+        inProgressLeads,
+        totalEarnings,
+        leadDistribution: {
+          todaysCount: user?.leadDistribution?.todaysLeadCount || 0,
+          todaysCompleted: user?.leadDistribution?.todaysCompletedLeads || 0,
+          todaysPending: user?.leadDistribution?.todaysPendingLeads || 0,
+          dailyQuota: user?.leadDistribution?.dailyLeadQuota || 0
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get user lead stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get user lead statistics',
+      error: error.message
+    });
+  }
+};
+
+// User: Get lead details
+const getUserLeadDetails = async (req, res) => {
+  try {
+    const { leadId } = req.params;
+    const userId = req.user._id;
+
+    const lead = await Lead.findOne({
+      _id: leadId,
+      assignedTo: userId
+    })
+    .populate('offerId', 'name category description termsAndConditions image videoLink')
+    .populate('hrUserId', 'name email phoneNumber');
+
+    if (!lead) {
+      return res.status(404).json({
+        success: false,
+        message: 'Lead not found or you are not assigned to this lead'
+      });
+    }
+
+    // Format lead data for user
+    const leadData = {
+      leadId: lead.leadId,
+      offerName: lead.offerName,
+      category: lead.category,
+      customerName: lead.customerName,
+      customerContact: lead.customerContact,
+      status: lead.status,
+      assignedAt: lead.assignedAt,
+      startedAt: lead.startedAt,
+      completedAt: lead.completedAt,
+      timeSpent: lead.timeSpent,
+      remarks: lead.remarks,
+      isTodayLead: lead.isTodayLead,
+      isYesterdayPending: lead.isYesterdayPending,
+      offerDetails: lead.offerId ? {
+        name: lead.offerId.name,
+        category: lead.offerId.category,
+        description: lead.offerId.description,
+        termsAndConditions: lead.offerId.termsAndConditions,
+        image: lead.offerId.image,
+        videoLink: lead.offerId.videoLink
+      } : null,
+      hrDetails: lead.hrUserId ? {
+        name: lead.hrUserId.name,
+        email: lead.hrUserId.email,
+        phone: lead.hrUserId.phoneNumber
+      } : null
+    };
+
+    res.status(200).json({
+      success: true,
+      message: 'Lead details retrieved successfully',
+      data: leadData
+    });
+
+  } catch (error) {
+    console.error('Get user lead details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get lead details',
+      error: error.message
+    });
+  }
+};
+
+// ==================== TL LEAD MANAGEMENT ====================
+
+// TL: Get team leads
+const getTeamLeads = async (req, res) => {
+  try {
+    const tlId = req.user._id;
+    const { status, memberId, page = 1, limit = 20 } = req.query;
+
+    const tl = await User.findById(tlId);
+    if (!tl || tl.role !== 'TL') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only Team Leaders can access team leads'
+      });
+    }
+
+    // Build query for team leads
+    let query = { assignedTo: { $in: tl.teamMembers } };
+
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    if (memberId) {
+      // Check if member is in TL's team
+      if (!tl.teamMembers.includes(memberId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'User is not in your team'
+        });
+      }
+      query.assignedTo = memberId;
+    }
+
+    const leads = await Lead.find(query)
+      .populate('offerId', 'name category image')
+      .populate('assignedTo', 'name email phoneNumber')
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ assignedAt: -1 });
+
+    const total = await Lead.countDocuments(query);
+
+    // Get team statistics
+    const teamStats = await Lead.aggregate([
+      { $match: { assignedTo: { $in: tl.teamMembers } } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+          totalCommission: { $sum: { $add: ['$commission1', '$commission2'] } }
+        }
+      }
+    ]);
+
+    const stats = {
+      total: 0,
+      assigned: 0,
+      in_progress: 0,
+      completed: 0,
+      totalCommission: 0
+    };
+
+    teamStats.forEach(stat => {
+      stats[stat._id] = stat.count;
+      stats.total += stat.count;
+      stats.totalCommission += stat.totalCommission || 0;
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Team leads retrieved successfully',
+      data: {
+        leads,
+        stats,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(total / limit)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get team leads error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get team leads',
+      error: error.message
+    });
+  }
+};
+
+// ==================== ADMIN LEAD REPORTS ====================
+
+// Get lead distribution report
+const getLeadDistributionReport = async (req, res) => {
+  try {
+    const { startDate, endDate, distributionType } = req.query;
+
+    const filter = {};
+    
+    if (startDate && endDate) {
+      filter.assignedAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    if (distributionType && distributionType !== 'all') {
+      filter.distributionGroup = distributionType;
+    }
+
+    const report = await Lead.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: {
+            date: { $dateToString: { format: "%Y-%m-%d", date: "$assignedAt" } },
+            distributionGroup: '$distributionGroup',
+            assignedByName: '$assignedByName'
+          },
+          totalLeads: { $sum: 1 },
+          uniqueUsers: { $addToSet: "$assignedTo" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          date: '$_id.date',
+          distributionGroup: '$_id.distributionGroup',
+          assignedBy: '$_id.assignedByName',
+          totalLeads: 1,
+          uniqueUsersCount: { $size: '$uniqueUsers' }
+        }
+      },
+      { $sort: { date: -1 } }
+    ]);
+
+    // Summary statistics
+    const summary = await Lead.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: '$distributionGroup',
+          totalLeads: { $sum: 1 },
+          totalUsers: { $addToSet: "$assignedTo" }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          distributionGroup: '$_id',
+          totalLeads: 1,
+          totalUsers: { $size: '$totalUsers' }
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: 'Lead distribution report retrieved successfully',
+      data: {
+        report,
+        summary,
+        dateRange: {
+          startDate: startDate || 'All time',
+          endDate: endDate || 'All time'
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get lead distribution report error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get lead distribution report',
+      error: error.message
+    });
+  }
+};
+
+// ==================== EXPORT ALL FUNCTIONS ====================
+
 module.exports = {
+  // ========== Original Functions ==========
   getAllLeads,
   getLeadById,
   createLead,
   updateLeadStatus,
   deleteLead,
   getLeadStats,
-  approveLead,
-  rejectLead,
   getLeadAnalytics,
   getAllUsers,
-  bulkUploadLeads
+  approveLead,
+  rejectLead,
+  bulkUploadLeads,
+  
+  // ========== Admin Lead Distribution Functions ==========
+  getUsersForDistribution,
+  getTeamLeadersForDistribution,
+  getLeadsForDistribution,
+  getLeadDistributionReport,
+  
+  // ========== User Lead Functions ==========
+  getUserLeadStats,
+  getUserLeadDetails,
+  
+  // ========== TL Lead Functions ==========
+  getTeamLeads
 };

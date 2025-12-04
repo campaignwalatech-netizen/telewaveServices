@@ -13,6 +13,8 @@ const generateToken = (userId) => {
     });
 };
 
+// ==================== AUTHENTICATION FUNCTIONS ====================
+
 // Legacy function - kept for backward compatibility
 const sendOTP = async (req, res) => {
     try {
@@ -770,6 +772,172 @@ const logout = async (req, res) => {
     }
 };
 
+// ==================== ATTENDANCE FUNCTIONS ====================
+
+const markAttendance = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        // Check if user is TL or Admin (they don't mark attendance)
+        if (req.user.role !== 'user') {
+            return res.status(400).json({
+                success: false,
+                message: 'Attendance marking is only for regular users'
+            });
+        }
+        
+        const { status = 'present' } = req.body;
+        
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Mark attendance
+        const result = user.markAttendance(status, {
+            markedBy: userId,
+            ipAddress: req.ip,
+            deviceInfo: req.headers['user-agent'],
+            notes: 'Marked via web dashboard'
+        });
+        
+        await user.save();
+        
+        res.status(200).json({
+            success: true,
+            data: result,
+            message: 'Attendance marked successfully'
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Get today's attendance
+const getTodayAttendance = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        const user = await User.findById(userId).select('attendance');
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                todayStatus: user.attendance.todayStatus || 'absent',
+                todayMarkedAt: user.attendance.todayMarkedAt,
+                streak: user.attendance.streak || 0,
+                monthlyStats: user.attendance.monthlyStats || { present: 0, absent: 0, late: 0 }
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Get attendance history
+const getAttendanceHistory = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { startDate, endDate, limit = 30 } = req.query;
+        
+        const user = await User.findById(userId).select('attendance.history');
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        let history = user.attendance.history || [];
+        
+        // Filter by date range if provided
+        if (startDate && endDate) {
+            const start = new Date(startDate);
+            const end = new Date(endDate);
+            history = history.filter(record => {
+                const recordDate = new Date(record.date);
+                return recordDate >= start && recordDate <= end;
+            });
+        }
+        
+        // Sort by date descending and limit
+        history.sort((a, b) => new Date(b.date) - new Date(a.date));
+        history = history.slice(0, parseInt(limit));
+        
+        res.status(200).json({
+            success: true,
+            data: history,
+            count: history.length
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+// Get attendance report for admin and TL
+const getAttendanceReport = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        const query = {};
+
+        if (startDate && endDate) {
+            query['attendance.history.date'] = {
+                $gte: new Date(startDate),
+                $lte: new Date(endDate)
+            };
+        }
+        const users = await User.find(query).select('name email attendance');
+
+        res.status(200).json({
+            success: true,
+            data: users
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get attendance report'
+        });
+    }
+};
+
+// Get team attendance for TL
+const getTeamAttendance = async (req, res) => {
+    try {
+        const tlId = req.user._id;
+        const teamMembers = await User.find({ reportingTo: tlId, role: 'user' }).select('name email attendance');
+
+        res.status(200).json({
+            success: true,
+            data: teamMembers
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get team attendance'
+        });
+    }
+};
+
+// ==================== PROFILE MANAGEMENT ====================
+
 // Get current user profile
 const getProfile = async (req, res) => {
     try {
@@ -1029,6 +1197,8 @@ const verifyEmailOTP = async (req, res) => {
     }
 };
 
+// ==================== ADMIN USER MANAGEMENT ====================
+
 // Admin: Get all users
 const getAllUsers = async (req, res) => {
     try {
@@ -1219,6 +1389,354 @@ const updateTLPermissions = async (req, res) => {
         });
     }
 };
+
+// Admin: Toggle user active status
+const toggleUserStatus = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        user.isActive = !user.isActive;
+        await user.save();
+
+        res.json({
+            success: true,
+            message: `User ${user.isActive ? 'activated' : 'deactivated'} successfully`,
+            data: { user: user.toJSON() }
+        });
+
+    } catch (error) {
+        console.error('Toggle user status error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update user status'
+        });
+    }
+};
+
+// Admin: Mark user as Ex
+const markUserAsEx = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Mark user as Ex (inactive + isEx flag)
+        user.isActive = false;
+        user.isEx = true;
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'User marked as Ex successfully',
+            data: { user: user.toJSON() }
+        });
+
+    } catch (error) {
+        console.error('Mark user as Ex error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to mark user as Ex'
+        });
+    }
+};
+
+// Admin: Delete user
+const deleteUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const user = await User.findByIdAndDelete(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'User deleted successfully'
+        });
+
+    } catch (error) {
+        console.error('Delete user error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete user'
+        });
+    }
+};
+
+// Approve user registration
+const approveUserRegistration = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const adminId = req.user._id;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        if (user.status !== 'pending_approval') {
+            return res.status(400).json({
+                success: false,
+                message: `User is already ${user.status}`
+            });
+        }
+
+        // Approve user
+        user.approveUser(adminId);
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'User approved successfully',
+            data: { user: user.toJSON() }
+        });
+
+    } catch (error) {
+        console.error('Approve user error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to approve user'
+        });
+    }
+};
+
+// Mark user as Hold
+const markUserHold = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const adminId = req.user._id;
+        const { reason, holdUntil } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        user.markHold(adminId, reason, holdUntil ? new Date(holdUntil) : null);
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'User marked as Hold',
+            data: { user: user.toJSON() }
+        });
+
+    } catch (error) {
+        console.error('Mark user hold error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to mark user as Hold'
+        });
+    }
+};
+
+// Mark user as Active (from Hold)
+const markUserActive = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const adminId = req.user._id;
+        const { reason } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        if (user.status !== 'hold') {
+            return res.status(400).json({
+                success: false,
+                message: `User is not on Hold. Current status: ${user.status}`
+            });
+        }
+
+        user.markActive(adminId, reason);
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'User marked as Active',
+            data: { user: user.toJSON() }
+        });
+
+    } catch (error) {
+        console.error('Mark user active error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to mark user as Active'
+        });
+    }
+};
+
+// Block user
+const blockUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const adminId = req.user._id;
+        const { reason } = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        user.blockUser(adminId, reason);
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'User blocked successfully',
+            data: { user: user.toJSON() }
+        });
+
+    } catch (error) {
+        console.error('Block user error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to block user'
+        });
+    }
+};
+
+// Change user role (User ↔ TL)
+const changeUserRole = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const adminId = req.user._id;
+        const { newRole, reason } = req.body;
+
+        if (!['user', 'TL'].includes(newRole)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid role. Can only change between "user" and "TL"'
+            });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        if (user.role === newRole) {
+            return res.status(400).json({
+                success: false,
+                message: `User is already a ${newRole}`
+            });
+        }
+
+        user.changeRole(newRole, adminId, reason);
+        await user.save();
+
+        res.json({
+            success: true,
+            message: `User role changed to ${newRole} successfully`,
+            data: { user: user.toJSON() }
+        });
+
+    } catch (error) {
+        console.error('Change user role error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to change user role'
+        });
+    }
+};
+
+// Get users by status (for admin dashboard)
+const getUsersByStatus = async (req, res) => {
+    try {
+        const { status, page = 1, limit = 10 } = req.query;
+        
+        let query = {};
+        
+        switch(status) {
+            case 'active':
+                query.status = 'active';
+                query.isEx = false;
+                break;
+            case 'inactive':
+                query.status = 'inactive';
+                query.isEx = false;
+                break;
+            case 'hold':
+                query.status = 'hold';
+                break;
+            case 'blocked':
+                query.status = 'blocked';
+                break;
+            case 'pending':
+                query.status = 'pending_approval';
+                break;
+            case 'ex':
+                query.isEx = true;
+                break;
+            default:
+                query = {};
+        }
+
+        const users = await User.find(query)
+            .select('-password -otpAttempts -lastOtpSent -registrationOtp -registrationOtpExpires -loginOtp -loginOtpExpires -resetPasswordOtp -resetPasswordOtpExpires -emailOtp -emailOtpExpires -activeSession -sessionDevice -sessionIP -security')
+            .limit(limit * 1)
+            .skip((page - 1) * limit)
+            .sort({ createdAt: -1 });
+
+        const total = await User.countDocuments(query);
+
+        res.json({
+            success: true,
+            message: 'Users retrieved successfully',
+            data: {
+                users,
+                pagination: {
+                    current: parseInt(page),
+                    pages: Math.ceil(total / limit),
+                    total
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Get users by status error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get users'
+        });
+    }
+};
+
+// ==================== TL FUNCTIONS ====================
 
 // TL: Get team members
 const getTeamMembers = async (req, res) => {
@@ -1468,198 +1986,669 @@ const getTeamPerformance = async (req, res) => {
     }
 };
 
-// Admin: Toggle user active status
-const toggleUserStatus = async (req, res) => {
-    try {
-        const { userId } = req.params;
+// ==================== LEAD DISTRIBUTION CONTROLLERS ====================
 
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({
+// Admin: Distribute leads to users
+const distributeLeads = async (req, res) => {
+    try {
+        const adminId = req.user._id;
+        const {
+            distributionType,
+            leadIds,
+            userIds = [],
+            tlId,
+            dailyQuota
+        } = req.body;
+
+        // Validate distribution type
+        const validTypes = [
+            'all_users',
+            'active_users',
+            'present_users',
+            'without_leads',
+            'specific_user',
+            'team_leader'
+        ];
+
+        if (!validTypes.includes(distributionType)) {
+            return res.status(400).json({
                 success: false,
-                message: 'User not found'
+                message: `Invalid distribution type. Must be one of: ${validTypes.join(', ')}`
             });
         }
 
-        user.isActive = !user.isActive;
-        await user.save();
-
-        res.json({
-            success: true,
-            message: `User ${user.isActive ? 'activated' : 'deactivated'} successfully`,
-            data: { user: user.toJSON() }
-        });
-
-    } catch (error) {
-        console.error('Toggle user status error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update user status'
-        });
-    }
-};
-
-// Admin: Mark user as Ex
-const markUserAsEx = async (req, res) => {
-    try {
-        const { userId } = req.params;
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({
+        if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
+            return res.status(400).json({
                 success: false,
-                message: 'User not found'
+                message: 'Lead IDs are required'
             });
         }
 
-        // Mark user as Ex (inactive + isEx flag)
-        user.isActive = false;
-        user.isEx = true;
-        await user.save();
+        // Get target users based on distribution type
+        let targetUsers = [];
 
-        res.json({
-            success: true,
-            message: 'User marked as Ex successfully',
-            data: { user: user.toJSON() }
-        });
+        switch(distributionType) {
+            case 'all_users':
+                targetUsers = await User.find({ 
+                    role: 'user', 
+                    status: 'active',
+                    isActive: true,
+                    isEx: false 
+                });
+                break;
 
-    } catch (error) {
-        console.error('Mark user as Ex error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to mark user as Ex'
-        });
-    }
-};
+            case 'active_users':
+                targetUsers = await User.find({ 
+                    role: 'user', 
+                    status: 'active',
+                    isActive: true,
+                    isEx: false 
+                });
+                break;
 
-// Admin: Delete user
-const deleteUser = async (req, res) => {
-    try {
-        const { userId } = req.params;
-
-        const user = await User.findByIdAndDelete(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
-
-        res.json({
-            success: true,
-            message: 'User deleted successfully'
-        });
-
-    } catch (error) {
-        console.error('Delete user error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to delete user'
-        });
-    }
-};
-
-// Get dashboard stats (Admin/TL)
-const getDashboardStats = async (req, res) => {
-    try {
-        const user = req.user;
-        
-        if (user.role === 'admin') {
-            // Admin dashboard stats
-            const totalUsers = await User.countDocuments();
-            const verifiedUsers = await User.countDocuments({ isVerified: true });
-            const adminUsers = await User.countDocuments({ role: 'admin' });
-            const tlUsers = await User.countDocuments({ role: 'TL' });
-            const activeUsers = await User.countDocuments({ isActive: true });
-
-            // Get recent registrations (last 7 days)
-            const weekAgo = new Date();
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            const recentRegistrations = await User.countDocuments({
-                createdAt: { $gte: weekAgo }
-            });
-
-            res.json({
-                success: true,
-                message: 'Admin dashboard stats retrieved successfully',
-                data: {
-                    totalUsers,
-                    verifiedUsers,
-                    adminUsers,
-                    tlUsers,
-                    activeUsers,
-                    recentRegistrations,
-                    unverifiedUsers: totalUsers - verifiedUsers,
-                    inactiveUsers: totalUsers - activeUsers
-                }
-            });
-        } else if (user.role === 'TL') {
-            // TL dashboard stats
-            const teamMembers = await User.find({ reportingTo: user._id, role: 'user' });
-            const teamSize = teamMembers.length;
-            
-            let teamTotalLeads = 0;
-            let teamCompletedLeads = 0;
-            let teamTotalEarnings = 0;
-            let activeTeamMembers = 0;
-
-            teamMembers.forEach(member => {
-                teamTotalLeads += member.statistics.totalLeads || 0;
-                teamCompletedLeads += member.statistics.completedLeads || 0;
-                teamTotalEarnings += member.statistics.totalEarnings || 0;
+            case 'present_users':
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
                 
-                if ((member.statistics.totalLeads || 0) > 0) {
-                    activeTeamMembers++;
-                }
-            });
+                targetUsers = await User.find({ 
+                    role: 'user', 
+                    status: 'active',
+                    isActive: true,
+                    isEx: false,
+                    'attendance.todayStatus': 'present',
+                    'attendance.todayMarkedAt': { $gte: today }
+                });
+                break;
 
-            // Get recent team activity (last 7 days)
-            const weekAgo = new Date();
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            const recentTeamActivity = await User.countDocuments({
-                reportingTo: user._id,
-                role: 'user',
-                'statistics.lastLeadDate': { $gte: weekAgo }
-            });
+            case 'without_leads':
+                const todayDate = new Date();
+                todayDate.setHours(0, 0, 0, 0);
+                
+                targetUsers = await User.find({ 
+                    role: 'user', 
+                    status: 'active',
+                    isActive: true,
+                    isEx: false,
+                    $or: [
+                        { 'leadDistribution.lastLeadDistributionDate': { $lt: todayDate } },
+                        { 'leadDistribution.lastLeadDistributionDate': { $exists: false } }
+                    ]
+                });
+                break;
 
-            res.json({
-                success: true,
-                message: 'TL dashboard stats retrieved successfully',
-                data: {
-                    teamSize,
-                    activeTeamMembers,
-                    teamTotalLeads,
-                    teamCompletedLeads,
-                    teamTotalEarnings,
-                    teamConversionRate: teamTotalLeads > 0 ? (teamCompletedLeads / teamTotalLeads * 100) : 0,
-                    recentTeamActivity
+            case 'specific_user':
+                if (!userIds || userIds.length === 0) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'User IDs are required for specific user distribution'
+                    });
                 }
-            });
-        } else {
-            // User dashboard stats
-            res.json({
-                success: true,
-                message: 'User dashboard stats retrieved successfully',
-                data: {
-                    totalLeads: user.statistics.totalLeads || 0,
-                    completedLeads: user.statistics.completedLeads || 0,
-                    pendingLeads: user.statistics.pendingLeads || 0,
-                    totalEarnings: user.statistics.totalEarnings || 0,
-                    currentBalance: user.statistics.currentBalance || 0,
-                    conversionRate: user.statistics.conversionRate || 0,
-                    lastLeadDate: user.statistics.lastLeadDate
+                targetUsers = await User.find({ 
+                    _id: { $in: userIds },
+                    role: 'user',
+                    status: 'active'
+                });
+                break;
+
+            case 'team_leader':
+                if (!tlId) {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'TL ID is required for team leader distribution'
+                    });
                 }
+                const tl = await User.findById(tlId);
+                if (!tl || tl.role !== 'TL') {
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid Team Leader ID'
+                    });
+                }
+                targetUsers = await User.find({ 
+                    _id: { $in: tl.teamMembers },
+                    role: 'user',
+                    status: 'active'
+                });
+                break;
+        }
+
+        if (targetUsers.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No eligible users found for distribution'
             });
         }
 
+        // Distribute leads evenly among target users
+        const results = {
+            success: [],
+            failed: [],
+            summary: {
+                totalLeads: leadIds.length,
+                totalUsers: targetUsers.length,
+                leadsPerUser: Math.floor(leadIds.length / targetUsers.length),
+                extraLeads: leadIds.length % targetUsers.length
+            }
+        };
+
+        let leadIndex = 0;
+
+        for (const user of targetUsers) {
+            if (leadIndex >= leadIds.length) break;
+
+            const userLeads = [];
+            const userLeadCount = Math.floor(leadIds.length / targetUsers.length) + 
+                                (leadIndex < leadIds.length % targetUsers.length ? 1 : 0);
+
+            for (let i = 0; i < userLeadCount && leadIndex < leadIds.length; i++) {
+                const leadId = leadIds[leadIndex];
+                
+                try {
+                    // Find lead
+                    const lead = await Lead.findById(leadId);
+                    if (!lead) {
+                        results.failed.push({
+                            leadId,
+                            userId: user._id,
+                            error: 'Lead not found'
+                        });
+                        leadIndex++;
+                        continue;
+                    }
+
+                    // Assign lead to user
+                    lead.assign(
+                        user._id,
+                        adminId,
+                        req.user.name,
+                        'admin',
+                        distributionType
+                    );
+
+                    // Add to user's today leads
+                    user.assignLead(lead._id);
+
+                    // Set daily quota if provided
+                    if (dailyQuota) {
+                        user.leadDistribution.dailyLeadQuota = dailyQuota;
+                    }
+
+                    await Promise.all([lead.save(), user.save()]);
+
+                    userLeads.push(leadId);
+                    results.success.push({
+                        leadId,
+                        userId: user._id,
+                        userName: user.name
+                    });
+
+                } catch (error) {
+                    results.failed.push({
+                        leadId,
+                        userId: user._id,
+                        error: error.message
+                    });
+                }
+
+                leadIndex++;
+            }
+
+            console.log(`✅ Distributed ${userLeads.length} leads to ${user.name}`);
+        }
+
+        res.json({
+            success: true,
+            message: 'Leads distributed successfully',
+            data: {
+                ...results,
+                distributionType,
+                distributedAt: new Date()
+            }
+        });
+
     } catch (error) {
-        console.error('Get dashboard stats error:', error);
+        console.error('Distribute leads error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to get dashboard stats'
+            message: 'Failed to distribute leads'
         });
     }
 };
+
+// Admin/TL: Withdraw leads from user
+const withdrawLeads = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { leadIds } = req.body;
+        const withdrawnBy = req.user._id;
+        const withdrawnByName = req.user.name;
+
+        if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Lead IDs are required'
+            });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Check if current user has permission to withdraw leads
+        if (req.user.role === 'TL') {
+            // TL can only withdraw from their team members
+            if (!req.user.teamMembers.includes(userId)) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You can only withdraw leads from your team members'
+                });
+            }
+
+            if (!req.user.tlDetails?.canWithdrawLeads) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You do not have permission to withdraw leads'
+                });
+            }
+        }
+
+        const results = {
+            success: [],
+            failed: []
+        };
+
+        for (const leadId of leadIds) {
+            try {
+                const lead = await Lead.findById(leadId);
+                if (!lead) {
+                    results.failed.push({
+                        leadId,
+                        error: 'Lead not found'
+                    });
+                    continue;
+                }
+
+                // Check if lead is assigned to this user
+                if (lead.assignedTo?.toString() !== userId) {
+                    results.failed.push({
+                        leadId,
+                        error: 'Lead is not assigned to this user'
+                    });
+                    continue;
+                }
+
+                // Withdraw lead
+                lead.withdraw(withdrawnBy, withdrawnByName, 'Withdrawn by admin/TL');
+                user.withdrawLead(leadId);
+
+                await Promise.all([lead.save(), user.save()]);
+
+                results.success.push({
+                    leadId,
+                    leadName: lead.offerName
+                });
+
+            } catch (error) {
+                results.failed.push({
+                    leadId,
+                    error: error.message
+                });
+            }
+        }
+
+        res.json({
+            success: true,
+            message: 'Leads withdrawal completed',
+            data: results
+        });
+
+    } catch (error) {
+        console.error('Withdraw leads error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to withdraw leads'
+        });
+    }
+};
+
+// ==================== TL LEAD DISTRIBUTION ====================
+
+// TL: Distribute leads to team members
+const distributeLeadsToTeam = async (req, res) => {
+    try {
+        const tlId = req.user._id;
+        const {
+            leadIds,
+            memberId, // Optional: specific member
+            dailyQuota
+        } = req.body;
+
+        if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Lead IDs are required'
+            });
+        }
+
+        // Check TL permissions
+        if (!req.user.tlDetails?.canAssignLeads) {
+            return res.status(403).json({
+                success: false,
+                message: 'You do not have permission to assign leads'
+            });
+        }
+
+        let targetMembers = [];
+
+        if (memberId) {
+            // Assign to specific member
+            if (!req.user.teamMembers.includes(memberId)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'User is not in your team'
+                });
+            }
+            const member = await User.findById(memberId);
+            if (member) {
+                targetMembers = [member];
+            }
+        } else {
+            // Assign to all active team members (present today)
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            targetMembers = await User.find({
+                _id: { $in: req.user.teamMembers },
+                role: 'user',
+                status: 'active',
+                'attendance.todayStatus': 'present',
+                'attendance.todayMarkedAt': { $gte: today }
+            });
+        }
+
+        if (targetMembers.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No eligible team members found'
+            });
+        }
+
+        const results = {
+            success: [],
+            failed: [],
+            summary: {
+                totalLeads: leadIds.length,
+                totalMembers: targetMembers.length,
+                leadsPerMember: Math.floor(leadIds.length / targetMembers.length)
+            }
+        };
+
+        let leadIndex = 0;
+
+        for (const member of targetMembers) {
+            if (leadIndex >= leadIds.length) break;
+
+            const memberLeads = [];
+            const memberLeadCount = Math.floor(leadIds.length / targetMembers.length) + 
+                                  (leadIndex < leadIds.length % targetMembers.length ? 1 : 0);
+
+            for (let i = 0; i < memberLeadCount && leadIndex < leadIds.length; i++) {
+                const leadId = leadIds[leadIndex];
+                
+                try {
+                    const lead = await Lead.findById(leadId);
+                    if (!lead) {
+                        results.failed.push({
+                            leadId,
+                            memberId: member._id,
+                            error: 'Lead not found'
+                        });
+                        leadIndex++;
+                        continue;
+                    }
+
+                    // Assign lead to team member
+                    lead.assign(
+                        member._id,
+                        tlId,
+                        req.user.name,
+                        'tl',
+                        'team_member'
+                    );
+
+                    // Add to member's today leads
+                    member.assignLead(lead._id);
+
+                    // Set daily quota if provided
+                    if (dailyQuota) {
+                        member.leadDistribution.dailyLeadQuota = dailyQuota;
+                    }
+
+                    // Add to TL's assigned leads
+                    if (!req.user.tlDetails.assignedLeads.includes(leadId)) {
+                        req.user.tlDetails.assignedLeads.push(leadId);
+                    }
+
+                    await Promise.all([lead.save(), member.save(), req.user.save()]);
+
+                    memberLeads.push(leadId);
+                    results.success.push({
+                        leadId,
+                        memberId: member._id,
+                        memberName: member.name
+                    });
+
+                } catch (error) {
+                    results.failed.push({
+                        leadId,
+                        memberId: member._id,
+                        error: error.message
+                    });
+                }
+
+                leadIndex++;
+            }
+
+            console.log(`✅ TL distributed ${memberLeads.length} leads to ${member.name}`);
+        }
+
+        res.json({
+            success: true,
+            message: 'Leads distributed to team successfully',
+            data: {
+                ...results,
+                distributedBy: req.user.name,
+                distributedAt: new Date()
+            }
+        });
+
+    } catch (error) {
+        console.error('TL distribute leads error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to distribute leads to team'
+        });
+    }
+};
+
+// ==================== USER LEAD MANAGEMENT ====================
+
+// User: Get today's leads
+const getUserTodaysLeads = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Get today's assigned leads
+        const todaysLeads = await Lead.find({
+            assignedTo: userId,
+            assignedAt: { $gte: today },
+            status: { $in: ['assigned', 'in_progress'] },
+            isTodayLead: true
+        }).populate('offerId', 'name category image');
+
+        // Get yesterday's pending leads
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        yesterday.setHours(0, 0, 0, 0);
+
+        const yesterdaysPending = await Lead.find({
+            assignedTo: userId,
+            assignedAt: { $gte: yesterday, $lt: today },
+            status: { $in: ['assigned', 'in_progress'] },
+            isYesterdayPending: true
+        }).populate('offerId', 'name category image');
+
+        // Get closed/completed leads
+        const closedLeads = await Lead.find({
+            assignedTo: userId,
+            status: { $in: ['completed', 'closed', 'rejected'] }
+        })
+        .populate('offerId', 'name category image')
+        .sort({ completedAt: -1 })
+        .limit(10);
+
+        // Get user's lead distribution info
+        const user = await User.findById(userId).select('leadDistribution statistics');
+
+        res.json({
+            success: true,
+            message: 'User leads retrieved successfully',
+            data: {
+                todaysLeads,
+                yesterdaysPending,
+                closedLeads: closedLeads || [],
+                leadStats: {
+                    todaysCount: user?.leadDistribution?.todaysLeadCount || 0,
+                    todaysCompleted: user?.leadDistribution?.todaysCompletedLeads || 0,
+                    todaysPending: user?.leadDistribution?.todaysPendingLeads || 0,
+                    dailyQuota: user?.leadDistribution?.dailyLeadQuota || 0,
+                    lastDistribution: user?.leadDistribution?.lastLeadDistributionDate
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error('Get user leads error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get user leads'
+        });
+    }
+};
+
+// User: Start working on lead
+const startLead = async (req, res) => {
+    try {
+        const { leadId } = req.params;
+        const userId = req.user._id;
+
+        const lead = await Lead.findById(leadId);
+        if (!lead) {
+            return res.status(404).json({
+                success: false,
+                message: 'Lead not found'
+            });
+        }
+
+        // Check if lead is assigned to this user
+        if (lead.assignedTo?.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not assigned to this lead'
+            });
+        }
+
+        if (lead.status !== 'assigned') {
+            return res.status(400).json({
+                success: false,
+                message: `Lead is already ${lead.status}`
+            });
+        }
+
+        // Start working on lead
+        lead.start();
+        await lead.save();
+
+        res.json({
+            success: true,
+            message: 'Lead started successfully',
+            data: { lead }
+        });
+
+    } catch (error) {
+        console.error('Start lead error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to start lead'
+        });
+    }
+};
+
+// User: Complete lead
+const completeLead = async (req, res) => {
+    try {
+        const { leadId } = req.params;
+        const { remarks } = req.body;
+        const userId = req.user._id;
+
+        const lead = await Lead.findById(leadId);
+        if (!lead) {
+            return res.status(404).json({
+                success: false,
+                message: 'Lead not found'
+            });
+        }
+
+        // Check if lead is assigned to this user
+        if (lead.assignedTo?.toString() !== userId.toString()) {
+            return res.status(403).json({
+                success: false,
+                message: 'You are not assigned to this lead'
+            });
+        }
+
+        if (lead.status !== 'in_progress') {
+            return res.status(400).json({
+                success: false,
+                message: `Lead is not in progress. Current status: ${lead.status}`
+            });
+        }
+
+        // Complete lead
+        lead.complete(remarks);
+        
+        // Update user statistics
+        const user = await User.findById(userId);
+        if (user) {
+            user.completeLead(leadId);
+            await user.save();
+        }
+
+        await lead.save();
+
+        res.json({
+            success: true,
+            message: 'Lead completed successfully',
+            data: { lead }
+        });
+
+    } catch (error) {
+        console.error('Complete lead error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to complete lead'
+        });
+    }
+};
+
+// ==================== KYC MANAGEMENT ====================
 
 // Update KYC Details (Personal + Documents + Bank)
 const updateKYCDetails = async (req, res) => {
@@ -2022,6 +3011,308 @@ const getKYCDetailsByUserId = async (req, res) => {
     }
 };
 
+// User: Request KYC (manual approval)
+const requestKYCApproval = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Check if KYC is already submitted
+        if (user.kycDetails.kycStatus === 'pending') {
+            return res.status(400).json({
+                success: false,
+                message: 'KYC is already pending approval'
+            });
+        }
+
+        if (user.kycDetails.kycStatus === 'approved') {
+            return res.status(400).json({
+                success: false,
+                message: 'KYC is already approved'
+            });
+        }
+
+        // Validate that all required fields are filled
+        const requiredFields = [
+            user.firstName,
+            user.lastName,
+            user.kycDetails.panNumber,
+            user.kycDetails.aadhaarNumber,
+            user.bankDetails.accountNumber
+        ];
+
+        if (requiredFields.some(field => !field || field.trim() === '')) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please complete all KYC fields before submission',
+                missingFields: {
+                    firstName: !user.firstName,
+                    lastName: !user.lastName,
+                    panNumber: !user.kycDetails.panNumber,
+                    aadhaarNumber: !user.kycDetails.aadhaarNumber,
+                    accountNumber: !user.bankDetails.accountNumber
+                }
+            });
+        }
+
+        // Submit KYC for approval
+        user.kycDetails.kycStatus = 'pending';
+        user.kycDetails.kycSubmittedAt = new Date();
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'KYC submitted for approval successfully',
+            data: {
+                kycStatus: user.kycDetails.kycStatus,
+                submittedAt: user.kycDetails.kycSubmittedAt
+            }
+        });
+
+    } catch (error) {
+        console.error('Request KYC approval error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to submit KYC for approval'
+        });
+    }
+};
+
+// User: Submit KYC
+const submitKYC = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const kycData = req.body;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Submit KYC
+        user.submitKYC(kycData);
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'KYC submitted successfully and pending approval',
+            data: {
+                kycStatus: user.kycDetails.kycStatus,
+                submittedAt: user.kycDetails.kycSubmittedAt
+            }
+        });
+
+    } catch (error) {
+        console.error('Submit KYC error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to submit KYC'
+        });
+    }
+};
+
+// ==================== WALLET MANAGEMENT ====================
+
+// User: Get wallet balance
+const getWalletBalance = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        
+        const wallet = await Wallet.findOne({ userId });
+        if (!wallet) {
+            // Create wallet if doesn't exist
+            const newWallet = new Wallet({ userId });
+            await newWallet.save();
+            
+            return res.json({
+                success: true,
+                message: 'Wallet created successfully',
+                data: newWallet.getBalanceSnapshot()
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Wallet balance retrieved successfully',
+            data: wallet.getBalanceSnapshot()
+        });
+
+    } catch (error) {
+        console.error('Get wallet balance error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get wallet balance'
+        });
+    }
+};
+
+// ==================== DASHBOARD STATS ====================
+
+// Get dashboard stats (Admin/TL)
+const getDashboardStats = async (req, res) => {
+    try {
+        const user = req.user;
+        
+        if (user.role === 'admin') {
+            // Admin dashboard stats
+            const totalUsers = await User.countDocuments();
+            const verifiedUsers = await User.countDocuments({ isVerified: true });
+            const adminUsers = await User.countDocuments({ role: 'admin' });
+            const tlUsers = await User.countDocuments({ role: 'TL' });
+            const activeUsers = await User.countDocuments({ isActive: true });
+
+            // Get recent registrations (last 7 days)
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const recentRegistrations = await User.countDocuments({
+                createdAt: { $gte: weekAgo }
+            });
+
+            res.json({
+                success: true,
+                message: 'Admin dashboard stats retrieved successfully',
+                data: {
+                    totalUsers,
+                    verifiedUsers,
+                    adminUsers,
+                    tlUsers,
+                    activeUsers,
+                    recentRegistrations,
+                    unverifiedUsers: totalUsers - verifiedUsers,
+                    inactiveUsers: totalUsers - activeUsers
+                }
+            });
+        } else if (user.role === 'TL') {
+            // TL dashboard stats
+            const teamMembers = await User.find({ reportingTo: user._id, role: 'user' });
+            const teamSize = teamMembers.length;
+            
+            let teamTotalLeads = 0;
+            let teamCompletedLeads = 0;
+            let teamTotalEarnings = 0;
+            let activeTeamMembers = 0;
+
+            teamMembers.forEach(member => {
+                teamTotalLeads += member.statistics.totalLeads || 0;
+                teamCompletedLeads += member.statistics.completedLeads || 0;
+                teamTotalEarnings += member.statistics.totalEarnings || 0;
+                
+                if ((member.statistics.totalLeads || 0) > 0) {
+                    activeTeamMembers++;
+                }
+            });
+
+            // Get recent team activity (last 7 days)
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            const recentTeamActivity = await User.countDocuments({
+                reportingTo: user._id,
+                role: 'user',
+                'statistics.lastLeadDate': { $gte: weekAgo }
+            });
+
+            res.json({
+                success: true,
+                message: 'TL dashboard stats retrieved successfully',
+                data: {
+                    teamSize,
+                    activeTeamMembers,
+                    teamTotalLeads,
+                    teamCompletedLeads,
+                    teamTotalEarnings,
+                    teamConversionRate: teamTotalLeads > 0 ? (teamCompletedLeads / teamTotalLeads * 100) : 0,
+                    recentTeamActivity
+                }
+            });
+        } else {
+            // User dashboard stats
+            res.json({
+                success: true,
+                message: 'User dashboard stats retrieved successfully',
+                data: {
+                    totalLeads: user.statistics.totalLeads || 0,
+                    completedLeads: user.statistics.completedLeads || 0,
+                    pendingLeads: user.statistics.pendingLeads || 0,
+                    totalEarnings: user.statistics.totalEarnings || 0,
+                    currentBalance: user.statistics.currentBalance || 0,
+                    conversionRate: user.statistics.conversionRate || 0,
+                    lastLeadDate: user.statistics.lastLeadDate
+                }
+            });
+        }
+
+    } catch (error) {
+        console.error('Get dashboard stats error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get dashboard stats'
+        });
+    }
+};
+
+// ==================== QUERY MANAGEMENT ====================
+
+// User: Rise query
+const riseQuery = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const { subject, message, category = 'General', priority = 'Medium' } = req.body;
+
+        if (!subject || !message) {
+            return res.status(400).json({
+                success: false,
+                message: 'Subject and message are required'
+            });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Here you would typically create a query in the Query model
+        // For now, we'll return a success response
+        res.json({
+            success: true,
+            message: 'Query submitted successfully',
+            data: {
+                queryId: `QRY-${Date.now()}-${Math.random().toString(36).substr(2, 5).toUpperCase()}`,
+                userId,
+                userName: user.name,
+                userEmail: user.email,
+                subject,
+                message,
+                category,
+                priority,
+                status: 'Open',
+                submittedAt: new Date()
+            }
+        });
+
+    } catch (error) {
+        console.error('Rise query error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to submit query'
+        });
+    }
+};
+
+// ==================== BULK OPERATIONS ====================
+
 // Bulk upload users from Excel/CSV file
 const bulkUploadUsers = async (req, res) => {
     let filePath = null;
@@ -2152,6 +3443,8 @@ const bulkUploadUsers = async (req, res) => {
         });
     }
 };
+
+// ==================== ADVANCED USER MANAGEMENT ====================
 
 const getAllUsersWithStats = async (req, res) => {
     try {
@@ -2284,7 +3577,7 @@ const getAllUsersWithStats = async (req, res) => {
     }
 };
 
-// NEW: Get user statistics
+// Get user statistics
 const getUserStats = async (req, res) => {
     try {
         const { userId } = req.params;
@@ -2352,7 +3645,7 @@ const getUserStats = async (req, res) => {
     }
 };
 
-// NEW: Update user (comprehensive update)
+// Update user (comprehensive update)
 const updateUser = async (req, res) => {
     try {
         const { userId } = req.params;
@@ -2431,7 +3724,7 @@ const updateUser = async (req, res) => {
     }
 };
 
-// NEW: Export users to Excel
+// Export users to Excel
 const exportUsers = async (req, res) => {
     try {
         const { format = 'excel' } = req.query;
@@ -2532,6 +3825,8 @@ const exportUsers = async (req, res) => {
     }
 };
 
+// ==================== EXPORT ALL FUNCTIONS ====================
+
 module.exports = {
     // Authentication
     register,
@@ -2539,9 +3834,14 @@ module.exports = {
     login,
     verifyLoginOTP,
     adminLogin,
-    tlLogin, // NEW TL login
+    tlLogin,
     verifyOTP: verifyLoginOTP,
     logout,
+    markAttendance,
+    getTodayAttendance,
+    getAttendanceHistory,
+    getAttendanceReport,
+    getTeamAttendance,
     
     // Profile Management
     getProfile,
@@ -2552,21 +3852,40 @@ module.exports = {
     forgotPassword,
     resetPassword,
     
-    // Admin Functions
+    // Email OTP
+    sendEmailOTP,
+    verifyEmailOTP,
+    
+    // Admin User Management
     getAllUsers,
     getUserById,
     updateUserRole,
-    updateTLPermissions, // NEW
+    updateTLPermissions,
     toggleUserStatus,
     markUserAsEx,
     deleteUser,
-    getDashboardStats,
+    approveUserRegistration,
+    markUserHold,
+    markUserActive,
+    blockUser,
+    changeUserRole,
+    getUsersByStatus,
     
     // TL Functions
-    getTeamMembers, // NEW
-    addTeamMember, // NEW
-    removeTeamMember, // NEW
-    getTeamPerformance, // NEW
+    getTeamMembers,
+    addTeamMember,
+    removeTeamMember,
+    getTeamPerformance,
+    
+    // Lead Distribution
+    distributeLeads,
+    withdrawLeads,
+    distributeLeadsToTeam,
+    
+    // User Lead Management
+    getUserTodaysLeads,
+    startLead,
+    completeLead,
     
     // KYC Management
     updateKYCDetails,
@@ -2575,18 +3894,27 @@ module.exports = {
     approveKYC,
     rejectKYC,
     getKYCDetailsByUserId,
+    requestKYCApproval,
+    submitKYC,
     
-    // Email OTP
-    sendEmailOTP,
-    verifyEmailOTP,
+    // Wallet Management
+    getWalletBalance,
+    
+    // Query Management
+    riseQuery,
+    
+    // Dashboard Stats
+    getDashboardStats,
     
     // Bulk Operations
     bulkUploadUsers,
     
-    // Legacy functions
-    sendOTP,
+    // Advanced User Management
     getAllUsersWithStats,
     getUserStats,
     exportUsers,
-    updateUser
+    updateUser,
+    
+    // Legacy functions
+    sendOTP
 };

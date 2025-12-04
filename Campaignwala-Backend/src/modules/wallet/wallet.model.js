@@ -23,10 +23,15 @@ const walletSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
+  pendingWithdrawal: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
   transactions: [{
     type: {
       type: String,
-      enum: ['credit', 'debit'],
+      enum: ['credit', 'debit', 'withdrawal_request', 'withdrawal_approved', 'withdrawal_rejected'],
       required: true
     },
     amount: {
@@ -48,7 +53,7 @@ const walletSchema = new mongoose.Schema({
     },
     status: {
       type: String,
-      enum: ['pending', 'completed', 'failed'],
+      enum: ['pending', 'completed', 'failed', 'approved', 'rejected'],
       default: 'completed'
     },
     referenceId: {
@@ -63,7 +68,19 @@ const walletSchema = new mongoose.Schema({
       type: Date,
       default: Date.now
     }
-  }]
+  }],
+  // KYC requirement for withdrawal
+  minKycForWithdrawal: {
+    type: Boolean,
+    default: false
+  },
+  minBalanceForWithdrawal: {
+    type: Number,
+    default: 100 // Minimum ₹100 for withdrawal
+  },
+  lastWithdrawalRequest: {
+    type: Date
+  }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -72,7 +89,6 @@ const walletSchema = new mongoose.Schema({
 
 // ==================== VIRTUAL FIELDS ====================
 
-// Virtual for user details
 walletSchema.virtual('user', {
   ref: 'User',
   localField: 'userId',
@@ -80,29 +96,29 @@ walletSchema.virtual('user', {
   justOne: true
 });
 
-// Virtual for available balance (balance - pending withdrawals)
 walletSchema.virtual('availableBalance').get(function() {
-  return this.balance;
+  return this.balance - this.pendingWithdrawal;
 });
 
-// Virtual for total transactions count
 walletSchema.virtual('transactionCount').get(function() {
   return this.transactions.length;
 });
 
-// Virtual for credit transactions
 walletSchema.virtual('creditTransactions').get(function() {
   return this.transactions.filter(t => t.type === 'credit');
 });
 
-// Virtual for debit transactions
 walletSchema.virtual('debitTransactions').get(function() {
   return this.transactions.filter(t => t.type === 'debit');
 });
 
+walletSchema.virtual('withdrawalRequests').get(function() {
+  return this.transactions.filter(t => t.type.includes('withdrawal'));
+});
+
 // ==================== METHODS ====================
 
-// Method to add credit
+// Method to add credit from lead completion
 walletSchema.methods.addCredit = function(amount, description = '', leadId = null, metadata = {}) {
   this.balance += amount;
   this.totalEarned += amount;
@@ -113,6 +129,72 @@ walletSchema.methods.addCredit = function(amount, description = '', leadId = nul
     description,
     leadId,
     status: 'completed',
+    metadata,
+    createdAt: new Date()
+  });
+};
+
+// Method to request withdrawal
+walletSchema.methods.requestWithdrawal = function(amount, description = '', metadata = {}) {
+  // Check minimum balance
+  if (amount < this.minBalanceForWithdrawal) {
+    throw new Error(`Minimum withdrawal amount is ₹${this.minBalanceForWithdrawal}`);
+  }
+  
+  // Check available balance
+  if (amount > this.availableBalance) {
+    throw new Error('Insufficient available balance');
+  }
+  
+  // Check KYC requirement
+  const user = this.user;
+  if (this.minKycForWithdrawal && (!user || user.kycDetails.kycStatus !== 'approved')) {
+    throw new Error('KYC approval required for withdrawal');
+  }
+  
+  this.pendingWithdrawal += amount;
+  
+  this.transactions.push({
+    type: 'withdrawal_request',
+    amount,
+    description,
+    status: 'pending',
+    metadata,
+    createdAt: new Date()
+  });
+  
+  this.lastWithdrawalRequest = new Date();
+  
+  return this.transactions[this.transactions.length - 1];
+};
+
+// Method to approve withdrawal
+walletSchema.methods.approveWithdrawal = function(withdrawalId, amount, description = '', metadata = {}) {
+  this.balance -= amount;
+  this.pendingWithdrawal -= amount;
+  this.totalWithdrawn += amount;
+  
+  this.transactions.push({
+    type: 'withdrawal_approved',
+    amount,
+    description,
+    withdrawalId,
+    status: 'approved',
+    metadata,
+    createdAt: new Date()
+  });
+};
+
+// Method to reject withdrawal
+walletSchema.methods.rejectWithdrawal = function(withdrawalId, amount, description = '', metadata = {}) {
+  this.pendingWithdrawal -= amount;
+  
+  this.transactions.push({
+    type: 'withdrawal_rejected',
+    amount,
+    description,
+    withdrawalId,
+    status: 'rejected',
     metadata,
     createdAt: new Date()
   });
@@ -139,19 +221,25 @@ walletSchema.methods.addDebit = function(amount, description = '', withdrawalId 
 };
 
 // Method to get transaction history with pagination
-walletSchema.methods.getTransactionHistory = function(page = 1, limit = 10) {
+walletSchema.methods.getTransactionHistory = function(page = 1, limit = 10, type = null) {
+  let transactions = this.transactions;
+  
+  if (type) {
+    transactions = transactions.filter(t => t.type === type);
+  }
+  
+  transactions = transactions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
   const startIndex = (page - 1) * limit;
   const endIndex = page * limit;
   
-  const transactions = this.transactions
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(startIndex, endIndex);
+  const paginatedTransactions = transactions.slice(startIndex, endIndex);
   
   return {
-    transactions,
+    transactions: paginatedTransactions,
     currentPage: page,
-    totalPages: Math.ceil(this.transactions.length / limit),
-    totalTransactions: this.transactions.length
+    totalPages: Math.ceil(transactions.length / limit),
+    totalTransactions: transactions.length
   };
 };
 
@@ -159,10 +247,47 @@ walletSchema.methods.getTransactionHistory = function(page = 1, limit = 10) {
 walletSchema.methods.getBalanceSnapshot = function() {
   return {
     currentBalance: this.balance,
+    availableBalance: this.availableBalance,
+    pendingWithdrawal: this.pendingWithdrawal,
     totalEarned: this.totalEarned,
     totalWithdrawn: this.totalWithdrawn,
-    availableBalance: this.availableBalance,
+    minWithdrawalAmount: this.minBalanceForWithdrawal,
+    kycRequired: this.minKycForWithdrawal,
     lastUpdated: this.updatedAt
+  };
+};
+
+// Method to check withdrawal eligibility
+walletSchema.methods.canWithdraw = function(amount) {
+  const user = this.user;
+  
+  // Check minimum amount
+  if (amount < this.minBalanceForWithdrawal) {
+    return {
+      eligible: false,
+      reason: `Minimum withdrawal amount is ₹${this.minBalanceForWithdrawal}`
+    };
+  }
+  
+  // Check available balance
+  if (amount > this.availableBalance) {
+    return {
+      eligible: false,
+      reason: 'Insufficient available balance'
+    };
+  }
+  
+  // Check KYC
+  if (this.minKycForWithdrawal && (!user || user.kycDetails.kycStatus !== 'approved')) {
+    return {
+      eligible: false,
+      reason: 'KYC approval required for withdrawal'
+    };
+  }
+  
+  return {
+    eligible: true,
+    reason: 'Eligible for withdrawal'
   };
 };
 
@@ -170,7 +295,7 @@ walletSchema.methods.getBalanceSnapshot = function() {
 
 // Static method to find wallet by user ID with populated user
 walletSchema.statics.findByUserId = function(userId) {
-  return this.findOne({ userId }).populate('user', 'name email phoneNumber');
+  return this.findOne({ userId }).populate('user', 'name email phoneNumber kycDetails');
 };
 
 // Static method to get total platform stats
@@ -180,6 +305,8 @@ walletSchema.statics.getPlatformStats = async function() {
       $group: {
         _id: null,
         totalBalance: { $sum: '$balance' },
+        totalAvailableBalance: { $sum: { $subtract: ['$balance', '$pendingWithdrawal'] } },
+        totalPendingWithdrawal: { $sum: '$pendingWithdrawal' },
         totalEarned: { $sum: '$totalEarned' },
         totalWithdrawn: { $sum: '$totalWithdrawn' },
         userCount: { $sum: 1 }
@@ -189,10 +316,18 @@ walletSchema.statics.getPlatformStats = async function() {
 
   return stats[0] || {
     totalBalance: 0,
+    totalAvailableBalance: 0,
+    totalPendingWithdrawal: 0,
     totalEarned: 0,
     totalWithdrawn: 0,
     userCount: 0
   };
+};
+
+// Static method to find wallets with pending withdrawals
+walletSchema.statics.findWithPendingWithdrawals = function() {
+  return this.find({ pendingWithdrawal: { $gt: 0 } })
+    .populate('user', 'name email phoneNumber bankDetails');
 };
 
 // ==================== INDEXES ====================
@@ -201,7 +336,10 @@ walletSchema.index({ userId: 1 });
 walletSchema.index({ 'transactions.createdAt': -1 });
 walletSchema.index({ 'transactions.leadId': 1 });
 walletSchema.index({ 'transactions.withdrawalId': 1 });
+walletSchema.index({ 'transactions.type': 1 });
+walletSchema.index({ 'transactions.status': 1 });
 walletSchema.index({ balance: -1 });
+walletSchema.index({ pendingWithdrawal: -1 });
 walletSchema.index({ updatedAt: -1 });
 
 const Wallet = mongoose.model('Wallet', walletSchema);

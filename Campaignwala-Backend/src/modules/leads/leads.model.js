@@ -32,7 +32,7 @@ const leadSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  // HR Details (Person who shared the link)
+  // Original HR Details (Person who shared the link)
   hrUserId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -68,9 +68,57 @@ const leadSchema = new mongoose.Schema({
   // Lead Status
   status: {
     type: String,
-    enum: ['pending', 'approved', 'completed', 'rejected'],
+    enum: ['pending', 'assigned', 'in_progress', 'completed', 'rejected', 'withdrawn', 'closed'],
     default: 'pending',
     index: true
+  },
+  // Assignment tracking
+  assignedTo: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    index: true
+  },
+  assignedToName: {
+    type: String,
+    trim: true
+  },
+  assignedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  assignedByName: {
+    type: String,
+    trim: true
+  },
+  assignedAt: {
+    type: Date
+  },
+  // Withdrawal tracking
+  withdrawnBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  withdrawnByName: {
+    type: String,
+    trim: true
+  },
+  withdrawnAt: {
+    type: Date
+  },
+  withdrawalReason: {
+    type: String,
+    trim: true
+  },
+  // Distribution type
+  distributionType: {
+    type: String,
+    enum: ['admin', 'tl', 'system'],
+    default: 'system'
+  },
+  distributionGroup: {
+    type: String,
+    enum: ['all_users', 'active_users', 'present_users', 'without_leads', 'specific_user', 'team_leader'],
+    default: 'active_users'
   },
   // Commission/Offer amount
   offer: {
@@ -112,6 +160,32 @@ const leadSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
+  // User actions
+  startedAt: {
+    type: Date
+  },
+  completedAt: {
+    type: Date
+  },
+  rejectedAt: {
+    type: Date
+  },
+  closedAt: {
+    type: Date
+  },
+  // Performance tracking
+  timeSpent: {
+    type: Number, // in minutes
+    default: 0
+  },
+  isTodayLead: {
+    type: Boolean,
+    default: true
+  },
+  isYesterdayPending: {
+    type: Boolean,
+    default: false
+  },
   // Tracking fields
   ipAddress: {
     type: String,
@@ -120,16 +194,6 @@ const leadSchema = new mongoose.Schema({
   userAgent: {
     type: String,
     trim: true
-  },
-  // Timestamps for status changes
-  approvedAt: {
-    type: Date
-  },
-  completedAt: {
-    type: Date
-  },
-  rejectedAt: {
-    type: Date
   }
 }, {
   timestamps: true,
@@ -139,7 +203,6 @@ const leadSchema = new mongoose.Schema({
 
 // ==================== VIRTUAL FIELDS ====================
 
-// Virtual for HR user details
 leadSchema.virtual('hrUser', {
   ref: 'User',
   localField: 'hrUserId',
@@ -147,7 +210,13 @@ leadSchema.virtual('hrUser', {
   justOne: true
 });
 
-// Virtual for offer details
+leadSchema.virtual('assignedUser', {
+  ref: 'User',
+  localField: 'assignedTo',
+  foreignField: '_id',
+  justOne: true
+});
+
 leadSchema.virtual('offerDetails', {
   ref: 'Offer',
   localField: 'offerId',
@@ -155,34 +224,45 @@ leadSchema.virtual('offerDetails', {
   justOne: true
 });
 
-// Virtual for formatted dates
 leadSchema.virtual('formattedCreatedAt').get(function() {
   return this.createdAt ? this.createdAt.toLocaleDateString('en-IN') : 'N/A';
 });
 
-leadSchema.virtual('formattedUpdatedAt').get(function() {
-  return this.updatedAt ? this.updatedAt.toLocaleDateString('en-IN') : 'N/A';
+leadSchema.virtual('formattedAssignedAt').get(function() {
+  return this.assignedAt ? this.assignedAt.toLocaleDateString('en-IN') : 'N/A';
 });
 
-// Virtual for total commission
 leadSchema.virtual('totalCommission').get(function() {
   return (this.commission1 || 0) + (this.commission2 || 0);
 });
 
-// Virtual for status badge color
 leadSchema.virtual('statusColor').get(function() {
   const colors = {
     pending: 'warning',
-    approved: 'info',
+    assigned: 'info',
+    in_progress: 'primary',
     completed: 'success',
-    rejected: 'error'
+    rejected: 'error',
+    withdrawn: 'secondary',
+    closed: 'default'
   };
   return colors[this.status] || 'default';
 });
 
+leadSchema.virtual('isAssigned').get(function() {
+  return this.status === 'assigned' || this.status === 'in_progress';
+});
+
+leadSchema.virtual('isActive').get(function() {
+  return ['assigned', 'in_progress'].includes(this.status);
+});
+
+leadSchema.virtual('isCompleted').get(function() {
+  return ['completed', 'closed'].includes(this.status);
+});
+
 // ==================== METHODS ====================
 
-// Pre-save hook to generate leadId
 leadSchema.pre('save', async function(next) {
   if (!this.leadId) {
     let isUnique = false;
@@ -198,11 +278,21 @@ leadSchema.pre('save', async function(next) {
   next();
 });
 
-// Method to approve lead
-leadSchema.methods.approve = function(remarks = '') {
-  this.status = 'approved';
-  this.approvedAt = new Date();
-  this.remarks = remarks;
+// Method to assign lead to user/TL
+leadSchema.methods.assign = function(assignedTo, assignedBy, assignedByName, distributionType = 'system', distributionGroup = 'active_users') {
+  this.assignedTo = assignedTo;
+  this.assignedBy = assignedBy;
+  this.assignedByName = assignedByName;
+  this.assignedAt = new Date();
+  this.status = 'assigned';
+  this.distributionType = distributionType;
+  this.distributionGroup = distributionGroup;
+};
+
+// Method to start working on lead
+leadSchema.methods.start = function() {
+  this.status = 'in_progress';
+  this.startedAt = new Date();
 };
 
 // Method to complete lead
@@ -210,6 +300,11 @@ leadSchema.methods.complete = function(remarks = '') {
   this.status = 'completed';
   this.completedAt = new Date();
   this.remarks = remarks;
+  
+  // Calculate time spent if started
+  if (this.startedAt) {
+    this.timeSpent = Math.round((new Date() - this.startedAt) / (1000 * 60)); // minutes
+  }
 };
 
 // Method to reject lead
@@ -219,9 +314,33 @@ leadSchema.methods.reject = function(reason = '') {
   this.rejectionReason = reason;
 };
 
+// Method to close lead (by admin/TL)
+leadSchema.methods.close = function() {
+  this.status = 'closed';
+  this.closedAt = new Date();
+};
+
+// Method to withdraw lead
+leadSchema.methods.withdraw = function(withdrawnBy, withdrawnByName, reason = '') {
+  this.withdrawnBy = withdrawnBy;
+  this.withdrawnByName = withdrawnByName;
+  this.withdrawnAt = new Date();
+  this.withdrawalReason = reason;
+  this.status = 'withdrawn';
+  this.assignedTo = null;
+  this.assignedBy = null;
+  this.assignedAt = null;
+};
+
 // Method to check if commission is paid
 leadSchema.methods.isCommissionPaid = function() {
   return this.commission1Paid && this.commission2Paid;
+};
+
+// Method to mark as yesterday's pending
+leadSchema.methods.markAsYesterdayPending = function() {
+  this.isTodayLead = false;
+  this.isYesterdayPending = true;
 };
 
 // ==================== STATICS ====================
@@ -230,17 +349,72 @@ leadSchema.methods.isCommissionPaid = function() {
 leadSchema.statics.findByHrUser = function(hrUserId, status = null) {
   const query = { hrUserId };
   if (status) query.status = status;
-  return this.find(query).populate('offerDetails');
+  return this.find(query).populate('offerDetails').populate('assignedUser', 'name phoneNumber');
+};
+
+// Static method to find leads assigned to user
+leadSchema.statics.findByAssignedUser = function(userId, status = null) {
+  const query = { assignedTo: userId };
+  if (status) query.status = status;
+  return this.find(query).populate('offerDetails').populate('hrUser', 'name phoneNumber');
+};
+
+// Static method to find today's leads for a user
+leadSchema.statics.findTodaysLeads = function(userId) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  return this.find({
+    assignedTo: userId,
+    assignedAt: { $gte: today },
+    status: { $in: ['assigned', 'in_progress'] },
+    isTodayLead: true
+  }).populate('offerDetails');
+};
+
+// Static method to find yesterday's pending leads for a user
+leadSchema.statics.findYesterdaysPending = function(userId) {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setHours(0, 0, 0, 0);
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  return this.find({
+    assignedTo: userId,
+    assignedAt: { $gte: yesterday, $lt: today },
+    status: { $in: ['assigned', 'in_progress'] },
+    isYesterdayPending: true
+  }).populate('offerDetails');
+};
+
+// Static method to find closed leads for a user
+leadSchema.statics.findClosedLeads = function(userId) {
+  return this.find({
+    assignedTo: userId,
+    status: { $in: ['completed', 'closed'] }
+  }).populate('offerDetails').sort({ completedAt: -1 });
 };
 
 // Static method to find leads by status
 leadSchema.statics.findByStatus = function(status) {
-  return this.find({ status }).populate('hrUser', 'name email phoneNumber');
+  return this.find({ status })
+    .populate('hrUser', 'name email phoneNumber')
+    .populate('assignedUser', 'name email phoneNumber');
 };
 
 // Static method to get lead statistics
-leadSchema.statics.getStats = async function(hrUserId = null) {
-  const matchStage = hrUserId ? { hrUserId } : {};
+leadSchema.statics.getStats = async function(userId = null, isHr = false) {
+  const matchStage = {};
+  
+  if (userId) {
+    if (isHr) {
+      matchStage.hrUserId = userId;
+    } else {
+      matchStage.assignedTo = userId;
+    }
+  }
   
   const stats = await this.aggregate([
     { $match: matchStage },
@@ -258,9 +432,12 @@ leadSchema.statics.getStats = async function(hrUserId = null) {
   const result = {
     total: 0,
     pending: 0,
-    approved: 0,
+    assigned: 0,
+    in_progress: 0,
     completed: 0,
     rejected: 0,
+    withdrawn: 0,
+    closed: 0,
     totalCommission: 0
   };
 
@@ -273,10 +450,42 @@ leadSchema.statics.getStats = async function(hrUserId = null) {
   return result;
 };
 
+// Static method to get distribution statistics
+leadSchema.statics.getDistributionStats = async function(date = new Date()) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+  
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+  
+  return this.aggregate([
+    {
+      $match: {
+        assignedAt: { $gte: startOfDay, $lte: endOfDay }
+      }
+    },
+    {
+      $group: {
+        _id: '$distributionGroup',
+        count: { $sum: 1 },
+        users: { $addToSet: '$assignedTo' }
+      }
+    },
+    {
+      $project: {
+        distributionGroup: '$_id',
+        count: 1,
+        uniqueUsers: { $size: '$users' }
+      }
+    }
+  ]);
+};
+
 // Static method to get recent leads
 leadSchema.statics.findRecent = function(limit = 10) {
   return this.find()
     .populate('hrUser', 'name email')
+    .populate('assignedUser', 'name email')
     .populate('offerDetails', 'name category')
     .sort({ createdAt: -1 })
     .limit(limit);
@@ -286,21 +495,29 @@ leadSchema.statics.findRecent = function(limit = 10) {
 
 leadSchema.index({ leadId: 1 });
 leadSchema.index({ hrUserId: 1, status: 1 });
+leadSchema.index({ assignedTo: 1, status: 1 });
 leadSchema.index({ offerId: 1, status: 1 });
 leadSchema.index({ status: 1, createdAt: -1 });
 leadSchema.index({ customerContact: 1 });
 leadSchema.index({ customerEmail: 1 });
 leadSchema.index({ createdAt: -1 });
+leadSchema.index({ assignedAt: -1 });
+leadSchema.index({ isTodayLead: 1 });
+leadSchema.index({ isYesterdayPending: 1 });
+leadSchema.index({ distributionType: 1 });
+leadSchema.index({ distributionGroup: 1 });
 leadSchema.index({ 
   customerName: 'text', 
   customerContact: 'text', 
   offerName: 'text' 
-}); // Text search
+});
 
 // Compound indexes for common queries
+leadSchema.index({ assignedTo: 1, assignedAt: -1 });
 leadSchema.index({ hrUserId: 1, createdAt: -1 });
 leadSchema.index({ category: 1, status: 1 });
-leadSchema.index({ status: 1, approvedAt: -1 });
+leadSchema.index({ status: 1, completedAt: -1 });
+leadSchema.index({ assignedTo: 1, isTodayLead: 1, status: 1 });
 
 const Lead = mongoose.model('Lead', leadSchema);
 

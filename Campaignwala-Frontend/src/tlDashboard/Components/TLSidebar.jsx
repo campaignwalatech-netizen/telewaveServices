@@ -30,15 +30,12 @@ export default function TLSidebar() {
 
   const menuItems = [
     { id: "dashboard", label: "Dashboard", icon: Home, path: "/tl/dashboard" },
-    { id: "team", label: "My Team", icon: Users, path: "/tl/team" },
+    { id: "team", label: "HR List", icon: Users, path: "/tl/team" },
     { id: "leads", label: "Leads", icon: Briefcase, path: "/tl/leads" },
-    { id: "performance", label: "Performance", icon: TrendingUp, path: "/tl/performance" },
-    { id: "reports", label: "Reports", icon: BarChart3, path: "/tl/reports" },
-    { id: "assignments", label: "Assignments", icon: Share2, path: "/tl/assignments" },
-    { id: "approvals", label: "Approvals", icon: UserCheck, path: "/tl/approvals" },
-    { id: "notifications", label: "Notifications", icon: Bell, path: "/tl/notifications" },
-    { id: "wallet", label: "Wallet", icon: DollarSign, path: "/tl/wallet" },
-    { id: "queries", label: "Queries", icon: MessageSquare, path: "/tl/queries" },
+    { id: "performance", label: "Check HR Performance", icon: TrendingUp, path: "/tl/performance" },
+    { id: "reports", label: "Today's present HR", icon: BarChart3, path: "/tl/reports" },
+    { id: "assignments", label: "Pending Accounts", icon: Share2, path: "/tl/assignments" },
+    { id: "approvals", label: "Approved Account", icon: UserCheck, path: "/tl/approvals" },
     { id: "settings", label: "Settings", icon: Settings, path: "/tl/settings" },
   ];
 

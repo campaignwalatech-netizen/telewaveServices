@@ -42,6 +42,62 @@ const userSchema = new mongoose.Schema({
         enum: ['user', 'admin', 'TL'],
         default: 'user'
     },
+    // Status Management
+    status: {
+        type: String,
+        enum: ['active', 'inactive', 'hold', 'blocked', 'pending_approval'],
+        default: 'pending_approval'
+    },
+    statusHistory: [{
+        status: {
+            type: String,
+            enum: ['active', 'inactive', 'hold', 'blocked', 'pending_approval']
+        },
+        changedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        changedAt: {
+            type: Date,
+            default: Date.now
+        },
+        reason: {
+            type: String,
+            trim: true
+        }
+    }],
+    approvedAt: {
+        type: Date
+    },
+    approvedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    holdUntil: {
+        type: Date
+    },
+    blockedAt: {
+        type: Date
+    },
+    blockedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    blockReason: {
+        type: String,
+        trim: true
+    },
+    deletedAt: {
+        type: Date
+    },
+    deletedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    deleteReason: {
+        type: String,
+        trim: true
+    },
     // TL specific fields
     tlDetails: {
         assignedTeam: [{
@@ -60,7 +116,19 @@ const userSchema = new mongoose.Schema({
             type: mongoose.Schema.Types.ObjectId,
             ref: 'Lead'
         }],
+        dailyLeadQuota: {
+            type: Number,
+            default: 0
+        },
         canAssignLeads: {
+            type: Boolean,
+            default: true
+        },
+        canWithdrawLeads: {
+            type: Boolean,
+            default: true
+        },
+        canMarkHold: {
             type: Boolean,
             default: true
         },
@@ -89,6 +157,14 @@ const userSchema = new mongoose.Schema({
                 type: Boolean,
                 default: true
             },
+            withdrawLeads: {
+                type: Boolean,
+                default: true
+            },
+            markHold: {
+                type: Boolean,
+                default: true
+            },
             approveLeads: {
                 type: Boolean,
                 default: false
@@ -114,6 +190,114 @@ const userSchema = new mongoose.Schema({
         ref: 'User'
     }],
     
+    // ==================== ATTENDANCE SECTION ====================
+    attendance: {
+        todayStatus: {
+            type: String,
+            enum: ['present', 'absent', 'late', 'half-day'],
+            default: 'absent'
+        },
+        todayMarkedAt: {
+            type: Date
+        },
+        todayMarkedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        streak: {
+            type: Number,
+            default: 0
+        },
+        lastMarkedDate: {
+            type: Date
+        },
+        monthlyStats: {
+            present: {
+                type: Number,
+                default: 0
+            },
+            absent: {
+                type: Number,
+                default: 0
+            },
+            late: {
+                type: Number,
+                default: 0
+            }
+        },
+        yearlyStats: {
+            present: {
+                type: Number,
+                default: 0
+            },
+            absent: {
+                type: Number,
+                default: 0
+            },
+            late: {
+                type: Number,
+                default: 0
+            }
+        },
+        history: [{
+            date: {
+                type: Date,
+                required: true
+            },
+            status: {
+                type: String,
+                enum: ['present', 'absent', 'late', 'half-day', 'holiday', 'leave'],
+                required: true
+            },
+            markedAt: {
+                type: Date,
+                required: true
+            },
+            markedBy: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User'
+            },
+            ipAddress: {
+                type: String
+            },
+            deviceInfo: {
+                type: String
+            },
+            notes: {
+                type: String
+            }
+        }]
+    },
+    // ==================== END ATTENDANCE SECTION ====================
+    
+    // ==================== LEAD DISTRIBUTION TRACKING ====================
+    leadDistribution: {
+        todaysLeads: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Lead'
+        }],
+        todaysLeadCount: {
+            type: Number,
+            default: 0
+        },
+        todaysCompletedLeads: {
+            type: Number,
+            default: 0
+        },
+        todaysPendingLeads: {
+            type: Number,
+            default: 0
+        },
+        lastLeadDistributionDate: {
+            type: Date
+        },
+        dailyLeadQuota: {
+            type: Number,
+            default: 0
+        }
+    },
+    // ==================== END LEAD DISTRIBUTION ====================
+    
     isVerified: {
         type: Boolean,
         default: false
@@ -125,21 +309,18 @@ const userSchema = new mongoose.Schema({
     lastOtpSent: {
         type: Date
     },
-    // Registration OTP
     registrationOtp: {
         type: String
     },
     registrationOtpExpires: {
         type: Date
     },
-    // Login OTP
     loginOtp: {
         type: String
     },
     loginOtpExpires: {
         type: Date
     },
-    // Password Reset OTP
     resetPasswordOtp: {
         type: String
     },
@@ -148,13 +329,12 @@ const userSchema = new mongoose.Schema({
     },
     isActive: {
         type: Boolean,
-        default: true
+        default: false // Initially false until approved by admin
     },
     isEx: {
         type: Boolean,
         default: false
     },
-    // Session Management - Single Device Login
     activeSession: {
         type: String,
         default: null
@@ -171,7 +351,6 @@ const userSchema = new mongoose.Schema({
         type: Date,
         default: null
     },
-    // Personal Details
     firstName: {
         type: String,
         trim: true,
@@ -232,7 +411,11 @@ const userSchema = new mongoose.Schema({
             type: String,
             default: ''
         },
-        aadhaarImage: {
+        aadhaarFrontImage: {
+            type: String,
+            default: ''
+        },
+        aadhaarBackImage: {
             type: String,
             default: ''
         },
@@ -247,8 +430,16 @@ const userSchema = new mongoose.Schema({
         kycApprovedAt: {
             type: Date
         },
+        kycApprovedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
         kycRejectedAt: {
             type: Date
+        },
+        kycRejectedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
         },
         kycRejectionReason: {
             type: String,
@@ -295,6 +486,10 @@ const userSchema = new mongoose.Schema({
         },
         verifiedAt: {
             type: Date
+        },
+        verifiedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
         }
     },
     // Statistics Fields
@@ -333,6 +528,14 @@ const userSchema = new mongoose.Schema({
         conversionRate: {
             type: Number,
             default: 0
+        },
+        todaysLeads: {
+            type: Number,
+            default: 0
+        },
+        yesterdaysPendingLeads: {
+            type: Number,
+            default: 0
         }
     },
     // Performance Metrics
@@ -352,11 +555,10 @@ const userSchema = new mongoose.Schema({
             default: 0
         },
         averageCompletionTime: {
-            type: Number, // in hours
+            type: Number,
             default: 0
         }
     },
-    // Additional Profile Information
     profile: {
         avatar: {
             type: String,
@@ -372,7 +574,7 @@ const userSchema = new mongoose.Schema({
             trim: true
         }],
         experience: {
-            type: Number, // in years
+            type: Number,
             default: 0
         },
         education: {
@@ -380,7 +582,6 @@ const userSchema = new mongoose.Schema({
             default: ''
         }
     },
-    // Notification Preferences
     notifications: {
         email: {
             type: Boolean,
@@ -405,9 +606,12 @@ const userSchema = new mongoose.Schema({
         promotional: {
             type: Boolean,
             default: false
+        },
+        attendanceReminders: {
+            type: Boolean,
+            default: true
         }
     },
-    // Security Settings
     security: {
         twoFactorEnabled: {
             type: Boolean,
@@ -425,7 +629,6 @@ const userSchema = new mongoose.Schema({
             type: Date
         }
     },
-    // Metadata
     metadata: {
         signupSource: {
             type: String,
@@ -452,14 +655,24 @@ const userSchema = new mongoose.Schema({
 
 // ==================== VIRTUAL FIELDS ====================
 
-// Virtual for leads created by this user (as HR)
 userSchema.virtual('leads', {
     ref: 'Lead',
     localField: '_id',
     foreignField: 'hrUserId'
 });
 
-// Virtual for wallet
+userSchema.virtual('assignedLeads', {
+    ref: 'Lead',
+    localField: '_id',
+    foreignField: 'assignedTo'
+});
+
+userSchema.virtual('withdrawnLeads', {
+    ref: 'Lead',
+    localField: '_id',
+    foreignField: 'withdrawnBy'
+});
+
 userSchema.virtual('wallet', {
     ref: 'Wallet',
     localField: '_id',
@@ -467,28 +680,24 @@ userSchema.virtual('wallet', {
     justOne: true
 });
 
-// Virtual for withdrawals
 userSchema.virtual('withdrawals', {
     ref: 'Withdrawal',
     localField: '_id',
     foreignField: 'userId'
 });
 
-// Virtual for queries submitted
 userSchema.virtual('queries', {
     ref: 'Query',
     localField: '_id',
     foreignField: 'userId'
 });
 
-// Virtual for admin logs
 userSchema.virtual('adminLogs', {
     ref: 'AdminLog',
     localField: '_id',
     foreignField: 'adminId'
 });
 
-// Virtual for team statistics (for TL)
 userSchema.virtual('teamStats').get(async function() {
     if (this.role !== 'TL') return null;
     
@@ -512,12 +721,10 @@ userSchema.virtual('teamStats').get(async function() {
     };
 });
 
-// Virtual for full name
 userSchema.virtual('fullName').get(function () {
     return `${this.firstName} ${this.lastName}`.trim() || this.name;
 });
 
-// Virtual for age
 userSchema.virtual('age').get(function () {
     if (!this.dob) return null;
     const today = new Date();
@@ -532,7 +739,6 @@ userSchema.virtual('age').get(function () {
     return age;
 });
 
-// Virtual for lead statistics (computed)
 userSchema.virtual('leadStats').get(function () {
     return {
         total: this.statistics.totalLeads || 0,
@@ -543,9 +749,49 @@ userSchema.virtual('leadStats').get(function () {
     };
 });
 
+userSchema.virtual('todaysAttendance').get(function () {
+    return this.attendance.todayStatus || 'absent';
+});
+
+userSchema.virtual('attendanceStreak').get(function () {
+    return this.attendance.streak || 0;
+});
+
+userSchema.virtual('monthlyAttendance').get(function () {
+    return {
+        present: this.attendance.monthlyStats?.present || 0,
+        absent: this.attendance.monthlyStats?.absent || 0,
+        late: this.attendance.monthlyStats?.late || 0,
+        total: (this.attendance.monthlyStats?.present || 0) + 
+               (this.attendance.monthlyStats?.absent || 0) + 
+               (this.attendance.monthlyStats?.late || 0)
+    };
+});
+
+// Check if user can receive leads today
+userSchema.virtual('canReceiveLeads').get(function () {
+    // Check if user is active and not on hold
+    if (this.status !== 'active') return false;
+    
+    // Check if user is present today (only for regular users, not TLs)
+    if (this.role === 'user' && this.attendance.todayStatus !== 'present') {
+        return false;
+    }
+    
+    // Check if user already received leads today
+    const today = new Date();
+    if (this.leadDistribution.lastLeadDistributionDate) {
+        const lastDistDate = new Date(this.leadDistribution.lastLeadDistributionDate);
+        if (lastDistDate.toDateString() === today.toDateString()) {
+            return false;
+        }
+    }
+    
+    return true;
+});
+
 // ==================== METHODS ====================
 
-// Hash password before saving
 userSchema.pre('save', async function (next) {
     if (!this.isModified('password')) {
         return next();
@@ -560,39 +806,65 @@ userSchema.pre('save', async function (next) {
     }
 });
 
-// Compare password method
+userSchema.pre('save', function (next) {
+    // Reset daily attendance at midnight
+    if (this.attendance.lastMarkedDate) {
+        const today = new Date();
+        const lastMarked = new Date(this.attendance.lastMarkedDate);
+        
+        if (today.toDateString() !== lastMarked.toDateString()) {
+            if (!this.attendance.todayMarkedAt || 
+                new Date(this.attendance.todayMarkedAt).toDateString() !== today.toDateString()) {
+                this.attendance.todayStatus = 'absent';
+                this.attendance.todayMarkedAt = null;
+                this.attendance.todayMarkedBy = null;
+            }
+        }
+    }
+    
+    // Reset daily leads at midnight
+    const today = new Date();
+    if (this.leadDistribution.lastLeadDistributionDate) {
+        const lastDistDate = new Date(this.leadDistribution.lastLeadDistributionDate);
+        if (lastDistDate.toDateString() !== today.toDateString()) {
+            this.leadDistribution.todaysLeads = [];
+            this.leadDistribution.todaysLeadCount = 0;
+            this.leadDistribution.todaysCompletedLeads = 0;
+            this.leadDistribution.todaysPendingLeads = 0;
+            this.statistics.todaysLeads = 0;
+        }
+    }
+    
+    next();
+});
+
 userSchema.methods.comparePassword = async function (candidatePassword) {
     return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Generate random 4-digit OTP
 userSchema.methods.generateOTP = function () {
     return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
-// Check if OTP attempts exceeded
 userSchema.methods.canSendOtp = function () {
     const now = new Date();
     const lastOtp = this.lastOtpSent;
 
-    // Reset attempts if more than 15 minutes passed
     if (lastOtp && (now - lastOtp) > 15 * 60 * 1000) {
         this.otpAttempts = 0;
     }
 
-    return this.otpAttempts < 20; // Max 20 attempts per 15 minutes
+    return this.otpAttempts < 20;
 };
 
-// Increment OTP attempts
 userSchema.methods.incrementOtpAttempts = function () {
     this.otpAttempts += 1;
     this.lastOtpSent = new Date();
 };
 
-// Set OTP with expiry (10 minutes)
 userSchema.methods.setOtp = function (type) {
     const otp = this.generateOTP();
-    const expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const expires = new Date(Date.now() + 10 * 60 * 1000);
     
     if (type === 'registration') {
         this.registrationOtp = otp;
@@ -608,7 +880,6 @@ userSchema.methods.setOtp = function (type) {
     return otp;
 };
 
-// Verify OTP
 userSchema.methods.verifyOtp = function (otp, type) {
     let storedOtp, storedExpiry;
 
@@ -628,13 +899,12 @@ userSchema.methods.verifyOtp = function (otp, type) {
     }
 
     if (storedExpiry < new Date()) {
-        return false; // OTP expired
+        return false;
     }
 
     return storedOtp === otp;
 };
 
-// Clear OTP after verification
 userSchema.methods.clearOtp = function (type) {
     if (type === 'registration') {
         this.registrationOtp = undefined;
@@ -646,50 +916,320 @@ userSchema.methods.clearOtp = function (type) {
         this.resetPasswordOtp = undefined;
         this.resetPasswordOtpExpires = undefined;
     }
-    this.otpAttempts = 0; // Reset attempts on successful verification
+    this.otpAttempts = 0;
 };
 
-// Update statistics method
-userSchema.methods.updateStatistics = function (leadData, walletData) {
-    if (leadData) {
-        this.statistics.totalLeads = leadData.total || 0;
-        this.statistics.completedLeads = leadData.completed || 0;
-        this.statistics.pendingLeads = leadData.pending || 0;
-        this.statistics.rejectedLeads = leadData.rejected || 0;
-        
-        // Calculate conversion rate
-        if (leadData.total > 0) {
-            this.statistics.conversionRate = (leadData.completed / leadData.total) * 100;
+// Status Management Methods
+userSchema.methods.approveUser = function(adminId) {
+    this.status = 'active';
+    this.isActive = true;
+    this.approvedAt = new Date();
+    this.approvedBy = adminId;
+    
+    this.statusHistory.push({
+        status: 'active',
+        changedBy: adminId,
+        reason: 'Approved by admin'
+    });
+};
+
+userSchema.methods.markHold = function(adminId, reason = '', holdUntil = null) {
+    this.status = 'hold';
+    this.holdUntil = holdUntil;
+    
+    this.statusHistory.push({
+        status: 'hold',
+        changedBy: adminId,
+        reason: reason
+    });
+};
+
+userSchema.methods.markActive = function(adminId, reason = '') {
+    this.status = 'active';
+    this.holdUntil = null;
+    
+    this.statusHistory.push({
+        status: 'active',
+        changedBy: adminId,
+        reason: reason
+    });
+};
+
+userSchema.methods.blockUser = function(adminId, reason = '') {
+    this.status = 'blocked';
+    this.blockedAt = new Date();
+    this.blockedBy = adminId;
+    this.blockReason = reason;
+    this.isEx = true;
+    
+    this.statusHistory.push({
+        status: 'blocked',
+        changedBy: adminId,
+        reason: reason
+    });
+};
+
+userSchema.methods.deleteUser = function(adminId, reason = '') {
+    this.deletedAt = new Date();
+    this.deletedBy = adminId;
+    this.deleteReason = reason;
+    this.isEx = true;
+    
+    this.statusHistory.push({
+        status: 'deleted',
+        changedBy: adminId,
+        reason: reason
+    });
+};
+
+userSchema.methods.changeRole = function(newRole, adminId, reason = '') {
+    const oldRole = this.role;
+    this.role = newRole;
+    
+    // Clear TL-specific fields if changing from TL to user
+    if (oldRole === 'TL' && newRole === 'user') {
+        this.tlDetails = {
+            assignedTeam: [],
+            totalTeamMembers: 0,
+            teamPerformance: 0,
+            assignedLeads: [],
+            dailyLeadQuota: 0,
+            canAssignLeads: false,
+            canWithdrawLeads: false,
+            canMarkHold: false,
+            canApproveLeads: false,
+            canViewReports: false,
+            permissions: {
+                addUsers: false,
+                editUsers: false,
+                viewUsers: false,
+                assignLeads: false,
+                withdrawLeads: false,
+                markHold: false,
+                approveLeads: false,
+                viewReports: false,
+                manageTeam: false
+            }
+        };
+        this.teamMembers = [];
+    }
+    
+    this.statusHistory.push({
+        status: `role_changed_${newRole}`,
+        changedBy: adminId,
+        reason: `Role changed from ${oldRole} to ${newRole}. ${reason}`
+    });
+};
+
+// Lead Distribution Methods
+userSchema.methods.assignLead = function(leadId) {
+    const today = new Date();
+    
+    // Check if this is first lead assignment today
+    if (!this.leadDistribution.lastLeadDistributionDate || 
+        new Date(this.leadDistribution.lastLeadDistributionDate).toDateString() !== today.toDateString()) {
+        this.leadDistribution.todaysLeads = [];
+        this.leadDistribution.todaysLeadCount = 0;
+        this.leadDistribution.todaysCompletedLeads = 0;
+        this.leadDistribution.todaysPendingLeads = 0;
+    }
+    
+    if (!this.leadDistribution.todaysLeads.includes(leadId)) {
+        this.leadDistribution.todaysLeads.push(leadId);
+        this.leadDistribution.todaysLeadCount += 1;
+        this.leadDistribution.todaysPendingLeads += 1;
+        this.leadDistribution.lastLeadDistributionDate = today;
+        this.statistics.todaysLeads += 1;
+    }
+};
+
+userSchema.methods.completeLead = function(leadId) {
+    if (this.leadDistribution.todaysLeads.includes(leadId)) {
+        this.leadDistribution.todaysCompletedLeads += 1;
+        this.leadDistribution.todaysPendingLeads -= 1;
+        this.statistics.completedLeads += 1;
+        this.statistics.pendingLeads -= 1;
+    }
+};
+
+userSchema.methods.withdrawLead = function(leadId) {
+    const index = this.leadDistribution.todaysLeads.indexOf(leadId);
+    if (index > -1) {
+        this.leadDistribution.todaysLeads.splice(index, 1);
+        this.leadDistribution.todaysLeadCount -= 1;
+        this.leadDistribution.todaysPendingLeads -= 1;
+        this.statistics.todaysLeads -= 1;
+        this.statistics.pendingLeads -= 1;
+    }
+};
+
+// Attendance Methods (Only for users, not TLs)
+userSchema.methods.canMarkAttendance = function () {
+    // TLs don't mark attendance
+    if (this.role === 'TL' || this.role === 'admin') {
+        return {
+            canMark: false,
+            message: 'Attendance marking is not required for TLs/Admins'
+        };
+    }
+    
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    if (this.attendance.todayMarkedAt) {
+        const markedDate = new Date(this.attendance.todayMarkedAt);
+        if (markedDate.toDateString() === now.toDateString()) {
+            return {
+                canMark: false,
+                message: 'Attendance already marked for today'
+            };
         }
+    }
+    
+    const startHour = 9;
+    const endHour = 10;
+    
+    if (currentHour < startHour || (currentHour === endHour && currentMinute > 0) || currentHour > endHour) {
+        return {
+            canMark: false,
+            message: `Attendance can only be marked between ${startHour}:00 AM and ${endHour}:00 AM IST`
+        };
+    }
+    
+    return {
+        canMark: true,
+        message: 'You can mark attendance now'
+    };
+};
+
+userSchema.methods.markAttendance = function (status = 'present', options = {}) {
+    // TLs and Admins don't mark attendance
+    if (this.role === 'TL' || this.role === 'admin') {
+        throw new Error('Attendance marking is not required for TLs/Admins');
+    }
+    
+    const canMark = this.canMarkAttendance();
+    
+    if (!canMark.canMark) {
+        throw new Error(canMark.message);
+    }
+    
+    const validStatuses = ['present', 'absent', 'late', 'half-day'];
+    if (!validStatuses.includes(status)) {
+        throw new Error(`Invalid attendance status. Must be one of: ${validStatuses.join(', ')}`);
+    }
+    
+    const now = new Date();
+    
+    this.attendance.todayStatus = status;
+    this.attendance.todayMarkedAt = now;
+    this.attendance.todayMarkedBy = options.markedBy || this._id;
+    this.attendance.lastMarkedDate = now;
+    
+    if (status === 'present') {
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
         
-        this.statistics.lastLeadDate = new Date();
+        if (this.attendance.lastMarkedDate) {
+            const lastMarked = new Date(this.attendance.lastMarkedDate);
+            if (lastMarked.toDateString() === yesterday.toDateString()) {
+                this.attendance.streak = (this.attendance.streak || 0) + 1;
+            } else {
+                this.attendance.streak = 1;
+            }
+        } else {
+            this.attendance.streak = 1;
+        }
+    } else {
+        this.attendance.streak = 0;
     }
     
-    if (walletData) {
-        this.statistics.totalEarnings = walletData.totalEarned || 0;
-        this.statistics.currentBalance = walletData.currentBalance || 0;
-        this.statistics.totalWithdrawals = walletData.totalWithdrawn || 0;
-    }
-};
-
-// Check if account is locked
-userSchema.methods.isLocked = function () {
-    return !!(this.security.lockUntil && this.security.lockUntil > Date.now());
-};
-
-// Increment login attempts
-userSchema.methods.incrementLoginAttempts = function () {
-    this.security.loginAttempts += 1;
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
     
-    if (this.security.loginAttempts >= 5) {
-        this.security.lockUntil = Date.now() + 30 * 60 * 1000; // Lock for 30 minutes
+    if (!this.attendance.monthlyStats) {
+        this.attendance.monthlyStats = {
+            present: 0,
+            absent: 0,
+            late: 0
+        };
     }
+    
+    if (!this.attendance.yearlyStats) {
+        this.attendance.yearlyStats = {
+            present: 0,
+            absent: 0,
+            late: 0
+        };
+    }
+    
+    if (status === 'present') {
+        this.attendance.monthlyStats.present += 1;
+        this.attendance.yearlyStats.present += 1;
+    } else if (status === 'absent') {
+        this.attendance.monthlyStats.absent += 1;
+        this.attendance.yearlyStats.absent += 1;
+    } else if (status === 'late') {
+        this.attendance.monthlyStats.late += 1;
+        this.attendance.yearlyStats.late += 1;
+    }
+    
+    const attendanceRecord = {
+        date: new Date(now.getFullYear(), now.getMonth(), now.getDate()),
+        status: status,
+        markedAt: now,
+        markedBy: options.markedBy || this._id,
+        ipAddress: options.ipAddress || '',
+        deviceInfo: options.deviceInfo || '',
+        notes: options.notes || ''
+    };
+    
+    if (!this.attendance.history) {
+        this.attendance.history = [];
+    }
+    
+    this.attendance.history = this.attendance.history.filter(record => {
+        const recordDate = new Date(record.date);
+        return recordDate.toDateString() !== now.toDateString();
+    });
+    
+    this.attendance.history.push(attendanceRecord);
+    
+    if (this.attendance.history.length > 365) {
+        this.attendance.history = this.attendance.history.slice(-365);
+    }
+    
+    return {
+        success: true,
+        status: status,
+        markedAt: now,
+        streak: this.attendance.streak,
+        message: `Attendance marked as ${status}`
+    };
 };
 
-// Reset login attempts on successful login
-userSchema.methods.resetLoginAttempts = function () {
-    this.security.loginAttempts = 0;
-    this.security.lockUntil = undefined;
+// KYC Methods
+userSchema.methods.submitKYC = function(kycData) {
+    this.kycDetails = {
+        ...this.kycDetails,
+        ...kycData,
+        kycStatus: 'pending',
+        kycSubmittedAt: new Date()
+    };
+};
+
+userSchema.methods.approveKYC = function(adminId) {
+    this.kycDetails.kycStatus = 'approved';
+    this.kycDetails.kycApprovedAt = new Date();
+    this.kycDetails.kycApprovedBy = adminId;
+};
+
+userSchema.methods.rejectKYC = function(adminId, reason) {
+    this.kycDetails.kycStatus = 'rejected';
+    this.kycDetails.kycRejectedAt = new Date();
+    this.kycDetails.kycRejectedBy = adminId;
+    this.kycDetails.kycRejectionReason = reason;
 };
 
 // TL Methods
@@ -728,11 +1268,9 @@ userSchema.methods.assignLeadToTeam = async function (leadId, memberId = null) {
     await this.save();
 };
 
-// Remove sensitive fields from JSON output
 userSchema.methods.toJSON = function () {
     const userObject = this.toObject();
     
-    // Remove sensitive fields
     delete userObject.password;
     delete userObject.otpAttempts;
     delete userObject.lastOtpSent;
@@ -750,33 +1288,91 @@ userSchema.methods.toJSON = function () {
 
 // ==================== STATICS ====================
 
-// Static method to find active users
 userSchema.statics.findActiveUsers = function() {
-    return this.find({ isActive: true, isEx: false });
+    return this.find({ status: 'active', isActive: true, isEx: false });
 };
 
-// Static method to find users by role
 userSchema.statics.findByRole = function(role) {
-    return this.find({ role, isActive: true });
+    return this.find({ role, status: 'active', isActive: true });
 };
 
-// Static method to get TLs with their teams
 userSchema.statics.findTLsWithTeams = function() {
-    return this.find({ role: 'TL' })
-        .populate('teamMembers', 'name email phoneNumber statistics')
+    return this.find({ role: 'TL', status: 'active' })
+        .populate('teamMembers', 'name email phoneNumber statistics attendance.todayStatus')
         .populate('reportingTo', 'name email');
 };
 
-// Static method to get team members of a TL
 userSchema.statics.findTeamMembers = function(tlId) {
-    return this.find({ reportingTo: tlId, role: 'user' })
+    return this.find({ reportingTo: tlId, role: 'user', status: 'active' })
         .populate('leads')
         .populate('wallet');
 };
 
-// Static method to get users with pending KYC
-userSchema.statics.findPendingKYC = function() {
-    return this.find({ 'kycDetails.kycStatus': 'pending' });
+userSchema.statics.findPendingApproval = function() {
+    return this.find({ status: 'pending_approval' });
+};
+
+userSchema.statics.findHoldUsers = function() {
+    return this.find({ status: 'hold' });
+};
+
+userSchema.statics.findBlockedUsers = function() {
+    return this.find({ status: 'blocked' });
+};
+
+userSchema.statics.findExUsers = function() {
+    return this.find({ isEx: true });
+};
+
+userSchema.statics.findUsersWithAttendance = function(status = 'present') {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return this.find({
+        role: 'user',
+        status: 'active',
+        'attendance.todayStatus': status,
+        'attendance.todayMarkedAt': { $gte: today }
+    });
+};
+
+userSchema.statics.findUsersWithoutLeadsToday = function() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    return this.find({
+        role: 'user',
+        status: 'active',
+        $or: [
+            { 'leadDistribution.lastLeadDistributionDate': { $lt: today } },
+            { 'leadDistribution.lastLeadDistributionDate': { $exists: false } }
+        ]
+    });
+};
+
+userSchema.statics.findUsersForLeadDistribution = function(distributionType = 'all_active') {
+    let query = { role: 'user', status: 'active' };
+    
+    switch(distributionType) {
+        case 'all_active':
+            break;
+        case 'present_today':
+            query['attendance.todayStatus'] = 'present';
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            query['attendance.todayMarkedAt'] = { $gte: today };
+            break;
+        case 'without_leads_today':
+            const todayDate = new Date();
+            todayDate.setHours(0, 0, 0, 0);
+            query.$or = [
+                { 'leadDistribution.lastLeadDistributionDate': { $lt: todayDate } },
+                { 'leadDistribution.lastLeadDistributionDate': { $exists: false } }
+            ];
+            break;
+    }
+    
+    return this.find(query);
 };
 
 // ==================== INDEXES ====================
@@ -784,15 +1380,21 @@ userSchema.statics.findPendingKYC = function() {
 userSchema.index({ email: 1 });
 userSchema.index({ phoneNumber: 1 });
 userSchema.index({ role: 1 });
+userSchema.index({ status: 1 });
 userSchema.index({ isActive: 1 });
 userSchema.index({ isEx: 1 });
 userSchema.index({ 'kycDetails.kycStatus': 1 });
 userSchema.index({ createdAt: -1 });
 userSchema.index({ 'statistics.totalLeads': -1 });
 userSchema.index({ 'statistics.totalEarnings': -1 });
-userSchema.index({ name: 'text', email: 'text' }); // Text search
-userSchema.index({ reportingTo: 1 }); // For TL hierarchy
-userSchema.index({ 'tlDetails.assignedLeads': 1 }); // For TL leads assignment
+userSchema.index({ name: 'text', email: 'text' });
+userSchema.index({ reportingTo: 1 });
+userSchema.index({ 'attendance.todayStatus': 1 });
+userSchema.index({ 'attendance.todayMarkedAt': -1 });
+userSchema.index({ 'leadDistribution.lastLeadDistributionDate': -1 });
+userSchema.index({ approvedAt: -1 });
+userSchema.index({ blockedAt: -1 });
+userSchema.index({ deletedAt: -1 });
 
 const User = mongoose.model('User', userSchema);
 

@@ -1,9 +1,11 @@
 const jwt = require('jsonwebtoken');
-const User = require('../modules/users/user.model');
+const User = require('../modules/users/user.model'); // Updated path based on your model location
 const HTTP_STATUS = require('../constants/httpStatus');
 
-// Verify JWT token
-const authenticateToken = async (req, res, next) => {
+// ==================== MAIN AUTHENTICATION MIDDLEWARE ====================
+
+// Protect routes - verify JWT token (renamed from authenticateToken)
+const protect = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
         const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
@@ -74,6 +76,37 @@ const authenticateToken = async (req, res, next) => {
     }
 };
 
+// ==================== ROLE AUTHORIZATION MIDDLEWARE ====================
+
+/**
+ * Role-based authorization middleware
+ * @param {...string} roles - Allowed roles (admin, TL, user)
+ * @returns {Function} Express middleware
+ */
+const authorize = (...roles) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                message: 'Authentication required'
+            });
+        }
+
+        if (!roles.includes(req.user.role)) {
+            return res.status(HTTP_STATUS.FORBIDDEN).json({
+                success: false,
+                message: `Access denied. Required roles: ${roles.join(', ')}`,
+                userRole: req.user.role,
+                requiredRoles: roles
+            });
+        }
+
+        next();
+    };
+};
+
+// ==================== SPECIFIC ROLE MIDDLEWARES ====================
+
 // Check if user is admin
 const requireAdmin = (req, res, next) => {
     if (req.user.role !== 'admin') {
@@ -118,6 +151,8 @@ const requireVerified = (req, res, next) => {
     next();
 };
 
+// ==================== TL-SPECIFIC PERMISSIONS ====================
+
 // Check TL permissions for team management
 const requireTLTeamAccess = async (req, res, next) => {
     try {
@@ -135,7 +170,7 @@ const requireTLTeamAccess = async (req, res, next) => {
         const { userId } = req.params;
         
         // TL can only manage their own team members
-        const isTeamMember = req.user.teamMembers.includes(userId);
+        const isTeamMember = req.user.teamMembers && req.user.teamMembers.includes(userId);
         
         if (!isTeamMember && userId !== req.user._id.toString()) {
             return res.status(HTTP_STATUS.FORBIDDEN).json({
@@ -186,6 +221,101 @@ const requireLeadApprovalPermission = (req, res, next) => {
     });
 };
 
+// ==================== PERMISSION-BASED AUTHORIZATION ====================
+
+/**
+ * Check if user has specific permission
+ * @param {string} permission - Permission to check (e.g., 'view_reports', 'assign_leads')
+ * @returns {Function} Express middleware
+ */
+const hasPermission = (permission) => {
+    return (req, res, next) => {
+        if (!req.user) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                message: 'Authentication required'
+            });
+        }
+
+        // Admin has all permissions
+        if (req.user.role === 'admin') {
+            return next();
+        }
+
+        // Check TL permissions
+        if (req.user.role === 'TL') {
+            const hasPerm = req.user.tlDetails?.permissions?.[permission];
+            if (!hasPerm) {
+                return res.status(HTTP_STATUS.FORBIDDEN).json({
+                    success: false,
+                    message: `Insufficient permissions. Required: ${permission}`,
+                    userRole: req.user.role
+                });
+            }
+            return next();
+        }
+
+        // For regular users, you can define user permissions here
+        const userPermissions = {
+            'view_dashboard': true,
+            'view_leads': true,
+            'view_wallet': true,
+            'update_profile': true,
+            'mark_attendance': true,
+            'create_leads': true
+        };
+
+        if (!userPermissions[permission]) {
+            return res.status(HTTP_STATUS.FORBIDDEN).json({
+                success: false,
+                message: `Insufficient permissions. Required: ${permission}`,
+                userRole: req.user.role
+            });
+        }
+
+        next();
+    };
+};
+
+// ==================== ATTENDANCE SPECIFIC MIDDLEWARE ====================
+
+/**
+ * Check if user can mark attendance (only between 9 AM to 10 AM)
+ * @returns {Function} Express middleware
+ */
+const canMarkAttendance = (req, res, next) => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Check if within 9 AM to 10 AM window
+    if (currentHour < 9 || (currentHour === 10 && currentMinute > 0) || currentHour > 10) {
+        return res.status(HTTP_STATUS.FORBIDDEN).json({
+            success: false,
+            message: 'Attendance can only be marked between 9:00 AM and 10:00 AM',
+            currentTime: now.toISOString()
+        });
+    }
+
+    // Check if already marked today
+    if (req.user.attendance?.todayMarkedAt) {
+        const markedDate = new Date(req.user.attendance.todayMarkedAt);
+        const today = new Date();
+        
+        if (markedDate.toDateString() === today.toDateString()) {
+            return res.status(HTTP_STATUS.CONFLICT).json({
+                success: false,
+                message: 'Attendance already marked for today',
+                markedAt: markedDate
+            });
+        }
+    }
+
+    next();
+};
+
+// ==================== OPTIONAL AUTHENTICATION ====================
+
 // Optional authentication - doesn't fail if no token
 const optionalAuth = async (req, res, next) => {
     try {
@@ -208,14 +338,29 @@ const optionalAuth = async (req, res, next) => {
     }
 };
 
+// ==================== EXPORTS ====================
+
 module.exports = {
-    authenticateToken,
+    // Main authentication middleware
+    protect,
+    authenticateToken: protect, // Keep backward compatibility
+    
+    // Role authorization
+    authorize,
     requireAdmin,
     requireTL,
     requireAdminOrTL,
+    
+    // Permission-based authorization
+    hasPermission,
     requireVerified,
     requireTLTeamAccess,
     requireLeadAssignmentPermission,
     requireLeadApprovalPermission,
+    
+    // Attendance specific
+    canMarkAttendance,
+    
+    // Optional authentication
     optionalAuth
 };

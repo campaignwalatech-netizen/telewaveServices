@@ -28,8 +28,7 @@ const TotalBalance = ({ darkMode }) => {
           }`}
         >
           <h3 className="text-gray-500 text-sm mb-2">Total Earnings</h3>
-          <div className="text-4xl font-bold text-blue-600">$5,550.75</div>
-          <p className="text-gray-400 text-sm mt-1">Last updated: July 25, 2025</p>
+          <div className="text-4xl font-bold text-blue-600">₹5,550.75</div>
         </section>
 
         {/* Important Note */}
