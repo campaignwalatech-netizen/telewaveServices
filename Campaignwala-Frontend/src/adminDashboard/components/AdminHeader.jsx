@@ -20,7 +20,7 @@ export default function AdminHeader({ setSidebarOpen }) {
           </h1>
         </div>
 
-        {/* Theme Toggle */}
+     
         <button
           onClick={toggleTheme}
           className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
