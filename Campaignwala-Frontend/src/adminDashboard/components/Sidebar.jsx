@@ -36,7 +36,7 @@ export default function AdminSidebar({
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await userService.getAdminDashboard();
+        const response = await userService.getDashboardStats();
         if (response.success && response.data) {
           const { leadStats, userStats, pendingActions } = response.data;
           setDashboardStats({

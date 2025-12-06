@@ -9,9 +9,9 @@ const Sidebar = ({ darkMode, isSidebarOpen, toggleSidebar }) => {
   const menuItems = [
     { icon: Home, label: "Dashboard", path: "/user" },
     { icon: Users, label: "All Leads", path: "/user/all-leads" },
-    { icon: Users, label: "Today's Leads", path: "/user/all-leads" },
-    { icon: Users, label: "Previous Leads", path: "/user/all-leads" },
-    { icon: Users, label: "Close Leads", path: "/user/all-leads" },
+    { icon: Users, label: "Today's Leads", path: "/user/leads-today" },
+    { icon: Users, label: "Previous Leads", path: "/user/leads-previous" }, 
+    { icon: Users, label: "Closed Leads", path: "/user/leads-closed" },
     { icon: Wallet, label: "Wallet", path: "/user/wallet-withdrawl" },
     { icon: User, label: "Profile", path: "/user/profile-overview" },
   ];

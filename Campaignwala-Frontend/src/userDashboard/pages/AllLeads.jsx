@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import leadService from "../../services/leadService";
-import api from "../../services/api";
+import categoryService from "../../services/categoryService";
 
 const AllLeads = ({ darkMode = useOutletContext() }) => {
   const [activeTab, setActiveTab] = useState("All");
@@ -54,11 +54,12 @@ const AllLeads = ({ darkMode = useOutletContext() }) => {
 
   const fetchCategories = async () => {
     try {
-      const response = await api.get('/categories', {
-        params: { status: 'active' }
+      const response = await categoryService.getAllCategories({
+        status: 'active'
       });
-      if (response.data.success) {
-        setCategories(response.data.data.categories || []);
+      
+      if (response.success) {
+        setCategories(response.data?.categories || []);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -124,6 +125,10 @@ const AllLeads = ({ darkMode = useOutletContext() }) => {
           ? "border-purple-500 bg-gray-800 hover:bg-gray-750"
           : "border-blue-200 bg-white hover:bg-blue-50"
       }`}
+      onClick={() => {
+        // Optional: Navigate to lead details on click
+        // navigate(`/leads/${lead._id}`);
+      }}
     >
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1">

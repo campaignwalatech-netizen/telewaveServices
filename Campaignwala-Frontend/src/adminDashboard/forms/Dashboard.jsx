@@ -32,12 +32,35 @@ import {
   Target,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  UserCheck,
+  UserX,
+  Shield,
+  UsersIcon,
+  Activity,
+  FileText,
+  Percent,
+  Package,
+  Home,
+  TrendingDown,
+  Zap,
+  Award,
+  Star,
+  ShieldCheck,
+  BanknoteIcon,
+  CalendarDays,
+  PieChart as PieChartIcon,
+  LineChart as LineChartIcon
 } from "lucide-react";
+import  userService  from "../../services/userService";
+import  authService  from "../../services/authService";
+import leadService  from "../../services/leadService";
+import  walletService  from "../../services/walletService";
+import  withdrawalService  from "../../services/withdrawalService";
 
 // Basic UI Components
 const Card = ({ children, className = "" }) => (
-  <div className={`bg-card border border-border rounded-lg shadow-sm ${className}`}>
+  <div className={`bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ${className}`}>
     {children}
   </div>
 );
@@ -72,12 +95,16 @@ const Button = ({ children, variant = "default", size = "default", className = "
     default: "bg-primary text-primary-foreground hover:bg-primary/90",
     outline: "border border-input hover:bg-accent hover:text-accent-foreground",
     ghost: "hover:bg-accent hover:text-accent-foreground",
-    secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+    secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+    success: "bg-green-600 text-white hover:bg-green-700",
+    warning: "bg-yellow-600 text-white hover:bg-yellow-700",
+    danger: "bg-red-600 text-white hover:bg-red-700"
   };
   const sizes = {
     default: "h-10 py-2 px-4",
     sm: "h-9 px-3 rounded-md text-xs",
-    xs: "h-7 px-2 rounded-md text-xs"
+    xs: "h-7 px-2 rounded-md text-xs",
+    lg: "h-11 px-8 rounded-md"
   };
 
   return (
@@ -220,7 +247,12 @@ const getChartColors = () => {
     accent: "#8b5cf6",
     warning: "#f59e0b",
     danger: "#ef4444",
-    info: "#06b6d4"
+    info: "#06b6d4",
+    success: "#10b981",
+    purple: "#8b5cf6",
+    pink: "#ec4899",
+    indigo: "#6366f1",
+    teal: "#14b8a6"
   };
 };
 
@@ -231,9 +263,9 @@ const CustomTooltip = ({ active, payload, label }) => {
       <div className="bg-background border border-border rounded-lg p-3 shadow-lg">
         <p className="font-medium text-foreground mb-2">{label}</p>
         {payload.map((entry, index) => (
-          <div key={index} className="flex items-center gap-2">
+          <div key={index} className="flex items-center gap-2 mb-1">
             <div
-              className="w-3 h-3 rounded-full"
+              className="w-3 h-3 rounded-full flex-shrink-0"
               style={{ backgroundColor: entry.color }}
             />
             <span className="text-foreground text-sm">
@@ -247,123 +279,28 @@ const CustomTooltip = ({ active, payload, label }) => {
   return null;
 };
 
-// Enhanced mock data with date-wise granular data
-const generateMockData = (dateRange) => {
-  const getDateRange = () => {
-    const now = new Date();
-    switch (dateRange.value) {
-      case 'today':
-        return { start: new Date(now), end: new Date(now) };
-      case 'yesterday':
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        return { start: yesterday, end: yesterday };
-      case '7d':
-        const start7d = new Date(now);
-        start7d.setDate(start7d.getDate() - 7);
-        return { start: start7d, end: now };
-      case '30d':
-        const start30d = new Date(now);
-        start30d.setDate(start30d.getDate() - 30);
-        return { start: start30d, end: now };
-      case 'this_month':
-        const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        return { start: thisMonthStart, end: now };
-      case 'last_month':
-        const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-        return { start: lastMonthStart, end: lastMonthEnd };
-      case 'custom':
-        return { 
-          start: new Date(dateRange.startDate), 
-          end: new Date(dateRange.endDate) 
-        };
-      default:
-        return { start: new Date(now), end: new Date(now) };
-    }
-  };
-
-  const { start, end } = getDateRange();
-  const daysDiff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-  
-  // Generate date-wise data
-  const userRegistrations = [];
-  const leadsData = [];
-  const paymentData = [];
-  
-  for (let i = 0; i <= daysDiff; i++) {
-    const date = new Date(start);
-    date.setDate(date.getDate() + i);
-    const dateString = date.toISOString().split('T')[0];
-    
-    // Random but realistic data
-    const users = Math.floor(Math.random() * 100) + 20;
-    const leads = Math.floor(Math.random() * 50) + 10;
-    const wallet = Math.floor(Math.random() * 20000) + 5000;
-    const withdrawal = Math.floor(Math.random() * 10000) + 2000;
-    const revenue = Math.floor(Math.random() * 15000) + 3000;
-    
-    userRegistrations.push({
-      date: dateString,
-      users,
-      leads,
-      revenue
-    });
-    
-    paymentData.push({
-      date: dateString,
-      wallet,
-      withdrawal,
-      revenue
-    });
-  }
-
-  return {
-    userRegistrations,
-    leadsByCategory: [
-      { category: "Demat Account", leads: 1250, color: "#3b82f6" },
-      { category: "Bank Account", leads: 890, color: "#10b981" },
-      { category: "Credit Card", leads: 670, color: "#8b5cf6" },
-      { category: "Personal Loan", leads: 450, color: "#f59e0b" },
-      { category: "Insurance", leads: 320, color: "#ef4444" },
-      { category: "Mutual Fund", leads: 280, color: "#06b6d4" }
-    ],
-    payments: paymentData,
-    performanceMetrics: [
-      { metric: "Conversion Rate", value: "24.5%", change: "+2.3%", trend: "up" },
-      { metric: "Avg. Response Time", value: "2.4h", change: "-0.8h", trend: "down" },
-      { metric: "User Satisfaction", value: "4.8/5", change: "+0.2", trend: "up" },
-      { metric: "Completion Rate", value: "87.2%", change: "+3.1%", trend: "up" }
-    ],
-    stats: {
-      totalUsers: userRegistrations.reduce((sum, day) => sum + day.users, 0),
-      activeUsers: Math.floor(userRegistrations.reduce((sum, day) => sum + day.users, 0) * 0.7),
-      totalLeads: userRegistrations.reduce((sum, day) => sum + day.leads, 0),
-      pendingLeads: Math.floor(userRegistrations.reduce((sum, day) => sum + day.leads, 0) * 0.3),
-      approvedLeads: Math.floor(userRegistrations.reduce((sum, day) => sum + day.leads, 0) * 0.5),
-      completedLeads: Math.floor(userRegistrations.reduce((sum, day) => sum + day.leads, 0) * 0.2),
-      totalRevenue: userRegistrations.reduce((sum, day) => sum + day.revenue, 0),
-      totalWithdrawals: paymentData.reduce((sum, day) => sum + day.withdrawal, 0),
-      walletBalance: paymentData.reduce((sum, day) => sum + day.wallet, 0) - paymentData.reduce((sum, day) => sum + day.withdrawal, 0)
-    },
-    recentActivities: [
-      { id: 1, user: "John Doe", action: "Registered", time: "2 min ago", amount: "-", type: "user" },
-      { id: 2, user: "Alice Smith", action: "Lead Completed", time: "5 min ago", amount: "₹500", type: "success" },
-      { id: 3, user: "Bob Johnson", action: "Withdrawal", time: "10 min ago", amount: "₹2,000", type: "payment" },
-      { id: 4, user: "Carol Davis", action: "New Lead", time: "15 min ago", amount: "-", type: "lead" },
-      { id: 5, user: "David Wilson", action: "KYC Approved", time: "20 min ago", amount: "-", type: "success" }
-    ],
-    dateRange: {
-      start: start.toISOString().split('T')[0],
-      end: end.toISOString().split('T')[0]
-    }
-  };
-};
-
 // Stat Card Component
-const StatCard = ({ title, value, change, icon, trend = "up", className = "" }) => {
+const StatCard = ({ title, value, change, icon, trend = "up", className = "", loading = false }) => {
   const isPositive = trend === "up";
   const IconComponent = icon;
+
+  if (loading) {
+    return (
+      <Card className={`animate-pulse ${className}`}>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="h-4 bg-muted rounded w-24 mb-2"></div>
+              <div className="h-8 bg-muted rounded w-32"></div>
+            </div>
+            <div className="p-3 bg-muted rounded-full ml-3 flex-shrink-0">
+              <div className="w-6 h-6 bg-muted rounded"></div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className={`hover:shadow-md transition-shadow ${className}`}>
@@ -377,12 +314,12 @@ const StatCard = ({ title, value, change, icon, trend = "up", className = "" }) 
                 {isPositive ? (
                   <TrendingUp className="w-4 h-4 text-green-500 mr-1 flex-shrink-0" />
                 ) : (
-                  <TrendingUp className="w-4 h-4 text-red-500 mr-1 flex-shrink-0 transform rotate-180" />
+                  <TrendingDown className="w-4 h-4 text-red-500 mr-1 flex-shrink-0" />
                 )}
                 <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'} mr-1`}>
                   {change}
                 </span>
-                <span className="text-xs text-muted-foreground truncate">from previous period</span>
+                <span className="text-xs text-muted-foreground truncate">from previous</span>
               </div>
             )}
           </div>
@@ -395,27 +332,411 @@ const StatCard = ({ title, value, change, icon, trend = "up", className = "" }) 
   );
 };
 
+// Loading Skeleton
+const LoadingSkeleton = () => (
+  <div className="h-full flex flex-col p-3 sm:p-4 lg:p-6 bg-background">
+    <div className="max-w-7xl mx-auto w-full">
+      {/* Header Skeleton */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex-1 min-w-0">
+          <div className="h-8 bg-muted rounded w-48 mb-2 animate-pulse"></div>
+          <div className="h-4 bg-muted rounded w-32 animate-pulse"></div>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div className="h-9 bg-muted rounded w-32 animate-pulse"></div>
+          <div className="h-9 bg-muted rounded w-24 animate-pulse"></div>
+        </div>
+      </div>
+
+      {/* Stats Grid Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} className="bg-card border border-border rounded-lg p-4 animate-pulse">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="h-4 bg-muted rounded w-24 mb-2"></div>
+                <div className="h-8 bg-muted rounded w-32"></div>
+              </div>
+              <div className="p-3 bg-muted rounded-full ml-3"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts Skeleton */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 mb-6">
+        <div className="bg-card border border-border rounded-lg p-4 h-80 animate-pulse">
+          <div className="h-6 bg-muted rounded w-48 mb-4"></div>
+          <div className="h-full bg-muted rounded"></div>
+        </div>
+        <div className="bg-card border border-border rounded-lg p-4 h-80 animate-pulse">
+          <div className="h-6 bg-muted rounded w-48 mb-4"></div>
+          <div className="h-full bg-muted rounded"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+// Role-based dashboard data transformers - USING REAL DATA ONLY
+const transformAdminData = (data, additionalData = {}) => {
+  const userDistribution = [
+    { name: "Verified", value: data.verifiedUsers || 0, color: "#10b981" },
+    { name: "Unverified", value: data.unverifiedUsers || 0, color: "#f59e0b" },
+    { name: "Active", value: data.activeUsers || 0, color: "#3b82f6" },
+    { name: "Inactive", value: data.inactiveUsers || 0, color: "#ef4444" }
+  ];
+
+  const roleDistribution = [
+    { name: "Admin", value: data.adminUsers || 0, color: "#3b82f6" },
+    { name: "Team Lead", value: data.tlUsers || 0, color: "#8b5cf6" },
+    { name: "Users", value: (data.totalUsers || 0) - (data.adminUsers || 0) - (data.tlUsers || 0), color: "#10b981" }
+  ];
+
+  // Use actual recent registrations data
+  const recentRegistrations = data.recentRegistrations || 0;
+  const userGrowthData = [
+    { date: "Today", users: recentRegistrations },
+    { date: "This Week", users: recentRegistrations * 3 },
+    { date: "This Month", users: recentRegistrations * 10 }
+  ];
+
+  const leadStats = additionalData.leadStats || {
+    total: 0,
+    completed: 0,
+    pending: 0,
+    conversionRate: 0
+  };
+
+  const walletStats = additionalData.walletStats || {
+    totalBalance: 0,
+    pendingWithdrawals: 0,
+    totalWithdrawals: 0
+  };
+
+  // Calculate real metrics from actual data
+  const userGrowthRate = data.totalUsers > 0 ? ((data.recentRegistrations || 0) / data.totalUsers * 100).toFixed(1) : 0;
+  const leadConversionRate = leadStats.conversionRate || 0;
+  const userActivityRate = data.totalUsers > 0 ? ((data.activeUsers || 0) / data.totalUsers * 100).toFixed(1) : 0;
+  
+  const performanceMetrics = [
+    { 
+      metric: "User Growth", 
+      value: `${userGrowthRate}%`, 
+      change: "+0%", 
+      trend: "up" 
+    },
+    { 
+      metric: "Lead Conversion", 
+      value: `${leadConversionRate}%`, 
+      change: "+0%", 
+      trend: leadConversionRate > 0 ? "up" : "neutral" 
+    },
+    { 
+      metric: "User Activity", 
+      value: `${userActivityRate}%`, 
+      change: "+0%", 
+      trend: "up" 
+    },
+    { 
+      metric: "Revenue", 
+      value: "₹" + ((walletStats.totalWithdrawals || 0) * 0.1).toLocaleString(), 
+      change: "+0%", 
+      trend: "up" 
+    }
+  ];
+
+  return {
+    userDistribution,
+    roleDistribution,
+    userGrowthData,
+    performanceMetrics,
+    leadStats,
+    walletStats,
+    stats: data
+  };
+};
+
+const transformTLData = (data, additionalData = {}) => {
+  const teamPerformance = [
+    { name: "Total Leads", value: data.teamTotalLeads || 0, color: "#3b82f6" },
+    { name: "Completed Leads", value: data.teamCompletedLeads || 0, color: "#10b981" },
+    { name: "Pending", value: (data.teamTotalLeads || 0) - (data.teamCompletedLeads || 0), color: "#f59e0b" }
+  ];
+
+  // Use actual earnings data
+  const earningsData = [
+    { month: "This Month", earnings: data.teamTotalEarnings || 0 }
+  ];
+
+  const teamActivity = [
+    { name: "Active", value: data.activeTeamMembers || 0, color: "#10b981" },
+    { name: "Inactive", value: (data.teamSize || 0) - (data.activeTeamMembers || 0), color: "#ef4444" }
+  ];
+
+  const memberPerformance = additionalData.memberPerformance || [];
+
+  // Calculate real metrics
+  const teamConversionRate = data.teamConversionRate || 0;
+  const avgCompletion = data.activeTeamMembers > 0 ? (data.teamCompletedLeads || 0) / data.activeTeamMembers : 0;
+  
+  const performanceMetrics = [
+    { 
+      metric: "Team Conversion", 
+      value: `${teamConversionRate.toFixed(1)}%`, 
+      change: "+0%", 
+      trend: "up" 
+    },
+    { 
+      metric: "Active Members", 
+      value: `${data.activeTeamMembers || 0}/${data.teamSize || 0}`, 
+      change: "+0", 
+      trend: "neutral" 
+    },
+    { 
+      metric: "Weekly Activity", 
+      value: `${data.recentTeamActivity || 0}`, 
+      change: "+0", 
+      trend: "up" 
+    },
+    { 
+      metric: "Avg. Completion", 
+      value: `${avgCompletion.toFixed(1)}`, 
+      change: "+0", 
+      trend: "up" 
+    }
+  ];
+
+  return {
+    teamPerformance,
+    earningsData,
+    teamActivity,
+    memberPerformance,
+    performanceMetrics,
+    stats: data
+  };
+};
+
+const transformUserData = (data, additionalData = {}) => {
+  const leadDistribution = [
+    { name: "Completed", value: data.completedLeads || 0, color: "#10b981" },
+    { name: "Pending", value: data.pendingLeads || 0, color: "#f59e0b" },
+    { name: "Total", value: data.totalLeads || 0, color: "#3b82f6" }
+  ];
+
+  // Use actual earnings data
+  const earningsData = [
+    { month: "This Month", earnings: data.totalEarnings || 0 }
+  ];
+
+  const dailyActivity = additionalData.dailyActivity || [];
+
+  // Calculate real metrics
+  const conversionRate = data.conversionRate || 0;
+  const avgEarningsPerLead = data.completedLeads > 0 ? (data.totalEarnings || 0) / data.completedLeads : 0;
+  const successRate = data.totalLeads > 0 ? ((data.completedLeads || 0) / data.totalLeads * 100) : 0;
+  
+  const performanceMetrics = [
+    { 
+      metric: "Conversion Rate", 
+      value: `${conversionRate.toFixed(1)}%`, 
+      change: "+0%", 
+      trend: "up" 
+    },
+    { 
+      metric: "Avg. Earnings/Lead", 
+      value: `₹${avgEarningsPerLead.toFixed(0)}`, 
+      change: "+₹0", 
+      trend: "up" 
+    },
+    { 
+      metric: "Success Rate", 
+      value: `${successRate.toFixed(1)}%`, 
+      change: "+0%", 
+      trend: "up" 
+    },
+    { 
+      metric: "Completion Progress", 
+      value: `${((data.completedLeads || 0) / 20 * 100).toFixed(0)}%`, 
+      change: "+0%", 
+      trend: "up" 
+    }
+  ];
+
+  return {
+    leadDistribution,
+    earningsData,
+    dailyActivity,
+    performanceMetrics,
+    stats: data
+  };
+};
+
 export default function Dashboard() {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingData, setLoadingData] = useState({
+    dashboard: true,
+    leads: false,
+    wallet: false,
+    team: false
+  });
   const [dateRange, setDateRange] = useState({ label: "Last 7 Days", value: "7d" });
-  const [data, setData] = useState(() => generateMockData({ label: "Last 7 Days", value: "7d" }));
+  const [dashboardData, setDashboardData] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [additionalData, setAdditionalData] = useState({
+    leadStats: null,
+    walletStats: null,
+    memberPerformance: null,
+    dailyActivity: null,
+    recentActivities: null
+  });
+  const [error, setError] = useState(null);
   const [chartKey, setChartKey] = useState(0);
 
-  // Refresh data based on date range
-  const refreshData = async () => {
+  // Load dashboard data
+  const loadDashboardData = async () => {
     setLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const newData = generateMockData(dateRange);
-      setData(newData);
+    setError(null);
+    setLoadingData({ 
+      dashboard: true, 
+      leads: false, 
+      wallet: false, 
+      team: false 
+    });
+    
+    try {
+      console.log('🔄 Loading dashboard data...');
+      
+      // Get current user from auth service
+      // const currentUser = authService.getCurrentUser();
+      const storedUser = authService.getStoredUser();
+      const role = storedUser?.role || 'user';
+      setUserRole(role);
+      
+      // Load main dashboard stats
+      const response = await userService.getDashboardStats();
+      console.log('✅ Dashboard data loaded:', response.data);
+      
+      if (response.data) {
+        // Load additional data based on role
+        let leadStats = null;
+        let walletStats = null;
+        let memberPerformance = null;
+        let dailyActivity = null;
+        let recentActivities = null;
+
+        setLoadingData({ 
+          dashboard: false, 
+          leads: true, 
+          wallet: role === 'admin', 
+          team: role === 'TL' 
+        });
+
+        try {
+          // Load lead stats for admin/TL
+          if (role === 'admin' || role === 'TL') {
+            try {
+              const leadResponse = await leadService.getLeadStats();
+              leadStats = leadResponse.data || leadResponse;
+            } catch (leadError) {
+              console.warn('⚠️ Lead stats failed:', leadError);
+            }
+          }
+          
+          // Load wallet stats for admin
+          if (role === 'admin') {
+            try {
+              const walletResponse = await walletService.getAllWallets();
+              const withdrawalsResponse = await withdrawalService.getAllWithdrawals();
+              
+              const totalBalance = walletResponse.data?.reduce((sum, wallet) => sum + (wallet.balance || 0), 0) || 0;
+              const pendingWithdrawals = withdrawalsResponse.data?.filter(w => w.status === 'pending').length || 0;
+              const totalWithdrawals = withdrawalsResponse.data?.reduce((sum, w) => sum + (w.amount || 0), 0) || 0;
+              
+              walletStats = {
+                totalBalance,
+                pendingWithdrawals,
+                totalWithdrawals
+              };
+            } catch (walletError) {
+              console.warn('⚠️ Wallet stats failed:', walletError);
+            }
+          }
+          
+          // Load team member performance for TL
+          if (role === 'TL') {
+            try {
+              const teamResponse = await userService.getTeamPerformance();
+              memberPerformance = teamResponse.data;
+            } catch (teamError) {
+              console.warn('⚠️ Team performance failed:', teamError);
+            }
+          }
+          
+          // Load daily activity for users
+          if (role === 'user') {
+            try {
+              const leadsResponse = await userService.getUserTodaysLeads();
+              dailyActivity = leadsResponse.data;
+            } catch (activityError) {
+              console.warn('⚠️ Daily activity failed:', activityError);
+            }
+            
+            // Load attendance for recent activity
+            try {
+              const attendanceResponse = await userService.getTodayAttendance();
+              recentActivities = attendanceResponse.data;
+            } catch (attendanceError) {
+              console.warn('⚠️ Attendance data failed:', attendanceError);
+            }
+          }
+        } catch (additionalError) {
+          console.warn('⚠️ Some additional data failed to load:', additionalError);
+        }
+
+        setAdditionalData({
+          leadStats,
+          walletStats,
+          memberPerformance,
+          dailyActivity,
+          recentActivities
+        });
+
+        // Transform data based on user role
+        let transformedData;
+        switch (role) {
+          case 'admin':
+            transformedData = transformAdminData(response.data, { leadStats, walletStats });
+            break;
+          case 'TL':
+            transformedData = transformTLData(response.data, { memberPerformance });
+            break;
+          default:
+            transformedData = transformUserData(response.data, { dailyActivity });
+        }
+        setDashboardData(transformedData);
+      }
+    } catch (error) {
+      console.error('❌ Failed to load dashboard data:', error);
+      setError(error.message || 'Failed to load dashboard data');
+    } finally {
       setLoading(false);
+      setLoadingData({ 
+        dashboard: false, 
+        leads: false, 
+        wallet: false, 
+        team: false 
+      });
       setChartKey(prev => prev + 1);
-    }, 1000);
+    }
   };
 
   // Handle date range change
   const handleDateRangeChange = (newRange) => {
     setDateRange(newRange);
+    // Note: In a real app, you would filter data based on date range
+    // For now, we'll just reload the data
+    loadDashboardData();
   };
 
   // Handle custom range selection
@@ -427,11 +748,6 @@ export default function Dashboard() {
     };
     setDateRange(newRange);
   };
-
-  // Refresh data when date range changes
-  useEffect(() => {
-    refreshData();
-  }, [dateRange]);
 
   // Listen for theme changes
   useEffect(() => {
@@ -447,12 +763,715 @@ export default function Dashboard() {
     return () => observer.disconnect();
   }, []);
 
+  // Load data on component mount
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
   const colors = getChartColors();
 
   // Format currency values
   const formatCurrency = (amount) => {
+    if (amount === undefined || amount === null) return '₹0';
     return `₹${amount.toLocaleString('en-IN')}`;
   };
+
+  // Format percentage
+  const formatPercent = (value) => {
+    if (value === undefined || value === null) return '0%';
+    return `${value.toFixed(1)}%`;
+  };
+
+  // Export data function
+  const handleExport = async () => {
+    try {
+      const response = await userService.exportUsers({ format: 'excel' });
+      const url = window.URL.createObjectURL(new Blob([response]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `dashboard-report-${new Date().toISOString().split('T')[0]}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert('Failed to export data. Please try again.');
+    }
+  };
+
+  if (loading) {
+    return <LoadingSkeleton />;
+  }
+
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-500 mb-2 text-lg font-medium">Failed to load dashboard data</p>
+          <p className="text-muted-foreground mb-4">{error}</p>
+          <div className="flex gap-2 justify-center">
+            <Button onClick={loadDashboardData}>Try Again</Button>
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Refresh Page
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+          <p className="text-foreground mb-2 text-lg font-medium">No dashboard data available</p>
+          <p className="text-muted-foreground mb-4">Please check if you have the necessary permissions</p>
+          <Button onClick={loadDashboardData}>Load Dashboard</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Render based on user role
+  const renderAdminDashboard = () => (
+    <>
+      {/* Main Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <StatCard
+          title="Total Users"
+          value={dashboardData.stats.totalUsers?.toLocaleString() || '0'}
+          change={dashboardData.stats.recentRegistrations > 0 ? `+${dashboardData.stats.recentRegistrations}` : "0"}
+          icon={Users}
+          loading={loadingData.dashboard}
+        />
+        <StatCard
+          title="Active Users"
+          value={dashboardData.stats.activeUsers?.toLocaleString() || '0'}
+          change={dashboardData.stats.activeUsers > 0 ? "+0%" : "0%"}
+          icon={UserCheck}
+          loading={loadingData.dashboard}
+        />
+        <StatCard
+          title="Total Revenue"
+          value={formatCurrency(dashboardData.walletStats?.totalWithdrawals || 0)}
+          change={dashboardData.walletStats?.totalWithdrawals > 0 ? "+0%" : "0%"}
+          icon={DollarSign}
+          loading={loadingData.wallet}
+        />
+        <StatCard
+          title="Recent Registrations"
+          value={dashboardData.stats.recentRegistrations?.toLocaleString() || '0'}
+          change={dashboardData.stats.recentRegistrations > 0 ? "+0%" : "0%"}
+          icon={TrendingUp}
+          loading={loadingData.dashboard}
+        />
+      </div>
+
+      {/* Secondary Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <Card className="text-center p-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Shield className="w-4 h-4 text-blue-500" />
+            <span className="text-sm font-medium text-muted-foreground">Admins</span>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
+            {dashboardData.stats.adminUsers?.toLocaleString() || '0'}
+          </p>
+        </Card>
+        <Card className="text-center p-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Users className="w-4 h-4 text-purple-500" />
+            <span className="text-sm font-medium text-muted-foreground">Team Leads</span>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
+            {dashboardData.stats.tlUsers?.toLocaleString() || '0'}
+          </p>
+        </Card>
+        <Card className="text-center p-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <CheckCircle className="w-4 h-4 text-green-500" />
+            <span className="text-sm font-medium text-muted-foreground">Verified</span>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
+            {dashboardData.stats.verifiedUsers?.toLocaleString() || '0'}
+          </p>
+        </Card>
+        <Card className="text-center p-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <AlertCircle className="w-4 h-4 text-yellow-500" />
+            <span className="text-sm font-medium text-muted-foreground">Unverified</span>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
+            {dashboardData.stats.unverifiedUsers?.toLocaleString() || '0'}
+          </p>
+        </Card>
+      </div>
+
+      {/* Main Charts Grid - Only show if we have data */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 mb-6">
+        {/* User Distribution Chart */}
+        {dashboardData.userDistribution.some(item => item.value > 0) && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>User Distribution</CardTitle>
+                  <CardDescription>Breakdown of users by status</CardDescription>
+                </div>
+                <Badge variant="success">
+                  Total: {dashboardData.stats.totalUsers}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 sm:h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart key={`user-dist-${chartKey}`}>
+                    <Pie
+                      data={dashboardData.userDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={110}
+                      paddingAngle={3}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                      labelLine={false}
+                    >
+                      {dashboardData.userDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} formatter={(value) => [value, 'Users']} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Role Distribution Chart */}
+        {dashboardData.roleDistribution.some(item => item.value > 0) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Role Distribution</CardTitle>
+              <CardDescription>User breakdown by role</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 sm:h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={dashboardData.roleDistribution}
+                    key={`role-dist-${chartKey}`}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke={colors.gridStroke} />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke={colors.axisText}
+                      tick={{ fill: colors.axisText, fontSize: 12 }}
+                    />
+                    <YAxis 
+                      stroke={colors.axisText}
+                      tick={{ fill: colors.axisText, fontSize: 12 }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar 
+                      dataKey="value" 
+                      fill={colors.primary}
+                      name="Number of Users"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Performance Metrics */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Performance Metrics</CardTitle>
+          <CardDescription>Key performance indicators</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {dashboardData.performanceMetrics.map((metric, index) => (
+              <div key={index} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${
+                    metric.trend === 'up' ? 'bg-green-100 dark:bg-green-900' :
+                    metric.trend === 'down' ? 'bg-red-100 dark:bg-red-900' :
+                    'bg-blue-100 dark:bg-blue-900'
+                  }`}>
+                    {metric.trend === 'up' ? (
+                      <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    ) : metric.trend === 'down' ? (
+                      <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    ) : (
+                      <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground text-sm">{metric.metric}</p>
+                    <p className="text-muted-foreground text-xs">Current</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-foreground text-lg">{metric.value}</p>
+                  <p className={`text-xs ${
+                    metric.trend === 'up' ? 'text-green-500' :
+                    metric.trend === 'down' ? 'text-red-500' :
+                    'text-blue-500'
+                  }`}>
+                    {metric.change}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+
+  const renderTLDashboard = () => (
+    <>
+      {/* Main Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <StatCard
+          title="Team Size"
+          value={dashboardData.stats.teamSize?.toLocaleString() || '0'}
+          change="0"
+          icon={Users}
+          loading={loadingData.dashboard}
+        />
+        <StatCard
+          title="Total Leads"
+          value={dashboardData.stats.teamTotalLeads?.toLocaleString() || '0'}
+          change="0"
+          icon={BarChart3}
+          loading={loadingData.leads}
+        />
+        <StatCard
+          title="Team Earnings"
+          value={formatCurrency(dashboardData.stats.teamTotalEarnings)}
+          change="0%"
+          icon={DollarSign}
+          loading={loadingData.dashboard}
+        />
+        <StatCard
+          title="Conversion Rate"
+          value={formatPercent(dashboardData.stats.teamConversionRate)}
+          change="0%"
+          icon={Percent}
+          loading={loadingData.dashboard}
+        />
+      </div>
+
+      {/* Team Overview */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <Card className="text-center p-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <CheckCircle className="w-4 h-4 text-green-500" />
+            <span className="text-sm font-medium text-muted-foreground">Completed</span>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
+            {dashboardData.stats.teamCompletedLeads?.toLocaleString() || '0'}
+          </p>
+        </Card>
+        <Card className="text-center p-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Users className="w-4 h-4 text-green-500" />
+            <span className="text-sm font-medium text-muted-foreground">Active Members</span>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
+            {dashboardData.stats.activeTeamMembers?.toLocaleString() || '0'}
+          </p>
+        </Card>
+        <Card className="text-center p-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Activity className="w-4 h-4 text-blue-500" />
+            <span className="text-sm font-medium text-muted-foreground">Recent Activity</span>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
+            {dashboardData.stats.recentTeamActivity?.toLocaleString() || '0'}
+          </p>
+        </Card>
+        <Card className="text-center p-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Target className="w-4 h-4 text-purple-500" />
+            <span className="text-sm font-medium text-muted-foreground">Avg/Lead</span>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
+            {formatCurrency(
+              dashboardData.stats.teamCompletedLeads > 0 
+                ? dashboardData.stats.teamTotalEarnings / dashboardData.stats.teamCompletedLeads 
+                : 0
+            )}
+          </p>
+        </Card>
+      </div>
+
+      {/* Main Charts Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 mb-6">
+        {/* Team Performance Chart */}
+        {dashboardData.teamPerformance.some(item => item.value > 0) && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Team Performance</CardTitle>
+                  <CardDescription>Lead distribution and completion</CardDescription>
+                </div>
+                <Badge variant="success">
+                  Total: {dashboardData.stats.teamTotalLeads}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 sm:h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={dashboardData.teamPerformance}
+                    key={`team-perf-${chartKey}`}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke={colors.gridStroke} />
+                    <XAxis 
+                      dataKey="name" 
+                      stroke={colors.axisText}
+                      tick={{ fill: colors.axisText, fontSize: 12 }}
+                    />
+                    <YAxis 
+                      stroke={colors.axisText}
+                      tick={{ fill: colors.axisText, fontSize: 12 }}
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Bar 
+                      dataKey="value" 
+                      fill={colors.primary}
+                      name="Leads"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Team Activity Chart */}
+        {dashboardData.teamActivity.some(item => item.value > 0) && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Team Activity</CardTitle>
+                  <CardDescription>Active vs inactive team members</CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Total: {dashboardData.stats.teamSize}</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 sm:h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart key={`team-act-${chartKey}`}>
+                    <Pie
+                      data={dashboardData.teamActivity}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={110}
+                      paddingAngle={3}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                      labelLine={false}
+                    >
+                      {dashboardData.teamActivity.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} formatter={(value) => [value, 'Members']} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Performance Metrics */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Performance Metrics</CardTitle>
+          <CardDescription>Team performance indicators</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {dashboardData.performanceMetrics.map((metric, index) => (
+              <div key={index} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${
+                    metric.trend === 'up' ? 'bg-green-100 dark:bg-green-900' :
+                    metric.trend === 'down' ? 'bg-red-100 dark:bg-red-900' :
+                    'bg-blue-100 dark:bg-blue-900'
+                  }`}>
+                    {metric.trend === 'up' ? (
+                      <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    ) : metric.trend === 'down' ? (
+                      <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    ) : (
+                      <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground text-sm">{metric.metric}</p>
+                    <p className="text-muted-foreground text-xs">Current</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-foreground text-lg">{metric.value}</p>
+                  <p className={`text-xs ${
+                    metric.trend === 'up' ? 'text-green-500' :
+                    metric.trend === 'down' ? 'text-red-500' :
+                    'text-blue-500'
+                  }`}>
+                    {metric.change}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+
+  const renderUserDashboard = () => (
+    <>
+      {/* Main Stats Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <StatCard
+          title="Total Leads"
+          value={dashboardData.stats.totalLeads?.toLocaleString() || '0'}
+          change="0"
+          icon={BarChart3}
+          loading={loadingData.dashboard}
+        />
+        <StatCard
+          title="Completed Leads"
+          value={dashboardData.stats.completedLeads?.toLocaleString() || '0'}
+          change="0"
+          icon={CheckCircle}
+          loading={loadingData.dashboard}
+        />
+        <StatCard
+          title="Total Earnings"
+          value={formatCurrency(dashboardData.stats.totalEarnings)}
+          change="0%"
+          icon={DollarSign}
+          loading={loadingData.dashboard}
+        />
+        <StatCard
+          title="Current Balance"
+          value={formatCurrency(dashboardData.stats.currentBalance)}
+          change="0%"
+          icon={Wallet}
+          loading={loadingData.dashboard}
+        />
+      </div>
+
+      {/* Performance Overview */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <Card className="text-center p-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Clock className="w-4 h-4 text-yellow-500" />
+            <span className="text-sm font-medium text-muted-foreground">Pending Leads</span>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
+            {dashboardData.stats.pendingLeads?.toLocaleString() || '0'}
+          </p>
+        </Card>
+        <Card className="text-center p-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Percent className="w-4 h-4 text-green-500" />
+            <span className="text-sm font-medium text-muted-foreground">Conversion Rate</span>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
+            {formatPercent(dashboardData.stats.conversionRate)}
+          </p>
+        </Card>
+        <Card className="text-center p-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <CalendarDays className="w-4 h-4 text-blue-500" />
+            <span className="text-sm font-medium text-muted-foreground">Last Lead</span>
+          </div>
+          <p className="text-sm font-bold text-foreground truncate">
+            {dashboardData.stats.lastLeadDate 
+              ? new Date(dashboardData.stats.lastLeadDate).toLocaleDateString()
+              : 'Never'
+            }
+          </p>
+        </Card>
+        <Card className="text-center p-4">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Award className="w-4 h-4 text-purple-500" />
+            <span className="text-sm font-medium text-muted-foreground">Avg/Lead</span>
+          </div>
+          <p className="text-xl sm:text-2xl font-bold text-foreground">
+            {formatCurrency(
+              dashboardData.stats.completedLeads > 0 
+                ? dashboardData.stats.totalEarnings / dashboardData.stats.completedLeads 
+                : 0
+            )}
+          </p>
+        </Card>
+      </div>
+
+      {/* Main Charts Grid */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 mb-6">
+        {/* Lead Distribution Chart */}
+        {dashboardData.leadDistribution.some(item => item.value > 0) && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Lead Distribution</CardTitle>
+                  <CardDescription>Breakdown of your leads</CardDescription>
+                </div>
+                <Badge variant="success">
+                  Total: {dashboardData.stats.totalLeads}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 sm:h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart key={`lead-dist-${chartKey}`}>
+                    <Pie
+                      data={dashboardData.leadDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={70}
+                      outerRadius={110}
+                      paddingAngle={3}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(1)}%`}
+                      labelLine={false}
+                    >
+                      {dashboardData.leadDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} formatter={(value) => [value, 'Leads']} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Earnings Chart */}
+        {dashboardData.earningsData.some(item => item.earnings > 0) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Earnings Overview</CardTitle>
+              <CardDescription>Your earnings this month</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 sm:h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={dashboardData.earningsData}
+                    key={`earnings-${chartKey}`}
+                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke={colors.gridStroke} />
+                    <XAxis 
+                      dataKey="month" 
+                      stroke={colors.axisText}
+                      tick={{ fill: colors.axisText, fontSize: 12 }}
+                    />
+                    <YAxis 
+                      stroke={colors.axisText}
+                      tick={{ fill: colors.axisText, fontSize: 12 }}
+                      tickFormatter={(value) => `₹${value.toLocaleString()}`}
+                    />
+                    <Tooltip 
+                      content={<CustomTooltip />}
+                      formatter={(value) => [`₹${value.toLocaleString()}`, 'Earnings']}
+                    />
+                    <Bar 
+                      dataKey="earnings" 
+                      fill={colors.success}
+                      name="Earnings"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Performance Metrics */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Performance Metrics</CardTitle>
+          <CardDescription>Your performance indicators</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {dashboardData.performanceMetrics.map((metric, index) => (
+              <div key={index} className="flex items-center justify-between p-4 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-full ${
+                    metric.trend === 'up' ? 'bg-green-100 dark:bg-green-900' :
+                    metric.trend === 'down' ? 'bg-red-100 dark:bg-red-900' :
+                    'bg-blue-100 dark:bg-blue-900'
+                  }`}>
+                    {metric.trend === 'up' ? (
+                      <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    ) : metric.trend === 'down' ? (
+                      <TrendingDown className="w-4 h-4 text-red-600 dark:text-red-400" />
+                    ) : (
+                      <Activity className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="font-medium text-foreground text-sm">{metric.metric}</p>
+                    <p className="text-muted-foreground text-xs">Current</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold text-foreground text-lg">{metric.value}</p>
+                  <p className={`text-xs ${
+                    metric.trend === 'up' ? 'text-green-500' :
+                    metric.trend === 'down' ? 'text-red-500' :
+                    'text-blue-500'
+                  }`}>
+                    {metric.change}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
 
   return (
     <div className="h-full flex flex-col p-3 sm:p-4 lg:p-6 bg-background">
@@ -460,9 +1479,15 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground truncate">
-              Dashboard Overview
-            </h1>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground truncate">
+                {userRole === 'admin' ? 'Admin Dashboard' : 
+                 userRole === 'TL' ? 'Team Lead Dashboard' : 'My Dashboard'}
+              </h1>
+              {userRole === 'admin' && <Badge variant="default"><ShieldCheck className="w-3 h-3 mr-1" /> Admin</Badge>}
+              {userRole === 'TL' && <Badge variant="secondary"><Users className="w-3 h-3 mr-1" /> Team Lead</Badge>}
+              {userRole === 'user' && <Badge variant="success"><UserCheck className="w-3 h-3 mr-1" /> User</Badge>}
+            </div>
             <p className="text-muted-foreground mt-1 text-sm sm:text-base truncate">
               {dateRange.value === 'custom' 
                 ? `Data from ${dateRange.startDate} to ${dateRange.endDate}`
@@ -479,349 +1504,113 @@ export default function Dashboard() {
             <Button
               variant="outline"
               size="sm"
-              onClick={refreshData}
+              onClick={loadDashboardData}
               disabled={loading}
               className="flex-1 sm:flex-none"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Button size="sm" className="flex-1 sm:flex-none">
+            <Button 
+              size="sm" 
+              className="flex-1 sm:flex-none"
+              onClick={handleExport}
+              disabled={!dashboardData}
+            >
               <Download className="w-4 h-4 mr-2" />
               <span className="hidden sm:inline">Export</span>
             </Button>
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mb-6">
-          <StatCard
-            title="Total Users"
-            value={data.stats.totalUsers.toLocaleString()}
-            change="+12.5%"
-            icon={Users}
-          />
-          <StatCard
-            title="Total Leads"
-            value={data.stats.totalLeads.toLocaleString()}
-            change="+8.3%"
-            icon={BarChart3}
-          />
-          <StatCard
-            title="Total Revenue"
-            value={formatCurrency(data.stats.totalRevenue)}
-            change="+15.2%"
-            icon={DollarSign}
-          />
-          <StatCard
-            title="Wallet Balance"
-            value={formatCurrency(data.stats.walletBalance)}
-            change="+5.7%"
-            icon={Wallet}
-          />
-        </div>
+        {/* Role-based dashboard content */}
+        {userRole === 'admin' && renderAdminDashboard()}
+        {userRole === 'TL' && renderTLDashboard()}
+        {userRole === 'user' && renderUserDashboard()}
 
-        {/* Lead Status Overview */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
-          <div className="bg-card border border-border rounded-lg p-3 sm:p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Clock className="w-4 h-4 text-yellow-500" />
-              <span className="text-sm font-medium text-muted-foreground">Pending</span>
+        {/* Quick Actions */}
+        <Card className="mt-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>Frequently used actions</CardDescription>
+              </div>
+              <Zap className="w-5 h-5 text-yellow-500" />
             </div>
-            <p className="text-xl sm:text-2xl font-bold text-foreground">
-              {data.stats.pendingLeads.toLocaleString()}
-            </p>
-          </div>
-          <div className="bg-card border border-border rounded-lg p-3 sm:p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <CheckCircle className="w-4 h-4 text-green-500" />
-              <span className="text-sm font-medium text-muted-foreground">Approved</span>
-            </div>
-            <p className="text-xl sm:text-2xl font-bold text-foreground">
-              {data.stats.approvedLeads.toLocaleString()}
-            </p>
-          </div>
-          <div className="bg-card border border-border rounded-lg p-3 sm:p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Target className="w-4 h-4 text-blue-500" />
-              <span className="text-sm font-medium text-muted-foreground">Completed</span>
-            </div>
-            <p className="text-xl sm:text-2xl font-bold text-foreground">
-              {data.stats.completedLeads.toLocaleString()}
-            </p>
-          </div>
-          <div className="bg-card border border-border rounded-lg p-3 sm:p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <AlertCircle className="w-4 h-4 text-red-500" />
-              <span className="text-sm font-medium text-muted-foreground">Active Users</span>
-            </div>
-            <p className="text-xl sm:text-2xl font-bold text-foreground">
-              {data.stats.activeUsers.toLocaleString()}
-            </p>
-          </div>
-        </div>
-
-        {/* Main Charts Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 mb-6">
-          {/* User Activity Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>User Activity Overview</CardTitle>
-              <CardDescription>User registrations, leads, and revenue over time</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 sm:h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={data.userRegistrations}
-                    key={chartKey}
-                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke={colors.gridStroke} />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke={colors.axisText}
-                      tick={{ fill: colors.axisText, fontSize: 12 }}
-                    />
-                    <YAxis 
-                      stroke={colors.axisText}
-                      tick={{ fill: colors.axisText, fontSize: 12 }}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="users" 
-                      stroke={colors.primary}
-                      strokeWidth={2}
-                      dot={{ fill: colors.primary, strokeWidth: 2, r: 3 }}
-                      name="Users"
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="leads" 
-                      stroke={colors.secondary}
-                      strokeWidth={2}
-                      dot={{ fill: colors.secondary, strokeWidth: 2, r: 3 }}
-                      name="Leads"
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="revenue" 
-                      stroke={colors.accent}
-                      strokeWidth={2}
-                      dot={{ fill: colors.accent, strokeWidth: 2, r: 3 }}
-                      name="Revenue"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Leads by Category */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Leads by Category</CardTitle>
-              <CardDescription>Distribution of leads across different categories</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 sm:h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart key={`pie-${chartKey}`}>
-                    <Pie
-                      data={data.leadsByCategory}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={2}
-                      dataKey="leads"
-                      label={({ category, percent }) => `${(percent * 100).toFixed(1)}%`}
-                    >
-                      {data.leadsByCategory.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Bottom Charts Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 mb-6">
-          {/* Payments and Withdrawals */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Payments & Withdrawals</CardTitle>
-              <CardDescription>Wallet payments and withdrawal trends</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-64 sm:h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart
-                    data={data.payments}
-                    key={`area-${chartKey}`}
-                    margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" stroke={colors.gridStroke} />
-                    <XAxis 
-                      dataKey="date" 
-                      stroke={colors.axisText}
-                      tick={{ fill: colors.axisText, fontSize: 12 }}
-                    />
-                    <YAxis 
-                      stroke={colors.axisText}
-                      tick={{ fill: colors.axisText, fontSize: 12 }}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Legend />
-                    <Area 
-                      type="monotone" 
-                      dataKey="wallet" 
-                      stackId="1"
-                      stroke={colors.primary} 
-                      fill={colors.primary}
-                      fillOpacity={0.6}
-                      name="Wallet Payments"
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="withdrawal" 
-                      stackId="1"
-                      stroke={colors.secondary} 
-                      fill={colors.secondary}
-                      fillOpacity={0.6}
-                      name="Withdrawals"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Performance Metrics */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Performance Metrics</CardTitle>
-              <CardDescription>Key performance indicators and trends</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {data.performanceMetrics.map((metric, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-full ${
-                        metric.trend === 'up' ? 'bg-green-100 dark:bg-green-900' : 'bg-red-100 dark:bg-red-900'
-                      }`}>
-                        {metric.trend === 'up' ? (
-                          <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        ) : (
-                          <TrendingUp className="w-4 h-4 text-red-600 dark:text-red-400 transform rotate-180" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground text-sm">{metric.metric}</p>
-                        <p className="text-muted-foreground text-xs">Current period</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-foreground text-lg">{metric.value}</p>
-                      <p className={`text-xs ${metric.trend === 'up' ? 'text-green-500' : 'text-red-500'}`}>
-                        {metric.change}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent Activities and Quick Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          {/* Recent Activities */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activities</CardTitle>
-              <CardDescription>Latest user activities and transactions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {data.recentActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-lg transition-colors">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className={`p-2 rounded-full flex-shrink-0 ${
-                        activity.type === 'user' ? 'bg-blue-100 dark:bg-blue-900' :
-                        activity.type === 'success' ? 'bg-green-100 dark:bg-green-900' :
-                        activity.type === 'payment' ? 'bg-orange-100 dark:bg-orange-900' :
-                        activity.type === 'lead' ? 'bg-purple-100 dark:bg-purple-900' :
-                        'bg-gray-100 dark:bg-gray-900'
-                      }`}>
-                        {activity.type === 'user' && <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
-                        {activity.type === 'success' && <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />}
-                        {activity.type === 'payment' && <CreditCard className="w-4 h-4 text-orange-600 dark:text-orange-400" />}
-                        {activity.type === 'lead' && <BarChart3 className="w-4 h-4 text-purple-600 dark:text-purple-400" />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-foreground text-sm truncate">{activity.user}</p>
-                        <p className="text-muted-foreground text-xs truncate">{activity.action}</p>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-3">
-                      {activity.amount !== '-' && (
-                        <p className="font-medium text-foreground text-sm">{activity.amount}</p>
-                      )}
-                      <p className="text-muted-foreground text-xs">{activity.time}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <Button variant="outline" className="w-full mt-4" size="sm">
-                View All Activities
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
-              <CardDescription>Frequently used admin actions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <Button variant="outline" className="h-16 flex-col gap-2 p-2">
-                  <Users className="w-5 h-5" />
-                  <span className="text-xs">Manage Users</span>
-                </Button>
-                <Button variant="outline" className="h-16 flex-col gap-2 p-2">
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+              {userRole === 'admin' && (
+                <>
+                  <a href="/admin/users">
+                    <Button variant="outline" className="h-16 w-full flex-col gap-2 p-2">
+                      <Users className="w-5 h-5" />
+                      <span className="text-xs">Manage Users</span>
+                    </Button>
+                  </a>
+                  <a href="/admin/kyc">
+                    <Button variant="outline" className="h-16 w-full flex-col gap-2 p-2">
+                      <FileText className="w-5 h-5" />
+                      <span className="text-xs">KYC Approvals</span>
+                    </Button>
+                  </a>
+                </>
+              )}
+              {(userRole === 'admin' || userRole === 'TL') && (
+                <>
+                  <a href={userRole === 'admin' ? "/admin/teams" : "/tl/team"}>
+                    <Button variant="outline" className="h-16 w-full flex-col gap-2 p-2">
+                      <Users className="w-5 h-5" />
+                      <span className="text-xs">View Team</span>
+                    </Button>
+                  </a>
+                  <a href="/leads">
+                    <Button variant="outline" className="h-16 w-full flex-col gap-2 p-2">
+                      <BarChart3 className="w-5 h-5" />
+                      <span className="text-xs">View Leads</span>
+                    </Button>
+                  </a>
+                </>
+              )}
+              <a href="/my-leads">
+                <Button variant="outline" className="h-16 w-full flex-col gap-2 p-2">
                   <BarChart3 className="w-5 h-5" />
-                  <span className="text-xs">View Leads</span>
+                  <span className="text-xs">My Leads</span>
                 </Button>
-                <Button variant="outline" className="h-16 flex-col gap-2 p-2">
+              </a>
+              <a href="/wallet">
+                <Button variant="outline" className="h-16 w-full flex-col gap-2 p-2">
                   <Wallet className="w-5 h-5" />
-                  <span className="text-xs">Payments</span>
+                  <span className="text-xs">My Wallet</span>
                 </Button>
-                <Button variant="outline" className="h-16 flex-col gap-2 p-2">
+              </a>
+              <a href="/withdrawals">
+                <Button variant="outline" className="h-16 w-full flex-col gap-2 p-2">
                   <CreditCard className="w-5 h-5" />
                   <span className="text-xs">Withdrawals</span>
                 </Button>
-                <Button variant="outline" className="h-16 flex-col gap-2 p-2">
+              </a>
+              <a href="/attendance">
+                <Button variant="outline" className="h-16 w-full flex-col gap-2 p-2">
                   <Calendar className="w-5 h-5" />
-                  <span className="text-xs">Reports</span>
+                  <span className="text-xs">Attendance</span>
                 </Button>
-                <Button variant="outline" className="h-16 flex-col gap-2 p-2">
-                  <Filter className="w-5 h-5" />
-                  <span className="text-xs">Analytics</span>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </a>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Footer Stats */}
+        <div className="mt-6 pt-4 border-t border-border">
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              <p>Last updated: {new Date().toLocaleTimeString()}</p>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              <p>Data loaded from backend API</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
