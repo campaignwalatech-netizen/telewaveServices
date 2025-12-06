@@ -1,55 +1,53 @@
-import { Navigate, useLocation } from 'react-router-dom';
-import { useSelector } from 'react-redux';
-import { 
-  selectIsAuthenticated, 
-  selectUserRole, 
-  selectHasPermission,
-  selectIsLoading 
-} from '../redux/slices/authSlice';
-import Loader from '../components/Loader';
+// src/routes/PrivateRoute.jsx
 
-/**
- * Private Route Component - Requires authentication and specific permissions
- * @param {Object} props
- * @param {React.ReactNode} props.children - Child components to render
- * @param {Array<string>} props.requiredPermissions - Array of required permissions
- * @param {string} props.redirectTo - Path to redirect unauthorized users
- * @param {React.ReactNode} props.fallback - Component to show while loading
- */
+import { Navigate, useLocation } from "react-router-dom";
+import { useSelector } from "react-redux";
+import {
+  selectIsAuthenticated,
+  selectUserRole,
+  selectHasPermission,
+  selectIsLoading,
+} from "../redux/slices/authSlice";
+import Loader from "../components/Loader";
+
 const PrivateRoute = ({
   children,
   requiredPermissions = [],
-  redirectTo = '/unauthorized',
-  fallback = <Loader />
+  redirectTo = "/unauthorized",
+  fallback = <Loader />,
 }) => {
   const location = useLocation();
+
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const userRole = useSelector(selectUserRole);
   const isLoading = useSelector(selectIsLoading);
 
-  // Show loading fallback while auth state is being determined
-  if (isLoading) {
-    return fallback;
-  }
+  if (isLoading) return fallback;
 
-  // Check authentication
+  // Not logged in
   if (!isAuthenticated) {
-    return <Navigate to="/" state={{ from: location.pathname }} replace />;
+    return (
+      <Navigate
+        to="/"
+        state={{ from: location.pathname }}
+        replace
+      />
+    );
   }
 
-  // Check permissions if specified
+  // Permission checks
   if (requiredPermissions.length > 0) {
-    const hasAllPermissions = requiredPermissions.every(permission => {
-      const hasPermission = useSelector(selectHasPermission(permission));
-      return hasPermission;
-    });
+    const permissionsState = requiredPermissions.map((p) =>
+      useSelector(selectHasPermission(p))
+    );
 
-    if (!hasAllPermissions) {
+    const hasAll = permissionsState.every((allowed) => allowed === true);
+
+    if (!hasAll) {
       return <Navigate to={redirectTo} replace />;
     }
   }
 
-  // All checks passed, render the private content
   return children;
 };
 

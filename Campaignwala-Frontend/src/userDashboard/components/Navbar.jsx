@@ -138,7 +138,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
   const handleLogout = () => {
     setShowProfileMenu(false);
     localStorage.clear();
-    navigate("/");
+    window.location.href = "/";
   };
 
   return (
