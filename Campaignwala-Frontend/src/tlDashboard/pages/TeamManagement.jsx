@@ -20,8 +20,8 @@ import axios from "axios";
 import  api  from "../../services/api";
 
 // Components
-import TeamMemberCard from "../components/TeamMemberCard";
-import AddTeamMemberModal from "../components/modals/AddTeamMemberModal";
+import TeamMemberCard from "../Components/TeamMemberCard";
+import AddTeamMemberModal from "../Components/modals/AddTeamMemberModal";
 // import TeamStats from "../components/TeamStats";
 
 /**
