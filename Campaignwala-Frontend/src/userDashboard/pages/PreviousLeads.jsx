@@ -44,52 +44,53 @@ const PreviousLeads = ({ darkMode = useOutletContext() }) => {
       // Calculate date range based on filter
       let startDate, endDate;
       const today = new Date();
+      today.setHours(0, 0, 0, 0);
       
       switch (dateFilter) {
         case "last7days":
           startDate = new Date(today);
           startDate.setDate(today.getDate() - 7);
           endDate = new Date(today);
-          endDate.setDate(today.getDate() - 1);
           break;
         case "last30days":
           startDate = new Date(today);
           startDate.setDate(today.getDate() - 30);
           endDate = new Date(today);
-          endDate.setDate(today.getDate() - 1);
           break;
         case "custom":
           if (customStartDate && customEndDate) {
             startDate = new Date(customStartDate);
             endDate = new Date(customEndDate);
+            endDate.setHours(23, 59, 59, 999);
           } else {
             // Default to last 7 days if custom dates not set
             startDate = new Date(today);
             startDate.setDate(today.getDate() - 7);
             endDate = new Date(today);
-            endDate.setDate(today.getDate() - 1);
           }
           break;
         default:
           startDate = new Date(today);
           startDate.setDate(today.getDate() - 7);
           endDate = new Date(today);
-          endDate.setDate(today.getDate() - 1);
       }
       
-      // Set start to beginning of day and end to end of day
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setHours(23, 59, 59, 999);
-      
+      // Fetch all leads and filter client-side by date range
       const response = await leadService.getAllLeads({
         hrUserId: user._id,
-        limit: 100,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString()
+        limit: 200
       });
       
       if (response.success) {
-        setLeadsData(response.data.leads || []);
+        const allLeads = response.data.leads || [];
+        
+        // Filter for previous leads based on createdAt
+        const previousLeads = allLeads.filter(lead => {
+          const leadDate = new Date(lead.createdAt);
+          return leadDate >= startDate && leadDate <= endDate;
+        });
+        
+        setLeadsData(previousLeads);
       }
     } catch (error) {
       console.error('Error fetching previous leads:', error);
@@ -127,6 +128,7 @@ const PreviousLeads = ({ darkMode = useOutletContext() }) => {
 
   const getDateRangeText = () => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     let startDate, endDate;
     
     switch (dateFilter) {
@@ -134,13 +136,11 @@ const PreviousLeads = ({ darkMode = useOutletContext() }) => {
         startDate = new Date(today);
         startDate.setDate(today.getDate() - 7);
         endDate = new Date(today);
-        endDate.setDate(today.getDate() - 1);
         break;
       case "last30days":
         startDate = new Date(today);
         startDate.setDate(today.getDate() - 30);
         endDate = new Date(today);
-        endDate.setDate(today.getDate() - 1);
         break;
       case "custom":
         if (customStartDate && customEndDate) {
@@ -150,14 +150,12 @@ const PreviousLeads = ({ darkMode = useOutletContext() }) => {
           startDate = new Date(today);
           startDate.setDate(today.getDate() - 7);
           endDate = new Date(today);
-          endDate.setDate(today.getDate() - 1);
         }
         break;
       default:
         startDate = new Date(today);
         startDate.setDate(today.getDate() - 7);
         endDate = new Date(today);
-        endDate.setDate(today.getDate() - 1);
     }
     
     return `${startDate.toLocaleDateString('en-IN')} to ${endDate.toLocaleDateString('en-IN')}`;
@@ -171,8 +169,11 @@ const PreviousLeads = ({ darkMode = useOutletContext() }) => {
       case "Pending":
         matchesStatus = lead.status === "pending";
         break;
-      case "Approved":
-        matchesStatus = lead.status === "approved";
+      case "Assigned":
+        matchesStatus = lead.status === "assigned";
+        break;
+      case "In Progress":
+        matchesStatus = lead.status === "in_progress";
         break;
       case "Completed":
         matchesStatus = lead.status === "completed";
@@ -209,72 +210,76 @@ const PreviousLeads = ({ darkMode = useOutletContext() }) => {
     });
   };
 
-  // Mobile-friendly lead card component
-  const LeadCard = ({ lead }) => (
-    <div
-      className={`p-4 rounded-lg border-2 mb-3 transition-all duration-200 hover:shadow-md cursor-pointer ${
-        darkMode
-          ? "border-amber-500 bg-gray-800 hover:bg-gray-750"
-          : "border-amber-200 bg-white hover:bg-amber-50"
-      }`}
-      onClick={() => {
-        // Optional: Navigate to lead details
-        // navigate(`/leads/${lead._id}`);
-      }}
-    >
-      <div className="flex justify-between items-start mb-2">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-sm truncate">{lead.customerName}</span>
-            <span
-              className={`px-2 py-1 rounded-full text-xs font-medium border ${
-                lead.status === "approved"
-                  ? "bg-green-100 text-green-800 border-green-200"
-                  : lead.status === "pending"
-                  ? "bg-yellow-100 text-yellow-800 border-yellow-200"
-                  : lead.status === "completed"
-                  ? "bg-blue-100 text-blue-800 border-blue-200"
-                  : "bg-red-100 text-red-800 border-red-200"
-              }`}
-            >
-              {lead.status === "approved" && "✅"}
-              {lead.status === "pending" && "⏳"}
-              {lead.status === "completed" && "✅✅"}
-              {lead.status === "rejected" && "❌"}
-              {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
-            </span>
-          </div>
-          <div className="text-xs text-gray-500 mb-2">ID: {lead.leadId}</div>
-        </div>
-        <div className={`text-xs px-2 py-1 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-amber-100'}`}>
-          {formatDate(lead.createdAt)}
-        </div>
-      </div>
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      pending: { emoji: "⏳", label: "Pending", color: "bg-yellow-100 text-yellow-800 border-yellow-200" },
+      assigned: { emoji: "📋", label: "Assigned", color: "bg-blue-100 text-blue-800 border-blue-200" },
+      in_progress: { emoji: "⚡", label: "In Progress", color: "bg-purple-100 text-purple-800 border-purple-200" },
+      completed: { emoji: "✅", label: "Completed", color: "bg-green-100 text-green-800 border-green-200" },
+      rejected: { emoji: "❌", label: "Rejected", color: "bg-red-100 text-red-800 border-red-200" }
+    };
+    
+    return statusConfig[status] || { emoji: "❓", label: status, color: "bg-gray-100 text-gray-800 border-gray-200" };
+  };
 
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <div>
-          <span className="font-medium">📞 Contact:</span>
-          <div className="text-green-600 truncate">{lead.customerContact}</div>
+  // Mobile-friendly lead card component
+  const LeadCard = ({ lead }) => {
+    const statusBadge = getStatusBadge(lead.status);
+    
+    return (
+      <div
+        className={`p-4 rounded-lg border-2 mb-3 transition-all duration-200 hover:shadow-md cursor-pointer ${
+          darkMode
+            ? "border-amber-500 bg-gray-800 hover:bg-gray-750"
+            : "border-amber-200 bg-white hover:bg-amber-50"
+        }`}
+        onClick={() => {
+          // Optional: Navigate to lead details
+          // navigate(`/leads/${lead._id}`);
+        }}
+      >
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-semibold text-sm truncate">{lead.customerName}</span>
+              <span
+                className={`px-2 py-1 rounded-full text-xs font-medium border ${statusBadge.color}`}
+              >
+                {statusBadge.emoji} {statusBadge.label}
+              </span>
+            </div>
+            <div className="text-xs text-gray-500 mb-2">ID: {lead.leadId}</div>
+          </div>
+          <div className={`text-xs px-2 py-1 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-amber-100'}`}>
+            {formatDate(lead.createdAt)}
+          </div>
         </div>
-        <div>
-          <span className="font-medium">🏷️ Category:</span>
-          <div className="truncate">{lead.category}</div>
-        </div>
-        <div className="col-span-2">
-          <span className="font-medium">🎯 Offer:</span>
-          <div className="truncate" title={lead.offerName}>{lead.offerName}</div>
-        </div>
-        <div>
-          <span className="font-medium">📅 Created:</span>
-          <div className="text-gray-500">{formatDate(lead.createdAt)}</div>
-        </div>
-        <div>
-          <span className="font-medium">🔄 Updated:</span>
-          <div className="text-gray-500">{formatDate(lead.updatedAt)}</div>
+
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div>
+            <span className="font-medium">📞 Contact:</span>
+            <div className="text-green-600 truncate">{lead.customerContact}</div>
+          </div>
+          <div>
+            <span className="font-medium">🏷️ Category:</span>
+            <div className="truncate">{lead.category}</div>
+          </div>
+          <div className="col-span-2">
+            <span className="font-medium">🎯 Offer:</span>
+            <div className="truncate" title={lead.offerName}>{lead.offerName}</div>
+          </div>
+          <div>
+            <span className="font-medium">📅 Created:</span>
+            <div className="text-gray-500">{formatDate(lead.createdAt)}</div>
+          </div>
+          <div>
+            <span className="font-medium">🔄 Updated:</span>
+            <div className="text-gray-500">{formatDate(lead.updatedAt)}</div>
+          </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div
@@ -469,7 +474,7 @@ const PreviousLeads = ({ darkMode = useOutletContext() }) => {
 
         {/* Tabs */}
         <div className="flex flex-wrap justify-center sm:justify-start gap-2 mb-4 sm:mb-6 border-b pb-2">
-          {["Previous", "Pending", "Approved", "Completed", "Rejected"].map((tab) => (
+          {["Previous", "Pending", "Assigned", "In Progress", "Completed", "Rejected"].map((tab) => (
             <button
               key={tab}
               className={`px-3 sm:px-4 md:px-6 py-2 text-xs sm:text-sm md:text-base font-medium rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center gap-1 ${
@@ -483,12 +488,13 @@ const PreviousLeads = ({ darkMode = useOutletContext() }) => {
             >
               {tab === "Previous" && "📅"}
               {tab === "Pending" && "⏳"}
-              {tab === "Approved" && "✅"}
-              {tab === "Completed" && "✅✅"}
+              {tab === "Assigned" && "📋"}
+              {tab === "In Progress" && "⚡"}
+              {tab === "Completed" && "✅"}
               {tab === "Rejected" && "❌"}
               <span className="hidden sm:inline">{tab}</span>
               <span className="sm:hidden">
-                {tab === "Previous" ? "Prev" : tab.slice(0, 3)}
+                {tab === "Previous" ? "Prev" : tab === "In Progress" ? "In Prog" : tab.slice(0, 3)}
               </span>
             </button>
           ))}
@@ -574,14 +580,13 @@ const PreviousLeads = ({ darkMode = useOutletContext() }) => {
                     <th className="text-left px-4 py-3 font-semibold">🏷️ Category</th>
                     <th className="text-left px-4 py-3 font-semibold">🎯 Offer</th>
                     <th className="text-left px-4 py-3 font-semibold">📅 Created</th>
-                    <th className="text-left px-4 py-3 font-semibold">🔄 Updated</th>
                     <th className="text-left px-4 py-3 font-semibold">📊 Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan="8" className="text-center py-8 text-gray-500">
+                      <td colSpan="7" className="text-center py-8 text-gray-500">
                         <div className="flex justify-center items-center gap-2">
                           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-600"></div>
                           Loading previous leads...
@@ -589,52 +594,43 @@ const PreviousLeads = ({ darkMode = useOutletContext() }) => {
                       </td>
                     </tr>
                   ) : filteredLeads.length > 0 ? (
-                    filteredLeads.map((lead, index) => (
-                      <tr
-                        key={lead._id}
-                        className={`border-t transition-all duration-200 hover:scale-[1.01] ${
-                          darkMode 
-                            ? "border-gray-700 hover:bg-gray-700/50" 
-                            : "border-amber-100 hover:bg-amber-50"
-                        } ${index % 2 === 0 ? (darkMode ? "bg-gray-800/50" : "bg-amber-50/30") : ""}`}
-                      >
-                        <td className="px-4 py-3 font-medium text-amber-600">{lead.leadId}</td>
-                        <td className="px-4 py-3 font-semibold">{lead.customerName}</td>
-                        <td className="px-4 py-3 text-green-600">{lead.customerContact}</td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-1 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 rounded-full text-xs">
-                            {lead.category}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 truncate max-w-[150px]" title={lead.offerName}>
-                          {lead.offerName}
-                        </td>
-                        <td className="px-4 py-3 text-gray-500">{formatDate(lead.createdAt)}</td>
-                        <td className="px-4 py-3 text-gray-500">{formatDate(lead.updatedAt)}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                              lead.status === "approved"
-                                ? "bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 border-green-200"
-                                : lead.status === "pending"
-                                ? "bg-gradient-to-r from-yellow-100 to-amber-100 text-yellow-800 border-yellow-200"
-                                : lead.status === "completed"
-                                ? "bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 border-blue-200"
-                                : "bg-gradient-to-r from-red-100 to-pink-100 text-red-800 border-red-200"
-                            }`}
-                          >
-                            {lead.status === "approved" && "✅ "}
-                            {lead.status === "pending" && "⏳ "}
-                            {lead.status === "completed" && "✅✅ "}
-                            {lead.status === "rejected" && "❌ "}
-                            {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                    filteredLeads.map((lead, index) => {
+                      const statusBadge = getStatusBadge(lead.status);
+                      
+                      return (
+                        <tr
+                          key={lead._id}
+                          className={`border-t transition-all duration-200 hover:scale-[1.01] ${
+                            darkMode 
+                              ? "border-gray-700 hover:bg-gray-700/50" 
+                              : "border-amber-100 hover:bg-amber-50"
+                          } ${index % 2 === 0 ? (darkMode ? "bg-gray-800/50" : "bg-amber-50/30") : ""}`}
+                        >
+                          <td className="px-4 py-3 font-medium text-amber-600">{lead.leadId}</td>
+                          <td className="px-4 py-3 font-semibold">{lead.customerName}</td>
+                          <td className="px-4 py-3 text-green-600">{lead.customerContact}</td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-1 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-800 rounded-full text-xs">
+                              {lead.category}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 truncate max-w-[150px]" title={lead.offerName}>
+                            {lead.offerName}
+                          </td>
+                          <td className="px-4 py-3 text-gray-500">{formatDate(lead.createdAt)}</td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-medium border ${statusBadge.color}`}
+                            >
+                              {statusBadge.emoji} {statusBadge.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan="8" className="text-center py-8 text-gray-500">
+                      <td colSpan="7" className="text-center py-8 text-gray-500">
                         <div className="flex flex-col items-center gap-2">
                           <div className="text-4xl">📭</div>
                           <p>No {activeTab.toLowerCase()} leads found in selected date range.</p>

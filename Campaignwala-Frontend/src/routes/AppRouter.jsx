@@ -84,6 +84,8 @@ import RoleBasedRoute from "./RoleBasedRoute";
 import Loader from "../components/Loader";
 import SettingsPage from "../adminDashboard/pages/SettingsPage";
 import TodayLeads from "../userDashboard/pages/TodayLeads";
+import PreviousLeads from "../userDashboard/pages/PreviousLeads";
+import ClosedLeads from "../userDashboard/pages/ClosedLeads";
 
 /**
  * Main Application Router
@@ -208,8 +210,8 @@ export default function AppRouter() {
           <Route path="dashboard" element={<Dashboard darkMode={darkMode} />} />
           <Route path="all-leads" element={<AllLeads darkMode={darkMode} />} />
           <Route path="leads-today" element={<TodayLeads darkMode={darkMode} />} />
-          <Route path="leads-previous" element={<TodayLeads darkMode={darkMode} />} />
-          <Route path="leads-closed" element={<TodayLeads darkMode={darkMode} />} />
+          <Route path="leads-previous" element={<PreviousLeads darkMode={darkMode} />} />
+          <Route path="leads-closed" element={<ClosedLeads darkMode={darkMode} />} />
           <Route path="wallet" element={<Wallet darkMode={darkMode} />} />
           <Route path="profile" element={<Profile darkMode={darkMode} />} />
           <Route path="demat-account" element={<DematAccount darkMode={darkMode} />} />

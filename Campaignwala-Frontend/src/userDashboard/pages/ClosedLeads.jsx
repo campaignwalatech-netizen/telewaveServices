@@ -14,7 +14,7 @@ const ClosedLeads = ({ darkMode = useOutletContext() }) => {
   const [stats, setStats] = useState({
     total: 0,
     completed: 0,
-    rejected: 0,
+    closed: 0,
     conversionRate: 0
   });
   const dropdownRef = useRef(null);
@@ -53,22 +53,22 @@ const ClosedLeads = ({ darkMode = useOutletContext() }) => {
       if (response.success) {
         const allLeads = response.data.leads || [];
         
-        // Filter for closed leads (completed or rejected)
+        // Filter for closed leads (completed or closed status)
         const closedLeads = allLeads.filter(lead => 
-          lead.status === "completed" || lead.status === "rejected"
+          lead.status === "completed" || lead.status === "closed"
         );
         
         setLeadsData(closedLeads);
         
         // Calculate stats
         const completedLeads = closedLeads.filter(lead => lead.status === "completed").length;
-        const rejectedLeads = closedLeads.filter(lead => lead.status === "rejected").length;
+        const closedStatusLeads = closedLeads.filter(lead => lead.status === "closed").length;
         const totalClosed = closedLeads.length;
         
         setStats({
           total: totalClosed,
           completed: completedLeads,
-          rejected: rejectedLeads,
+          closed: closedStatusLeads,
           conversionRate: totalClosed > 0 ? Math.round((completedLeads / totalClosed) * 100) : 0
         });
       }
@@ -110,12 +110,12 @@ const ClosedLeads = ({ darkMode = useOutletContext() }) => {
       case "Completed":
         matchesStatus = lead.status === "completed";
         break;
-      case "Rejected":
-        matchesStatus = lead.status === "rejected";
-        break;
       case "Closed":
+        matchesStatus = lead.status === "closed";
+        break;
+      case "All Closed":
       default:
-        matchesStatus = true; // Show both completed and rejected
+        matchesStatus = lead.status === "completed" || lead.status === "closed";
         break;
     }
 
@@ -153,79 +153,81 @@ const ClosedLeads = ({ darkMode = useOutletContext() }) => {
     });
   };
 
-  // Mobile-friendly lead card component
-  const LeadCard = ({ lead }) => (
-    <div
-      className={`p-4 rounded-lg border-2 mb-3 transition-all duration-200 hover:shadow-md cursor-pointer ${
-        lead.status === "completed"
-          ? darkMode
-            ? "border-emerald-500 bg-gray-800 hover:bg-gray-750"
-            : "border-emerald-200 bg-white hover:bg-emerald-50"
-          : darkMode
-            ? "border-rose-500 bg-gray-800 hover:bg-gray-750"
-            : "border-rose-200 bg-white hover:bg-rose-50"
-      }`}
-      onClick={() => {
-        // Optional: Navigate to lead details
-        // navigate(`/leads/${lead._id}`);
-      }}
-    >
-      <div className="flex justify-between items-start mb-2">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-sm truncate">{lead.customerName}</span>
-            <span
-              className={`px-2 py-1 rounded-full text-xs font-medium border ${
-                lead.status === "completed"
-                  ? "bg-emerald-100 text-emerald-800 border-emerald-200"
-                  : "bg-rose-100 text-rose-800 border-rose-200"
-              }`}
-            >
-              {lead.status === "completed" ? "✅ Closed (Completed)" : "❌ Closed (Rejected)"}
-            </span>
-          </div>
-          <div className="text-xs text-gray-500 mb-2">ID: {lead.leadId}</div>
-        </div>
-        <div className={`text-xs px-2 py-1 rounded-full ${
-          lead.status === "completed"
-            ? darkMode ? 'bg-emerald-900/50' : 'bg-emerald-100'
-            : darkMode ? 'bg-rose-900/50' : 'bg-rose-100'
-        }`}>
-          {formatDate(lead.updatedAt)}
-        </div>
-      </div>
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      completed: { emoji: "✅", label: "Completed", color: "bg-green-100 text-green-800 border-green-200" },
+      closed: { emoji: "🔒", label: "Closed", color: "bg-gray-100 text-gray-800 border-gray-200" }
+    };
+    
+    return statusConfig[status] || { emoji: "❓", label: status, color: "bg-gray-100 text-gray-800 border-gray-200" };
+  };
 
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <div>
-          <span className="font-medium">📞 Contact:</span>
-          <div className="text-green-600 truncate">{lead.customerContact}</div>
+  // Mobile-friendly lead card component
+  const LeadCard = ({ lead }) => {
+    const statusBadge = getStatusBadge(lead.status);
+    
+    return (
+      <div
+        className={`p-4 rounded-lg border-2 mb-3 transition-all duration-200 hover:shadow-md cursor-pointer ${
+          lead.status === "completed"
+            ? darkMode
+              ? "border-emerald-500 bg-gray-800 hover:bg-gray-750"
+              : "border-emerald-200 bg-white hover:bg-emerald-50"
+            : darkMode
+              ? "border-gray-500 bg-gray-800 hover:bg-gray-750"
+              : "border-gray-200 bg-white hover:bg-gray-50"
+        }`}
+        onClick={() => {
+          // Optional: Navigate to lead details
+          // navigate(`/leads/${lead._id}`);
+        }}
+      >
+        <div className="flex justify-between items-start mb-2">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-semibold text-sm truncate">{lead.customerName}</span>
+              <span
+                className={`px-2 py-1 rounded-full text-xs font-medium border ${statusBadge.color}`}
+              >
+                {statusBadge.emoji} {statusBadge.label}
+              </span>
+            </div>
+            <div className="text-xs text-gray-500 mb-2">ID: {lead.leadId}</div>
+          </div>
+          <div className={`text-xs px-2 py-1 rounded-full ${
+            lead.status === "completed"
+              ? darkMode ? 'bg-emerald-900/50' : 'bg-emerald-100'
+              : darkMode ? 'bg-gray-700' : 'bg-gray-100'
+          }`}>
+            {formatDate(lead.updatedAt)}
+          </div>
         </div>
-        <div>
-          <span className="font-medium">🏷️ Category:</span>
-          <div className="truncate">{lead.category}</div>
-        </div>
-        <div className="col-span-2">
-          <span className="font-medium">🎯 Offer:</span>
-          <div className="truncate" title={lead.offerName}>{lead.offerName}</div>
-        </div>
-        <div>
-          <span className="font-medium">📅 Created:</span>
-          <div className="text-gray-500">{formatDate(lead.createdAt)}</div>
-        </div>
-        <div>
-          <span className="font-medium">🔒 Closed:</span>
-          <div className="text-gray-500">{formatDateTime(lead.updatedAt)}</div>
+
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <div>
+            <span className="font-medium">📞 Contact:</span>
+            <div className="text-green-600 truncate">{lead.customerContact}</div>
+          </div>
+          <div>
+            <span className="font-medium">🏷️ Category:</span>
+            <div className="truncate">{lead.category}</div>
+          </div>
+          <div className="col-span-2">
+            <span className="font-medium">🎯 Offer:</span>
+            <div className="truncate" title={lead.offerName}>{lead.offerName}</div>
+          </div>
+          <div>
+            <span className="font-medium">📅 Created:</span>
+            <div className="text-gray-500">{formatDate(lead.createdAt)}</div>
+          </div>
+          <div>
+            <span className="font-medium">🔒 Closed:</span>
+            <div className="text-gray-500">{formatDateTime(lead.updatedAt)}</div>
+          </div>
         </div>
       </div>
-      
-      {lead.rejectionReason && (
-        <div className="mt-2 pt-2 border-t border-gray-300 dark:border-gray-700">
-          <span className="font-medium text-xs">📝 Reason:</span>
-          <div className="text-xs text-gray-500 mt-1">{lead.rejectionReason}</div>
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div
@@ -236,7 +238,7 @@ const ClosedLeads = ({ darkMode = useOutletContext() }) => {
       {/* Animated Background Elements */}
       <div className="hidden sm:block absolute top-0 left-0 w-72 h-72 bg-emerald-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
       <div className="hidden sm:block absolute top-0 right-0 w-72 h-72 bg-gray-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-      <div className="hidden sm:block absolute -bottom-8 left-20 w-72 h-72 bg-rose-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+      <div className="hidden sm:block absolute -bottom-8 left-20 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
 
       <div className="relative z-10 w-full max-w-7xl mx-auto overflow-x-hidden">
         {/* Title */}
@@ -247,7 +249,7 @@ const ClosedLeads = ({ darkMode = useOutletContext() }) => {
             Closed Leads
           </h2>
           <p className={`text-xs sm:text-sm mt-1 sm:mt-2 ${darkMode ? "text-gray-400" : "text-gray-600"}`}>
-            View completed and rejected leads - Analyze your closure performance
+            View completed and closed leads - Analyze your closure performance
           </p>
         </div>
 
@@ -261,12 +263,12 @@ const ClosedLeads = ({ darkMode = useOutletContext() }) => {
             <div className="text-xs text-gray-500 mb-1">Completed</div>
             <div className="text-xl font-bold text-emerald-600">{stats.completed}</div>
           </div>
-          <div className={`p-3 rounded-xl border-2 ${darkMode ? 'border-rose-500 bg-gray-800' : 'border-rose-200 bg-white'} shadow-sm`}>
-            <div className="text-xs text-gray-500 mb-1">Rejected</div>
-            <div className="text-xl font-bold text-rose-600">{stats.rejected}</div>
+          <div className={`p-3 rounded-xl border-2 ${darkMode ? 'border-gray-500 bg-gray-800' : 'border-gray-200 bg-white'} shadow-sm`}>
+            <div className="text-xs text-gray-500 mb-1">Closed Status</div>
+            <div className="text-xl font-bold text-gray-600">{stats.closed}</div>
           </div>
           <div className={`p-3 rounded-xl border-2 ${darkMode ? 'border-blue-500 bg-gray-800' : 'border-blue-200 bg-white'} shadow-sm`}>
-            <div className="text-xs text-gray-500 mb-1">Conversion Rate</div>
+            <div className="text-xs text-gray-500 mb-1">Completion Rate</div>
             <div className="text-xl font-bold text-blue-600">{stats.conversionRate}%</div>
           </div>
         </div>
@@ -363,15 +365,15 @@ const ClosedLeads = ({ darkMode = useOutletContext() }) => {
 
         {/* Tabs */}
         <div className="flex flex-wrap justify-center sm:justify-start gap-2 mb-4 sm:mb-6 border-b pb-2">
-          {["Closed", "Completed", "Rejected"].map((tab) => (
+          {["All Closed", "Completed", "Closed"].map((tab) => (
             <button
               key={tab}
               className={`px-3 sm:px-4 md:px-6 py-2 text-xs sm:text-sm md:text-base font-medium rounded-lg transition-all duration-300 transform hover:scale-105 flex items-center gap-1 ${
                 activeTab === tab
                   ? tab === "Completed"
                     ? "bg-gradient-to-r from-emerald-600 to-green-600 text-white shadow-lg"
-                    : tab === "Rejected"
-                    ? "bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-lg"
+                    : tab === "Closed"
+                    ? "bg-gradient-to-r from-gray-600 to-slate-600 text-white shadow-lg"
                     : "bg-gradient-to-r from-emerald-600 to-gray-600 text-white shadow-lg"
                   : darkMode
                   ? "bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white"
@@ -379,12 +381,12 @@ const ClosedLeads = ({ darkMode = useOutletContext() }) => {
               }`}
               onClick={() => handleTabClick(tab)}
             >
-              {tab === "Closed" && "🔒"}
+              {tab === "All Closed" && "🔒"}
               {tab === "Completed" && "✅"}
-              {tab === "Rejected" && "❌"}
+              {tab === "Closed" && "🔐"}
               <span className="hidden sm:inline">{tab}</span>
               <span className="sm:hidden">
-                {tab === "Closed" ? "Closed" : tab.slice(0, 3)}
+                {tab === "All Closed" ? "All" : tab.slice(0, 3)}
               </span>
             </button>
           ))}
@@ -436,10 +438,10 @@ const ClosedLeads = ({ darkMode = useOutletContext() }) => {
                 <h3
                   className={`text-lg font-semibold bg-gradient-to-r from-emerald-600 to-gray-600 bg-clip-text text-transparent`}
                 >
-                  {activeTab === "Closed" ? "Closed Leads Overview" : `${activeTab} Leads Overview`}
+                  {activeTab === "All Closed" ? "Closed Leads Overview" : `${activeTab} Leads Overview`}
                 </h3>
                 <span className={`text-xs px-2 py-1 rounded-full ${darkMode ? 'bg-gray-700' : 'bg-emerald-100'}`}>
-                  {stats.conversionRate}% Conversion Rate
+                  {stats.conversionRate}% Completion Rate
                 </span>
               </div>
               <p
@@ -447,8 +449,8 @@ const ClosedLeads = ({ darkMode = useOutletContext() }) => {
                   darkMode ? "text-gray-400" : "text-gray-600"
                 }`}
               >
-                {activeTab === "Closed" 
-                  ? `Showing ${filteredLeads.length} closed leads (${stats.completed} completed, ${stats.rejected} rejected).` 
+                {activeTab === "All Closed" 
+                  ? `Showing ${filteredLeads.length} closed leads (${stats.completed} completed, ${stats.closed} closed status).` 
                   : `Showing ${filteredLeads.length} ${activeTab.toLowerCase()} leads.`}
               </p>
             </div>
@@ -485,43 +487,41 @@ const ClosedLeads = ({ darkMode = useOutletContext() }) => {
                       </td>
                     </tr>
                   ) : filteredLeads.length > 0 ? (
-                    filteredLeads.map((lead, index) => (
-                      <tr
-                        key={lead._id}
-                        className={`border-t transition-all duration-200 hover:scale-[1.01] ${
-                          darkMode 
-                            ? "border-gray-700 hover:bg-gray-700/50" 
-                            : "border-emerald-100 hover:bg-emerald-50"
-                        } ${index % 2 === 0 ? (darkMode ? "bg-gray-800/50" : "bg-emerald-50/30") : ""}`}
-                      >
-                        <td className="px-4 py-3 font-medium text-emerald-600">{lead.leadId}</td>
-                        <td className="px-4 py-3 font-semibold">{lead.customerName}</td>
-                        <td className="px-4 py-3 text-green-600">{lead.customerContact}</td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-1 bg-gradient-to-r from-emerald-100 to-gray-100 text-emerald-800 rounded-full text-xs">
-                            {lead.category}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 truncate max-w-[150px]" title={lead.offerName}>
-                          {lead.offerName}
-                        </td>
-                        <td className="px-4 py-3 text-gray-500">{formatDate(lead.createdAt)}</td>
-                        <td className="px-4 py-3 text-gray-500">{formatDateTime(lead.updatedAt)}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                              lead.status === "completed"
-                                ? "bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 border-emerald-200"
-                                : "bg-gradient-to-r from-rose-100 to-red-100 text-rose-800 border-rose-200"
-                            }`}
-                          >
-                            {lead.status === "completed" && "✅ "}
-                            {lead.status === "rejected" && "❌ "}
-                            {lead.status === "completed" ? "Completed" : "Rejected"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                    filteredLeads.map((lead, index) => {
+                      const statusBadge = getStatusBadge(lead.status);
+                      
+                      return (
+                        <tr
+                          key={lead._id}
+                          className={`border-t transition-all duration-200 hover:scale-[1.01] ${
+                            darkMode 
+                              ? "border-gray-700 hover:bg-gray-700/50" 
+                              : "border-emerald-100 hover:bg-emerald-50"
+                          } ${index % 2 === 0 ? (darkMode ? "bg-gray-800/50" : "bg-emerald-50/30") : ""}`}
+                        >
+                          <td className="px-4 py-3 font-medium text-emerald-600">{lead.leadId}</td>
+                          <td className="px-4 py-3 font-semibold">{lead.customerName}</td>
+                          <td className="px-4 py-3 text-green-600">{lead.customerContact}</td>
+                          <td className="px-4 py-3">
+                            <span className="px-2 py-1 bg-gradient-to-r from-emerald-100 to-gray-100 text-emerald-800 rounded-full text-xs">
+                              {lead.category}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 truncate max-w-[150px]" title={lead.offerName}>
+                            {lead.offerName}
+                          </td>
+                          <td className="px-4 py-3 text-gray-500">{formatDate(lead.createdAt)}</td>
+                          <td className="px-4 py-3 text-gray-500">{formatDateTime(lead.updatedAt)}</td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`px-3 py-1 rounded-full text-xs font-medium border ${statusBadge.color}`}
+                            >
+                              {statusBadge.emoji} {statusBadge.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan="8" className="text-center py-8 text-gray-500">
