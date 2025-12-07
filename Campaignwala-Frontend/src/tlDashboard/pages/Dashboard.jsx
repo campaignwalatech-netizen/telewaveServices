@@ -20,7 +20,7 @@ import api from "../../services/api";
 
 // TL Dashboard Components
 import StatCard from "../Components/StatCard";
-import TeamPerformanceChart from "../components/charts/TeamPerformanceChart";
+import TeamPerformanceChart from "../Components/charts/TeamPerformanceChart";
 // import RecentLeadsTable from "../components/tables/RecentLeadsTable";
 // import TopPerformers from "../components/TopPerformers";
 // import ActivityFeed from "../components/ActivityFeed";
