@@ -4,7 +4,7 @@ import { useSelector } from "react-redux";
 import { selectIsAuthenticated, selectUserRole } from "../redux/slices/authSlice";
 
 // TL Dashboard imports
-import TLDashboardLayout from "../tlDashboard/components/TLDashboardLayout";
+import TLDashboardLayout from "../tlDashboard/Components/TLDashboardLayout";
 import TLDashboard from "../tlDashboard/pages/Dashboard";
 import TeamManagement from "../tlDashboard/pages/TeamManagement";
 import LeadsManagement from "../tlDashboard/pages/LeadsManagement";
