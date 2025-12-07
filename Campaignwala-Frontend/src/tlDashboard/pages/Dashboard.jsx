@@ -19,7 +19,7 @@ import axios from "axios";
 import api from "../../services/api";
 
 // TL Dashboard Components
-import StatCard from "../components/StatCard";
+import StatCard from "../Components/StatCard";
 import TeamPerformanceChart from "../components/charts/TeamPerformanceChart";
 // import RecentLeadsTable from "../components/tables/RecentLeadsTable";
 // import TopPerformers from "../components/TopPerformers";
