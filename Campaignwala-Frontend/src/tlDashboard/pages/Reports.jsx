@@ -17,9 +17,9 @@ import {
   XCircle
 } from "lucide-react";
 import tlService from "../../services/tlService";
-// import ReportChart from "../components/charts/ReportChart";
-// import ReportTable from "../components/tables/ReportTable";
-// import ReportFilters from "../components/ReportFilters";
+// import ReportChart from "../Components/charts/ReportChart";
+// import ReportTable from "../Components/tables/ReportTable";
+// import ReportFilters from "../Components/ReportFilters";
 
 /**
  * TL Reports Page

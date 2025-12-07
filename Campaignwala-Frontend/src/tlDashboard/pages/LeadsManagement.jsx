@@ -20,10 +20,10 @@ import axios from "axios";
 import  api  from "../../services/api";
 
 // Components
-import LeadCard from "../components/LeadCard";
-// import LeadsFilter from "../components/LeadsFilter";
-// import AssignLeadModal from "../components/modals/AssignLeadModal";
-// import LeadsStats from "../components/LeadsStats";
+import LeadCard from "../Components/LeadCard";
+// import LeadsFilter from "../Components/LeadsFilter";
+// import AssignLeadModal from "../Components/modals/AssignLeadModal";
+// import LeadsStats from "../Components/LeadsStats";
 
 /**
  * Leads Management Page

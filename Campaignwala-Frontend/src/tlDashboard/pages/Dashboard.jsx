@@ -21,10 +21,10 @@ import api from "../../services/api";
 // TL Dashboard Components
 import StatCard from "../Components/StatCard";
 import TeamPerformanceChart from "../Components/charts/TeamPerformanceChart";
-// import RecentLeadsTable from "../components/tables/RecentLeadsTable";
-// import TopPerformers from "../components/TopPerformers";
-// import ActivityFeed from "../components/ActivityFeed";
-// import QuickStats from "../components/QuickStats";
+// import RecentLeadsTable from "../Components/tables/RecentLeadsTable";
+// import TopPerformers from "../Components/TopPerformers";
+// import ActivityFeed from "../Components/ActivityFeed";
+// import QuickStats from "../Components/QuickStats";
 
 /**
  * TL Dashboard Main Page

@@ -22,7 +22,7 @@ import  api  from "../../services/api";
 // Components
 import TeamMemberCard from "../Components/TeamMemberCard";
 import AddTeamMemberModal from "../Components/modals/AddTeamMemberModal";
-// import TeamStats from "../components/TeamStats";
+// import TeamStats from "../Components/TeamStats";
 
 /**
  * Team Management Page

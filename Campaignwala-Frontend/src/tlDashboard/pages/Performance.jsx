@@ -17,9 +17,9 @@ import {
   XCircle
 } from "lucide-react";
 import tlService from "../../services/tlService";
-// import PerformanceChart from "../components/charts/PerformanceChart";
-// import TeamLeaderboard from "../components/tables/TeamLeaderboard";
-// import PerformanceMetrics from "../components/PerformanceMetrics";
+// import PerformanceChart from "../Components/charts/PerformanceChart";
+// import TeamLeaderboard from "../Components/tables/TeamLeaderboard";
+// import PerformanceMetrics from "../Components/PerformanceMetrics";
 
 /**
  * TL Performance Page

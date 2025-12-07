@@ -17,9 +17,9 @@ import {
   TrendingDown
 } from "lucide-react";
 import tlService from "../../services/tlService";
-// import AssignmentCard from "../components/AssignmentCard";
-// import AssignLeadModal from "../components/modals/AssignLeadModal";
-// import AssignmentStats from "../components/AssignmentStats";
+// import AssignmentCard from "../Components/AssignmentCard";
+// import AssignLeadModal from "../Components/modals/AssignLeadModal";
+// import AssignmentStats from "../Components/AssignmentStats";
 
 /**
  * TL Assignments Page
