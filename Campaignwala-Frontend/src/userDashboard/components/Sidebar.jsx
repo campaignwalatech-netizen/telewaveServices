@@ -4,7 +4,7 @@ import {
   Home, Users, Wallet, User, ChevronLeft, ChevronRight, 
   Award, Bell, Calendar, Trophy, TrendingUp, Link, 
   BarChart, HelpCircle, Clock, CheckCircle, 
-  FileText, CreditCard, List, Shield
+  FileText, CreditCard, List, Shield, Target, BarChart3
 } from "lucide-react";
 
 const Sidebar = ({ darkMode, isSidebarOpen, toggleSidebar }) => {
@@ -12,26 +12,28 @@ const Sidebar = ({ darkMode, isSidebarOpen, toggleSidebar }) => {
   const location = useLocation();
 
   const menuItems = [
-    // Main Sections
-    { icon: Home, label: "Dashboard", path: "/user" },
-    
-    // Leads Sections
-    { icon: Users, label: "All Accounts", path: "/user/all-leads" },
-    { icon: TrendingUp, label: "Today's Leads", path: "/user/leads-today" },
-    { icon: Clock, label: "Previous Leads", path: "/user/leads-previous" },
-    { icon: Shield, label: "Closed Leads", path: "/user/leads-closed" },
-    
-    
-    // Work Analytics & Profile
-    { icon: BarChart, label: "Work Analytics", path: "/user/work-analytics" },
-    { icon: User, label: "Profile Details", path: "/user/profile-overview" },
-    
-    // Salary & Wallet
-    { icon: Wallet, label: "Wallet", path: "/user/wallet-withdrawl" },
-    
-    // FAQ
-    { icon: HelpCircle, label: "FAQ's", path: "/user/faqs" },
-  ];
+  // Main Sections
+  { icon: Home, label: "Dashboard", path: "/user" },
+  
+  // Data Sections
+  { icon: Target, label: "Today's Data", path: "/user/data-today" },
+  { icon: Clock, label: "Previous Data", path: "/user/data-previous" },
+  { icon: CheckCircle, label: "Closed Data", path: "/user/data-closed" },
+  { icon: BarChart3, label: "Data Analytics", path: "/user/data-analytics" },
+  
+  // Legacy leads routes (for compatibility)
+  { icon: Users, label: "All Accounts", path: "/user/all-leads" },
+  
+  // Work Analytics & Profile
+  { icon: BarChart, label: "Work Analytics", path: "/user/work-analytics" },
+  { icon: User, label: "Profile Details", path: "/user/profile-overview" },
+  
+  // Salary & Wallet
+  { icon: Wallet, label: "Wallet", path: "/user/wallet-withdrawl" },
+  
+  // FAQ
+  { icon: HelpCircle, label: "FAQ's", path: "/user/faqs" },
+];
 
   const handleItemClick = (path) => {
     navigate(path);

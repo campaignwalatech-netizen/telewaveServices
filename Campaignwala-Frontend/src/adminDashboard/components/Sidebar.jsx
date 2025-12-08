@@ -73,22 +73,23 @@ export default function AdminSidebar({
       badge: null
     },
     {
-      id: "manageLeads",
-      label: "Manage Leads",
-      icon: FileText,
-      type: "section",
-      badge: dashboardStats.pendingLeads > 0 ? dashboardStats.pendingLeads : null,
-      items: [
-        { id: "distribute-leads", label: "Distribute Leads", icon: TrendingUp, path: "/admin/leads/distribute" },
-        { id: "upload-leads", label: "Upload Fresh Leads", icon: Upload, path: "/admin/leads/upload" },
-        { id: "not-used", label: "Not Used", icon: Filter, path: "/admin/leads/not-used" },
-        { id: "today-assigned", label: "Today Assigned", icon: Calendar, path: "/admin/leads/today-assigned", badge: dashboardStats.todayLeads },
-        { id: "called", label: "Called", icon: Bell, path: "/admin/leads/called" },
-        { id: "closed", label: "Closed", icon: CheckCircle, path: "/admin/leads/closed" },
-        { id: "feedback-analytics", label: "Lead Feedback Analytics", icon: MessageSquare, path: "/admin/leads/analytics/feedback" },
-        { id: "new", label: "New", icon: RefreshCw, path: "/admin/leads/new" },
-      ]
-    },
+  id: "manageDataLeads",
+  label: "Manage Data Leads",
+  icon: FileText,
+  type: "section",
+  badge: dashboardStats.pendingData > 0 ? dashboardStats.pendingData : null,
+  items: [
+    { id: "data-dashboard", label: "Data Dashboard", icon: BarChart3, path: "/admin/data/dashboard" },
+    { id: "distribute-data", label: "Distribute Data", icon: TrendingUp, path: "/admin/data/distribute" },
+    { id: "upload-data", label: "Upload Fresh data", icon: Upload, path: "/admin/data/upload" },
+    { id: "not-used", label: "Not Used", icon: Filter, path: "/admin/data/not-used" },
+    { id: "today-assigned", label: "Today Assigned", icon: Calendar, path: "/admin/data/today-assigned", badge: dashboardStats.todayLeads },
+    { id: "called", label: "Called", icon: Bell, path: "/admin/data/called" },
+    { id: "closed", label: "Closed", icon: CheckCircle, path: "/admin/data/closed" },
+    { id: "feedback-analytics", label: "Data Feedback Analytics", icon: MessageSquare, path: "/admin/data/analytics/feedback" },
+    { id: "new", label: "New", icon: RefreshCw, path: "/admin/data/new" }, 
+  ]
+},
     {
       id: "manageOffers",
       label: "Manage Offers",

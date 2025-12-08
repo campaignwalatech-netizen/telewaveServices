@@ -100,4 +100,68 @@ router.get('/user/statistics',
     DataController.getUserStats
 );
 
+// ==================== COMMON ROUTES ====================
+
+// Get data by ID
+router.get('/:id', 
+    authenticate, 
+    DataController.getDataById
+);
+
+// Search data
+router.get('/search', 
+    authenticate, 
+    DataController.searchData
+);
+
+// Export data
+router.get('/export/csv', 
+    authenticate, 
+    DataController.exportData
+);
+
+// Import data
+router.post('/import/csv', 
+    authenticate, 
+    authorize(['admin']), 
+    DataController.importData
+);
+
+// Get analytics
+router.get('/analytics', 
+    authenticate, 
+    DataController.getAnalytics
+);
+
+// Batch operations
+router.get('/batches', 
+    authenticate, 
+    authorize(['admin']), 
+    DataController.getAllBatches
+);
+
+router.get('/batches/:id', 
+    authenticate, 
+    authorize(['admin']), 
+    DataController.getBatchDetails
+);
+
+router.post('/batches', 
+    authenticate, 
+    authorize(['admin']), 
+    DataController.createBatch
+);
+
+router.put('/batches/:id', 
+    authenticate, 
+    authorize(['admin']), 
+    DataController.updateBatch
+);
+
+router.delete('/batches/:id', 
+    authenticate, 
+    authorize(['admin']), 
+    DataController.deleteBatch
+);
+
 module.exports = router;

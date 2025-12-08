@@ -17,7 +17,8 @@ import {
   Bell,
   UserCheck,
   Share2,
-  Filter
+  Filter,
+  XCircle
 } from "lucide-react";
 
 /**
@@ -29,15 +30,17 @@ export default function TLSidebar() {
   const [activeMenu, setActiveMenu] = useState("dashboard");
 
   const menuItems = [
-    { id: "dashboard", label: "Dashboard", icon: Home, path: "/tl/dashboard" },
-    { id: "team", label: "HR List", icon: Users, path: "/tl/team" },
-    { id: "leads", label: "Leads", icon: Briefcase, path: "/tl/leads" },
-    { id: "performance", label: "Check HR Performance", icon: TrendingUp, path: "/tl/performance" },
-    { id: "reports", label: "Today's present HR", icon: BarChart3, path: "/tl/reports" },
-    { id: "assignments", label: "Pending Accounts", icon: Share2, path: "/tl/assignments" },
-    { id: "approvals", label: "Approved Account", icon: UserCheck, path: "/tl/approvals" },
-    { id: "settings", label: "Settings", icon: Settings, path: "/tl/settings" },
-  ];
+  { id: "dashboard", label: "Dashboard", icon: Home, path: "/tl/dashboard" },
+  { id: "team", label: "HR List", icon: Users, path: "/tl/team" },
+  { id: "data", label: "Data Management", icon: Briefcase, path: "/tl/data" },
+  { id: "distribute-data", label: "Distribute Data", icon: Share2, path: "/tl/data/distribute" },
+  { id: "performance", label: "Check HR Performance", icon: TrendingUp, path: "/tl/performance" },
+  { id: "reports", label: "Today's present HR", icon: BarChart3, path: "/tl/reports" },
+  { id: "assignments", label: "Pending Accounts", icon: Share2, path: "/tl/assignments" },
+  { id: "approvals", label: "Approved Account", icon: UserCheck, path: "/tl/approvals" },
+  { id: "withdrawn-data", label: "Withdrawn Data", icon: XCircle, path: "/tl/data/withdrawn" },
+  { id: "settings", label: "Settings", icon: Settings, path: "/tl/settings" },
+];
 
   return (
     <>
