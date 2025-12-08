@@ -73,41 +73,6 @@ export default function AdminSidebar({
       badge: null
     },
     {
-      id: "manageOffers",
-      label: "Manage Offers",
-      icon: Users,
-      type: "section",
-      items: [
-        { id: "all-offers", label: "All Offers", icon: Package, path: "/admin/all-Offers", },
-        { id: "add-offers", label: "Add Offers", icon: Grid, path: "/admin/add-Offers", },
-        { id: "approve-offers", label: "Approve Offers", icon: Database, path: "/admin/approve-offers" },
-        
-      ]
-    },
-    {
-      id: "manage-category",
-      label: "Manage Category",
-      icon: Grid,
-      type: "section",
-      items: [
-        { id: "all-category", label: "All Categories", icon: Package, path: "/admin/all-category", },
-        { id: "add-category", label: "Add Categories", icon: Grid, path: "/admin/add-category", },
-       
-      ]
-    },
-    {
-      id: "manageAccount",
-      label: "Manage Account",
-      icon: Users,
-      type: "section",
-      items: [
-        { id: "all-products", label: "All Products", icon: Package, path: "/admin/accounts/products" },
-        { id: "approve-account", label: "Approve Account", icon: Shield, path: "/admin/accounts/approve", badge: dashboardStats.pendingApprovals },
-        { id: "add-account", label: "Add Account", icon: UserPlus, path: "/admin/accounts/add" },
-        { id: "new", label: "New", icon: RefreshCw, path: "/admin/accounts/new" },
-      ]
-    },
-    {
       id: "manageLeads",
       label: "Manage Leads",
       icon: FileText,
@@ -122,6 +87,31 @@ export default function AdminSidebar({
         { id: "closed", label: "Closed", icon: CheckCircle, path: "/admin/leads/closed" },
         { id: "feedback-analytics", label: "Lead Feedback Analytics", icon: MessageSquare, path: "/admin/leads/analytics/feedback" },
         { id: "new", label: "New", icon: RefreshCw, path: "/admin/leads/new" },
+      ]
+    },
+    {
+      id: "manageOffers",
+      label: "Manage Offers",
+      icon: Users,
+      type: "section",
+      items: [
+        { id: "all-offers", label: "All Offers", icon: Package, path: "/admin/all-Offers", },
+        { id: "add-offers", label: "Add Offers", icon: Grid, path: "/admin/add-Offers", },
+        { id: "approve-offers", label: "Approve Offers", icon: Database, path: "/admin/approve-offers" },
+        
+      ]
+    },
+    {
+      id: "convertedLeads",
+      label: "Converted Leads",
+      icon: Target,
+      type: "section",
+      items: [
+        { id: "abc-analytics", label: "Account Analytics", icon: BarChart3, path: "/admin/abc-analytics" },
+        { id: "leads-pending", label: "Pending", icon: Clock, path: "/admin/leads-pending" },
+        { id: "leads-approved", label: "Approved", icon: CheckCircle, path: "/admin/leads-approved" },
+        { id: "leads-completed", label: "Completed", icon: CheckCircle, path: "/admin/leads-completed" },
+        { id: "leads-rejected", label: "Rejected", icon: CheckCircle, path: "/admin/leads-rejected" },
       ]
     },
     {
@@ -142,8 +132,21 @@ export default function AdminSidebar({
       ]
     },
     {
+      id: "manage-category",
+      label: "Manage Category",
+      icon: Grid,
+      type: "section",
+      items: [
+        { id: "all-category", label: "All Categories", icon: Package, path: "/admin/all-category", },
+        { id: "add-category", label: "Add Categories", icon: Grid, path: "/admin/add-category", },
+       
+      ]
+    },
+    
+    
+    {
       id: "userManagement",
-      label: "User Management",
+      label: "User Management- d",
       icon: Users,
       type: "section",
       badge: dashboardStats.activeHR,
@@ -176,19 +179,7 @@ export default function AdminSidebar({
         { id: "payment-withdrawal", label: "Payment Withdrawal List", icon: LayoutDashboard, path: "/admin/payment-withdrawal" },
       ]
     },
-    {
-      id: "convertedLeads",
-      label: "Converted Leads",
-      icon: Target,
-      type: "section",
-      items: [
-        { id: "abc-analytics", label: "Account Analytics", icon: BarChart3, path: "/admin/abc-analytics" },
-        { id: "leads-pending", label: "Pending", icon: Clock, path: "/admin/leads-pending" },
-        { id: "leads-approved", label: "Approved", icon: CheckCircle, path: "/admin/leads-approved" },
-        { id: "leads-completed", label: "Completed", icon: CheckCircle, path: "/admin/leads-completed" },
-        { id: "leads-rejected", label: "Rejected", icon: CheckCircle, path: "/admin/leads-rejected" },
-      ]
-    },
+    
     {
       id: "miscellaneous",
       label: "Miscellaneous",
@@ -201,14 +192,6 @@ export default function AdminSidebar({
         { id: "activity-logs", label: "Activity Logs", icon: Activity, path: "/admin/misc/activity-logs" },
         { id: "tw-database", label: "TW Database", icon: Database, path: "/admin/misc/tw-database" },
       ]
-    },
-    {
-      id: "reports",
-      label: "Reports & Analytics",
-      icon: BarChart3,
-      path: "/admin/reports",
-      type: "single",
-      badge: null
     },
     {
       id: "settings",

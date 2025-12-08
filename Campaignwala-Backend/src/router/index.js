@@ -13,6 +13,7 @@ const withdrawalRoutes = require('../modules/withdrawal/withdrawal.router');
 const notificationRoutes = require('../modules/notifications/notification.router');
 const queryRoutes = require('../modules/queries/query.router');
 const adminLogRoutes = require('../modules/adminlogs/adminlog.router');
+const dataRoutes = require('../modules/data/data.routes');
 
 // Health check for API
 router.get('/health', (req, res) => {
@@ -48,5 +49,6 @@ router.use('/withdrawals', withdrawalRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/queries', queryRoutes);
 router.use('/adminlogs', adminLogRoutes);
+router.use('/data', dataRoutes);
 
 module.exports = router;

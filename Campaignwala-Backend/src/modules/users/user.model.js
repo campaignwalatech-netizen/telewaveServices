@@ -1377,6 +1377,166 @@ userSchema.statics.findUsersForLeadDistribution = function(distributionType = 'a
 
 // ==================== INDEXES ====================
 
+// Add these methods to the existing userSchema.methods section
+
+// TL Data Management Methods
+userSchema.methods.assignDataToTeamMember = async function(dataId, teamMemberId) {
+    if (this.role !== 'TL') {
+        throw new Error('Only TL can assign data to team members');
+    }
+    
+    // Check if team member belongs to this TL
+    if (!this.teamMembers.includes(teamMemberId)) {
+        throw new Error('User is not in your team');
+    }
+    
+    const DataDistribution = mongoose.model('DataDistribution');
+    const data = await DataDistribution.findById(dataId);
+    
+    if (!data) {
+        throw new Error('Data not found');
+    }
+    
+    // Check if data is assigned to this TL
+    if (data.assignedTo.toString() !== this._id.toString() || data.assignedType !== 'tl') {
+        throw new Error('This data is not assigned to you');
+    }
+    
+    // Distribute data to team member
+    return await data.distributeToTeamMember(teamMemberId, this._id);
+};
+
+userSchema.methods.withdrawDataFromTeamMember = async function(dataId, teamMemberId, reason = '') {
+    if (this.role !== 'TL') {
+        throw new Error('Only TL can withdraw data from team members');
+    }
+    
+    // Check if team member belongs to this TL
+    if (!this.teamMembers.includes(teamMemberId)) {
+        throw new Error('User is not in your team');
+    }
+    
+    const DataDistribution = mongoose.model('DataDistribution');
+    const data = await DataDistribution.findById(dataId);
+    
+    if (!data) {
+        throw new Error('Data not found');
+    }
+    
+    // Check if data is assigned to this TL
+    if (data.assignedTo.toString() !== this._id.toString() || data.assignedType !== 'tl') {
+        throw new Error('This data is not assigned to you');
+    }
+    
+    // Withdraw data from team member
+    return await data.withdrawFromTeamMember(teamMemberId, this._id, reason);
+};
+
+userSchema.methods.getTeamDataStats = async function() {
+    if (this.role !== 'TL') {
+        throw new Error('Only TL can get team data stats');
+    }
+    
+    const DataDistribution = mongoose.model('DataDistribution');
+    const dataStats = await DataDistribution.aggregate([
+        {
+            $match: {
+                assignedTo: this._id,
+                assignedType: 'tl'
+            }
+        },
+        {
+            $unwind: {
+                path: '$distributedTo',
+                preserveNullAndEmptyArrays: true
+            }
+        },
+        {
+            $group: {
+                _id: {
+                    teamMember: '$distributedTo.user',
+                    status: '$distributedTo.status'
+                },
+                count: { $sum: 1 }
+            }
+        },
+        {
+            $group: {
+                _id: '$_id.teamMember',
+                statuses: {
+                    $push: {
+                        status: '$_id.status',
+                        count: '$count'
+                    }
+                },
+                totalAssigned: { $sum: '$count' }
+            }
+        },
+        {
+            $lookup: {
+                from: 'users',
+                localField: '_id',
+                foreignField: '_id',
+                as: 'userInfo'
+            }
+        },
+        {
+            $unwind: '$userInfo'
+        },
+        {
+            $project: {
+                userId: '$_id',
+                userName: '$userInfo.name',
+                userEmail: '$userInfo.email',
+                totalAssigned: 1,
+                statuses: 1,
+                pending: {
+                    $arrayElemAt: [
+                        {
+                            $filter: {
+                                input: '$statuses',
+                                as: 'status',
+                                cond: { $eq: ['$$status.status', 'pending'] }
+                            }
+                        },
+                        0
+                    ]
+                },
+                contacted: {
+                    $arrayElemAt: [
+                        {
+                            $filter: {
+                                input: '$statuses',
+                                as: 'status',
+                                cond: { $eq: ['$$status.status', 'contacted'] }
+                            }
+                        },
+                        0
+                    ]
+                },
+                converted: {
+                    $arrayElemAt: [
+                        {
+                            $filter: {
+                                input: '$statuses',
+                                as: 'status',
+                                cond: { $eq: ['$$status.status', 'converted'] }
+                            }
+                        },
+                        0
+                    ]
+                }
+            }
+        }
+    ]);
+    
+    return {
+        teamSize: this.teamMembers.length,
+        totalTeamData: dataStats.reduce((sum, member) => sum + member.totalAssigned, 0),
+        memberStats: dataStats
+    };
+};
+
 userSchema.index({ email: 1 });
 userSchema.index({ phoneNumber: 1 });
 userSchema.index({ role: 1 });
