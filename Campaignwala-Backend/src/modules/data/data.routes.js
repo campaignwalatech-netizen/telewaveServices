@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const DataController = require('./data.controller');
-const { authenticate, authorize } = require('../../middleware/auth');
+const { authenticateToken, authorize } = require('../../middleware/user.middleware');
+const { authenticate } = require('../../middleware/auth');
 
 // ==================== ADMIN ROUTES ====================
 
@@ -122,8 +123,10 @@ router.get('/export/csv',
 
 // Import data
 router.post('/import/csv', 
-    authenticate, 
-    authorize(['admin']), 
+    // authenticate, 
+    // authorize(['admin']), 
+    authenticateToken, 
+    authorize('admin'),
     DataController.importData
 );
 

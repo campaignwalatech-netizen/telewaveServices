@@ -41,6 +41,8 @@ import LeadsTable from "../adminDashboard/forms/LeadsTable";
 
 // User Management
 import AllUsers from "../adminDashboard/forms/AllUsers";
+import PresentUsers from "../adminDashboard/forms/PresentUsers";
+import AllTeamLeaders from "../adminDashboard/forms/AllTeamLeaders";
 import UsersTable from "../adminDashboard/forms/UsersTable";
 
 // Slide Board
@@ -110,6 +112,7 @@ import TLDistributeDataPage from "../tlDashboard/pages/data/TLDistributeDataPage
 // User Data Management Pages
 // import UserDataDashboard from "../userDashboard/pages/data/UserDataDashboard";
 import UserTodayDataPage from "../userDashboard/pages/data/UserTodayDataPage";
+import NotApprovedUsers from "../adminDashboard/forms/NotApprovedUsers";
 // import UserPreviousDataPage from "../userDashboard/pages/data/UserPreviousDataPage";
 // import UserClosedDataPage from "../userDashboard/pages/data/UserClosedDataPage";
 // import UserDataAnalytics from "../userDashboard/pages/data/UserDataAnalytics";
@@ -184,6 +187,9 @@ export default function AppRouter() {
           {/* User Management routes */}
           <Route path="user-management" element={<Navigate to="all-users" replace />} />
           <Route path="all-users" element={<AllUsers />} />
+          <Route path="present-users" element={<PresentUsers />} />
+          <Route path="all-tl" element={<AllTeamLeaders />} />
+          <Route path="not-approved" element={<NotApprovedUsers />} />
           <Route path="all-active-users" element={<UsersTable userType="active" />} />
           <Route path="all-hold-users" element={<UsersTable userType="hold" />} />
           <Route path="all-ex-users" element={<UsersTable userType="ex" />} />

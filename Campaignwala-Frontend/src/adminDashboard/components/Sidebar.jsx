@@ -123,13 +123,14 @@ export default function AdminSidebar({
       badge: dashboardStats.activeHR,
       items: [
         
-        { id: "present-hr", label: "Present HR", icon: Users, path: "/admin/team/present-hr" },
-        { id: "team-leaders", label: "Team Leaders", icon: Award, path: "/admin/team/leaders" },
-        { id: "hr", label: "HR", icon: UserPlus, path: "/admin/team/hr" },
+        { id: "present-users", label: "Present HR", icon: Users, path: "/admin/present-users" },
+        { id: "all-tl", label: "Team Leaders", icon: Award, path: "/admin/all-tl" },
+        { id: "hr", label: "HR", icon: UserPlus, path: "/admin/all-users" },
         { id: "leaderboard", label: "Leaderboard", icon: TrendingUp, path: "/admin/team/leaderboard" },
         { id: "live-toppers", label: "Live Toppers List", icon: Star, path: "/admin/team/toppers" },
         { id: "monthly-winners", label: "Monthly Winner List", icon: Award, path: "/admin/team/winners" },
-        { id: "not-approved-hr", label: "Not Approved HR", icon: Shield, path: "/admin/team/not-approved" },
+        { id: "not-approved-hr", label: "Not Approved HR", icon: Shield, path: "/admin/not-approved" },
+        { id: "all-ex-users", label: "All Ex Users", icon: Shield, path: "/admin/all-ex-users" },
       ]
     },
     {
@@ -144,21 +145,6 @@ export default function AdminSidebar({
       ]
     },
     
-    
-    {
-      id: "userManagement",
-      label: "User Management- d",
-      icon: Users,
-      type: "section",
-      badge: dashboardStats.activeHR,
-      items: [
-        { id: "all-users", label: "All Users", icon: Users, path: "/admin/all-users" },
-        { id: "all-active-users", label: "All Active Users", icon: Users, path: "/admin/all-active-users" },
-        { id: "all-hold-users", label: "All Hold Users", icon: Users, path: "/admin/all-hold-users" },
-        { id: "all-ex-users", label: "All Ex Users", icon: Users, path: "/admin/all-ex-users" },
-        
-      ]
-    },
     {
       id: "slideboard",
       label: "Slide Board",
