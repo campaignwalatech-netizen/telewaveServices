@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, FileText, X, CheckCircle, Download, AlertCircle } from 'lucide-react';
 import dataService from '../../../services/dataService';
+import toast, { Toaster } from 'react-hot-toast';
 
 const UploadDataPage = () => {
   const [uploadMethod, setUploadMethod] = useState('manual');
@@ -31,76 +32,144 @@ const UploadDataPage = () => {
   const handleFileUpload = (e) => {
     const selectedFile = e.target.files[0];
     if (selectedFile) {
-      if (!selectedFile.name.endsWith('.csv')) {
-        alert('Please upload a CSV file');
+      const allowedExtensions = ['.csv', '.xlsx', '.xls'];
+      const fileExtension = selectedFile.name.split('.').pop().toLowerCase();
+      
+      if (!allowedExtensions.includes(`.${fileExtension}`)) {
+        toast.error('Please upload a CSV or Excel file (.csv, .xlsx, .xls)');
         return;
       }
+      
+      // Check file size (max 10MB)
+      if (selectedFile.size > 10 * 1024 * 1024) {
+        toast.error('File size must be less than 10MB');
+        return;
+      }
+      
       setFile(selectedFile);
+      toast.success('File selected successfully');
     }
   };
   
   const handleUpload = async () => {
-  // Validation
-  if (uploadMethod === 'manual') {
-    const validData = manualData.filter(row => row.name.trim() && row.contact.trim());
-    if (validData.length === 0) {
-      alert('Please enter at least one valid data row');
-      return;
-    }
-    
-    // Validate phone numbers
-    for (const row of validData) {
-      if (!dataService.validatePhoneNumber(row.contact)) {
-        alert(`Invalid phone number: ${row.contact}. Must be 10 digits.`);
+    // Validation
+    if (uploadMethod === 'manual') {
+      const validData = manualData.filter(row => row.name.trim() && row.contact.trim());
+      if (validData.length === 0) {
+        toast.error('Please enter at least one valid data row');
+        return;
+      }
+      
+      // Validate phone numbers
+      for (const row of validData) {
+        if (!dataService.validatePhoneNumber(row.contact)) {
+          toast.error(`Invalid phone number: ${row.contact}. Must be 10 digits.`);
+          return;
+        }
+      }
+    } else {
+      if (!file) {
+        toast.error('Please select a file');
         return;
       }
     }
-  } else {
-    if (!file) {
-      alert('Please select a CSV file');
-      return;
-    }
-  }
-  
-  setUploading(true);
-  
-  try {
-    let uploadResult;
     
-    if (uploadMethod === 'manual') {
-      const dataToUpload = manualData.filter(row => row.name.trim() && row.contact.trim());
-      uploadResult = await dataService.addBulkData(dataToUpload, batchName || null);
-    } else {
-      uploadResult = await dataService.importDataFromCSV(file, {
-        batchName: batchName || undefined
-      });
+    setUploading(true);
+    const loadingToast = toast.loading('Uploading data...');
+    
+    try {
+      let uploadResult;
+      
+      if (uploadMethod === 'manual') {
+        const dataToUpload = manualData.filter(row => row.name.trim() && row.contact.trim());
+        uploadResult = await dataService.addBulkData(dataToUpload, batchName || null);
+      } else {
+        uploadResult = await dataService.importDataFromFile(file, {
+          batchName: batchName || undefined
+        });
+      }
+      
+      setResult(uploadResult);
+      
+      if (uploadResult.success) {
+        toast.dismiss(loadingToast);
+        toast.success(`Successfully uploaded ${uploadResult.data?.count || 'data'} records`);
+        
+        // Show detailed errors if any
+        if (uploadResult.data?.errors && uploadResult.data.errors.length > 0) {
+          toast.error(`${uploadResult.data.errors.length} records had errors. Check details below.`, {
+            duration: 6000
+          });
+        }
+        
+        if (uploadResult.data?.duplicatesInDB && uploadResult.data.duplicatesInDB.length > 0) {
+          toast.error(`${uploadResult.data.duplicatesInDB.length} duplicate contacts found in database.`, {
+            duration: 6000
+          });
+        }
+        
+        // Reset form
+        setManualData([{ name: '', contact: '' }]);
+        setFile(null);
+        setBatchName('');
+      } else {
+        toast.dismiss(loadingToast);
+        
+        let errorMessage = uploadResult.error || 'Upload failed';
+        
+        if (uploadResult.details) {
+          if (Array.isArray(uploadResult.details)) {
+            // Show first 3 errors as toast
+            if (uploadResult.details.length > 0) {
+              toast.error(`Errors found: ${uploadResult.details.slice(0, 3).join(', ')}${uploadResult.details.length > 3 ? '...' : ''}`, {
+                duration: 8000
+              });
+            }
+          }
+        } else {
+          toast.error(errorMessage);
+        }
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.dismiss(loadingToast);
+      toast.error('An error occurred during upload');
     }
     
-    setResult(uploadResult);
-    
-    if (uploadResult.success) {
-      alert(`Successfully uploaded ${uploadResult.data?.count || 'data'} records`);
-      // Reset form
-      setManualData([{ name: '', contact: '' }]);
-      setFile(null);
-      setBatchName('');
-    } else {
-      alert(`Error: ${uploadResult.error || 'Upload failed'}`);
-    }
-  } catch (error) {
-    console.error('Upload error:', error);
-    alert('An error occurred during upload');
-  }
-  
-  setUploading(false);
-};
+    setUploading(false);
+  };
   
   const downloadTemplate = () => {
     dataService.downloadTemplate();
+    toast.success('Template download started');
   };
   
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      {/* Add Toaster component */}
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 5000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 6000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
+      
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-800 mb-2">Upload Data</h1>
         <p className="text-gray-600">Add new data records to the system</p>
@@ -132,22 +201,22 @@ const UploadDataPage = () => {
           </button>
           
           <button
-            onClick={() => setUploadMethod('csv')}
+            onClick={() => setUploadMethod('file')}
             className={`p-4 rounded-lg border-2 transition-all ${
-              uploadMethod === 'csv'
+              uploadMethod === 'file'
                 ? 'border-blue-500 bg-blue-50'
                 : 'border-gray-200 hover:border-blue-300'
             }`}
           >
             <div className="flex items-center">
               <div className={`p-2 rounded-lg mr-4 ${
-                uploadMethod === 'csv' ? 'bg-blue-100' : 'bg-gray-100'
+                uploadMethod === 'file' ? 'bg-blue-100' : 'bg-gray-100'
               }`}>
-                <Upload className={uploadMethod === 'csv' ? 'text-blue-600' : 'text-gray-600'} />
+                <Upload className={uploadMethod === 'file' ? 'text-blue-600' : 'text-gray-600'} />
               </div>
               <div className="text-left">
-                <div className="font-medium">CSV Upload</div>
-                <div className="text-sm text-gray-600">Upload CSV file</div>
+                <div className="font-medium">File Upload</div>
+                <div className="text-sm text-gray-600">Upload CSV or Excel file</div>
               </div>
             </div>
           </button>
@@ -220,8 +289,8 @@ const UploadDataPage = () => {
           </div>
         )}
         
-        {/* CSV Upload Form */}
-        {uploadMethod === 'csv' && (
+        {/* File Upload Form */}
+        {uploadMethod === 'file' && (
           <div className="mb-6">
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
               {file ? (
@@ -234,7 +303,10 @@ const UploadDataPage = () => {
                     </div>
                   </div>
                   <button
-                    onClick={() => setFile(null)}
+                    onClick={() => {
+                      setFile(null);
+                      toast.success('File removed');
+                    }}
                     className="p-1 hover:bg-gray-100 rounded"
                   >
                     <X size={18} />
@@ -243,13 +315,15 @@ const UploadDataPage = () => {
               ) : (
                 <>
                   <Upload className="mx-auto text-gray-400 mb-4" size={32} />
-                  <p className="text-gray-600 mb-2">Drag & drop CSV file here</p>
-                  <p className="text-gray-500 text-sm mb-4">or</p>
+                  <p className="text-gray-600 mb-2">Drag & drop CSV or Excel file here</p>
+                  <p className="text-gray-500 text-sm mb-4">
+                    Supported formats: .csv, .xlsx, .xls (Max 10MB)
+                  </p>
                   <label className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer">
                     Browse Files
                     <input
                       type="file"
-                      accept=".csv"
+                      accept=".csv,.xlsx,.xls"
                       onChange={handleFileUpload}
                       className="hidden"
                     />
@@ -264,10 +338,13 @@ const UploadDataPage = () => {
                 className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
               >
                 <Download size={14} className="mr-1" />
-                Download CSV Template
+                Download Excel Template
               </button>
               <p className="text-gray-500 text-sm mt-2">
-                CSV format: Name,Contact (10 digits). First row should be headers.
+                Download template with correct format. Column names can vary (Name/Full Name, Contact/Phone/Mobile).
+              </p>
+              <p className="text-gray-400 text-xs mt-1">
+                Note: The first row should be headers. File should contain Name and Contact columns.
               </p>
             </div>
           </div>
@@ -293,9 +370,9 @@ const UploadDataPage = () => {
         </button>
       </div>
       
-      {/* Result Display */}
+      {/* Enhanced Result Display with Error Details */}
       {result && (
-        <div className={`rounded-xl p-6 ${
+        <div className={`rounded-xl p-6 mb-6 ${
           result.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
         }`}>
           <div className="flex items-start">
@@ -308,7 +385,7 @@ const UploadDataPage = () => {
                 <AlertCircle className="text-red-600" size={24} />
               )}
             </div>
-            <div>
+            <div className="flex-1">
               <h3 className={`font-semibold ${
                 result.success ? 'text-green-800' : 'text-red-800'
               }`}>
@@ -317,8 +394,10 @@ const UploadDataPage = () => {
               <p className={`mt-1 ${result.success ? 'text-green-700' : 'text-red-700'}`}>
                 {result.data?.message || result.error}
               </p>
+              
+              {/* Statistics */}
               {result.success && result.data && (
-                <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-white/50 p-3 rounded-lg">
                     <div className="text-sm text-gray-600">Records Uploaded</div>
                     <div className="font-bold">{result.data.count}</div>
@@ -328,8 +407,104 @@ const UploadDataPage = () => {
                     <div className="font-bold">{result.data.batchNumber}</div>
                   </div>
                   <div className="bg-white/50 p-3 rounded-lg">
-                    <div className="text-sm text-gray-600">Status</div>
-                    <div className="font-bold text-green-600">Pending</div>
+                    <div className="text-sm text-gray-600">Total Records</div>
+                    <div className="font-bold">{result.data.totalRecords}</div>
+                  </div>
+                  <div className="bg-white/50 p-3 rounded-lg">
+                    <div className="text-sm text-gray-600">Failed Records</div>
+                    <div className="font-bold text-red-600">{result.data.errors?.length || 0}</div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Detailed Error Display */}
+              {result.data?.errors && result.data.errors.length > 0 && (
+                <div className="mt-4 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                  <div className="flex items-center mb-3">
+                    <AlertCircle size={18} className="text-yellow-600 mr-2" />
+                    <h4 className="font-semibold text-yellow-800">
+                      {result.data.errors.length} Records Had Errors
+                    </h4>
+                  </div>
+                  
+                  <div className="max-h-60 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left border-b border-yellow-200">
+                          <th className="pb-2 font-medium text-yellow-700">Row</th>
+                          <th className="pb-2 font-medium text-yellow-700">Name</th>
+                          <th className="pb-2 font-medium text-yellow-700">Contact</th>
+                          <th className="pb-2 font-medium text-yellow-700">Error Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.data.errors.slice(0, 10).map((error, index) => (
+                          <tr key={index} className="border-b border-yellow-100 hover:bg-yellow-50/50">
+                            <td className="py-2 text-gray-600">{error.rowNumber}</td>
+                            <td className="py-2">
+                              <span className={`${!error.name ? 'text-red-500' : ''}`}>
+                                {error.name || 'Missing'}
+                              </span>
+                            </td>
+                            <td className="py-2">
+                              <span className={`${!error.contact ? 'text-red-500' : ''}`}>
+                                {error.contact || 'Missing'}
+                              </span>
+                            </td>
+                            <td className="py-2 text-red-600 font-medium">
+                              {error.reason}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    
+                    {result.data.errors.length > 10 && (
+                      <div className="mt-2 text-sm text-gray-500 italic">
+                        Showing first 10 errors out of {result.data.errors.length} total errors
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Duplicates Display */}
+              {result.data?.duplicatesInDB && result.data.duplicatesInDB.length > 0 && (
+                <div className="mt-4 bg-orange-50 p-4 rounded-lg border border-orange-200">
+                  <div className="flex items-center mb-3">
+                    <AlertCircle size={18} className="text-orange-600 mr-2" />
+                    <h4 className="font-semibold text-orange-800">
+                      {result.data.duplicatesInDB.length} Duplicate Contacts Found in Database
+                    </h4>
+                  </div>
+                  
+                  <div className="max-h-60 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-left border-b border-orange-200">
+                          <th className="pb-2 font-medium text-orange-700">Name</th>
+                          <th className="pb-2 font-medium text-orange-700">Contact</th>
+                          <th className="pb-2 font-medium text-orange-700">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.data.duplicatesInDB.slice(0, 10).map((dup, index) => (
+                          <tr key={index} className="border-b border-orange-100 hover:bg-orange-50/50">
+                            <td className="py-2">{dup.name}</td>
+                            <td className="py-2">{dup.contact}</td>
+                            <td className="py-2">
+                              <span className="text-orange-600 font-medium">Already Exists</span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    
+                    {result.data.duplicatesInDB.length > 10 && (
+                      <div className="mt-2 text-sm text-gray-500 italic">
+                        Showing first 10 duplicates out of {result.data.duplicatesInDB.length} total
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

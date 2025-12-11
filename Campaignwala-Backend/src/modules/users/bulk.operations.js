@@ -1,8 +1,262 @@
 const DataDistribution = require('./data.distribute');
 const User = require('./user.model');
+const ExcelParser = require('../../utils/excelParser'); // Update path according to your structure
 const mongoose = require('mongoose');
+const path = require('path'); // Add this import
 
 class BulkDataOperations {
+
+    /**
+     * Import data from file (CSV/Excel)
+     */
+    static async importDataFromFile(filePath, adminId, options = {}) {
+        try {
+            console.log('📁 [BulkOperations] Importing from file:', filePath);
+            
+            const fs = require('fs');
+            
+            if (!fs.existsSync(filePath)) {
+                return {
+                    success: false,
+                    error: 'File not found'
+                };
+            }
+            
+            // const fileExtension = path.extname(filePath).toLowerCase();
+            // Instead of using path.extname(), you can use:
+            const fileExtension = filePath.substring(filePath.lastIndexOf('.')).toLowerCase();
+            console.log(`📁 [BulkOperations] File extension: ${fileExtension}`);
+            
+            let parsedData;
+            try {
+                parsedData = await ExcelParser.parseFile(filePath);
+            } catch (parseError) {
+                // Clean up file
+                ExcelParser.deleteFile(filePath);
+                return {
+                    success: false,
+                    error: parseError.message || 'Failed to parse file'
+                };
+            }
+            
+            console.log(`📁 [BulkOperations] Parsed ${parsedData.length} rows`);
+            
+            if (parsedData.length === 0) {
+                ExcelParser.deleteFile(filePath);
+                return {
+                    success: false,
+                    error: 'File is empty or contains no data'
+                };
+            }
+            
+            const dataArray = [];
+            const errors = [];
+            let batchNumber;
+            
+            // Generate batch number
+            if (options.batchName) {
+                const cleanBatchName = options.batchName
+                    .replace(/[^\w\s-]/g, '')
+                    .replace(/\s+/g, '_')
+                    .toUpperCase();
+                batchNumber = `${cleanBatchName}_${Date.now()}`;
+            } else {
+                batchNumber = `BATCH_${Date.now()}`;
+            }
+            
+            // Process each row
+            for (let i = 0; i < parsedData.length; i++) {
+                const row = parsedData[i];
+                
+                try {
+                    // Extract data from row
+                    const { name, contact } = ExcelParser.extractDataFromRow(row);
+                    
+                    if (!name || name.trim() === '') {
+                        errors.push(`Row ${i + 2}: Missing name`);
+                        continue;
+                    }
+                    
+                    if (!contact || contact.trim() === '') {
+                        errors.push(`Row ${i + 2}: Missing contact`);
+                        continue;
+                    }
+                    
+                    // Clean and validate contact number
+                    const cleanContact = ExcelParser.cleanContact(contact);
+                    
+                    if (!ExcelParser.validateContact(cleanContact)) {
+                        errors.push(`Row ${i + 2}: Invalid phone number: ${contact} → ${cleanContact} (must be 10 digits)`);
+                        continue;
+                    }
+                    
+                    // Check for duplicate contact in this batch
+                    const duplicate = dataArray.find(item => item.contact === cleanContact);
+                    if (duplicate) {
+                        errors.push(`Row ${i + 2}: Duplicate contact number: ${cleanContact}`);
+                        continue;
+                    }
+                    
+                    dataArray.push({
+                        name: name.trim(),
+                        contact: cleanContact
+                    });
+                } catch (rowError) {
+                    errors.push(`Row ${i + 2}: ${rowError.message}`);
+                }
+            }
+            
+            console.log(`📁 [BulkOperations] Valid rows: ${dataArray.length}, Errors: ${errors.length}`);
+            
+            if (dataArray.length === 0) {
+                ExcelParser.deleteFile(filePath);
+                return {
+                    success: false,
+                    error: 'No valid data found in file',
+                    details: errors
+                };
+            }
+            
+            // Check for existing contacts in database
+            const existingContacts = await DataDistribution.find({
+                contact: { $in: dataArray.map(item => item.contact) }
+            }).select('contact');
+            
+            const existingContactNumbers = existingContacts.map(c => c.contact);
+            const duplicatesInDB = [];
+            const filteredData = [];
+            
+            dataArray.forEach((item, index) => {
+                if (existingContactNumbers.includes(item.contact)) {
+                    duplicatesInDB.push(`Row ${index + 2}: Contact ${item.contact} already exists in database`);
+                } else {
+                    filteredData.push(item);
+                }
+            });
+            
+            if (filteredData.length === 0) {
+                ExcelParser.deleteFile(filePath);
+                return {
+                    success: false,
+                    error: 'All contacts already exist in database',
+                    details: [...errors, ...duplicatesInDB]
+                };
+            }
+            
+            // Prepare data for bulk insertion
+            const dataToInsert = filteredData.map(item => ({
+                name: item.name,
+                contact: item.contact,
+                batchNumber: batchNumber,
+                distributionStatus: 'pending',
+                assignedBy: adminId,
+                createdBy: adminId,
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                source: fileExtension === '.csv' ? 'csv_import' : 'excel_import',
+                priority: 'medium'
+            }));
+            
+            // Insert data in bulk
+            const insertedData = await DataDistribution.insertMany(dataToInsert);
+            
+            console.log(`✅ [BulkOperations] Imported ${insertedData.length} records`);
+            
+            // Clean up the uploaded file
+            ExcelParser.deleteFile(filePath);
+            
+            return {
+                success: true,
+                data: {
+                    count: insertedData.length,
+                    batchNumber: batchNumber,
+                    fileType: fileExtension.replace('.', '').toUpperCase(),
+                    errors: errors.length > 0 ? errors.slice(0, 10) : undefined, // Show first 10 errors
+                    duplicatesInDB: duplicatesInDB.length > 0 ? duplicatesInDB.slice(0, 10) : undefined,
+                    totalErrors: errors.length,
+                    totalDuplicates: duplicatesInDB.length,
+                    message: `Successfully imported ${insertedData.length} records from ${fileExtension.replace('.', '').toUpperCase()} file`
+                }
+            };
+            
+        } catch (error) {
+            console.error('❌ [BulkOperations] File import error:', error);
+            
+            // Clean up file if it exists
+            try {
+                ExcelParser.deleteFile(filePath);
+            } catch (cleanupError) {
+                console.error('Failed to cleanup file:', cleanupError);
+            }
+            
+            return {
+                success: false,
+                error: error.message || 'Failed to import file',
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            };
+        }
+    }
+
+    /**
+     * Export data to Excel
+     */
+    static async exportDataToExcel(filter = {}) {
+        try {
+            const data = await DataDistribution.find(filter)
+                .populate('assignedToInfo', 'name email')
+                .populate('assignedByInfo', 'name email')
+                .sort({ createdAt: -1 })
+                .limit(10000); // Limit to prevent memory issues
+            
+            if (data.length === 0) {
+                return {
+                    success: false,
+                    error: 'No data found to export'
+                };
+            }
+            
+            // Convert to Excel buffer
+            const excelBuffer = ExcelParser.convertToExcel(data);
+            
+            return {
+                success: true,
+                data: excelBuffer,
+                fileName: `data-export-${new Date().toISOString().split('T')[0]}.xlsx`,
+                count: data.length
+            };
+            
+        } catch (error) {
+            console.error('❌ [BulkOperations] Export to Excel error:', error);
+            return {
+                success: false,
+                error: error.message || 'Failed to export data to Excel'
+            };
+        }
+    }
+    
+    /**
+     * Generate Excel template for import
+     */
+    static generateExcelTemplate() {
+        try {
+            const templateBuffer = ExcelParser.generateTemplate();
+            
+            return {
+                success: true,
+                data: templateBuffer,
+                fileName: 'data-import-template.xlsx',
+                message: 'Excel template generated successfully'
+            };
+            
+        } catch (error) {
+            console.error('❌ [BulkOperations] Generate template error:', error);
+            return {
+                success: false,
+                error: error.message || 'Failed to generate Excel template'
+            };
+        }
+    }
     /**
      * Import data from CSV file
      */

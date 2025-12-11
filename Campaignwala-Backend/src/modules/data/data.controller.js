@@ -620,7 +620,78 @@ class DataController {
         }
     }
 
-    static async importData(req, res) {
+    static async exportDataExcel(req, res) {
+    try {
+        const { batchNumber, status, startDate, endDate } = req.query;
+        
+        let filter = { isActive: true };
+        
+        if (batchNumber) {
+            filter.batchNumber = batchNumber;
+        }
+        
+        if (status) {
+            filter.distributionStatus = status;
+        }
+        
+        if (startDate || endDate) {
+            filter.createdAt = {};
+            if (startDate) {
+                filter.createdAt.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                filter.createdAt.$lte = new Date(endDate);
+            }
+        }
+        
+        const result = await BulkDataOperations.exportDataToExcel(filter);
+        
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        
+        // Set headers for file download
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+        
+        // Send the Excel file
+        res.send(result.data);
+        
+    } catch (error) {
+        console.error('🔥 [CONTROLLER ERROR] Export Excel:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+}
+
+static async downloadTemplate(req, res) {
+    try {
+        const result = await BulkDataOperations.generateExcelTemplate();
+        
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        
+        // Set headers for file download
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${result.fileName}"`);
+        
+        // Send the template file
+        res.send(result.data);
+        
+    } catch (error) {
+        console.error('🔥 [CONTROLLER ERROR] Download template:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+}
+
+    // Update your importData method in data.controller.js
+static async importData(req, res) {
     try {
         console.log('📁 [CONTROLLER] ImportData called');
         
@@ -628,7 +699,7 @@ class DataController {
             console.log('❌ No file in request');
             return res.status(400).json({
                 success: false,
-                error: 'CSV file is required'
+                error: 'File is required (CSV or Excel)'
             });
         }
 
@@ -636,29 +707,43 @@ class DataController {
         const batchName = req.body.batchName;
         
         console.log('📁 [CONTROLLER] File path:', req.file.path);
+        console.log('📁 [CONTROLLER] Original name:', req.file.originalname);
         console.log('📁 [CONTROLLER] Admin ID:', adminId);
         console.log('📁 [CONTROLLER] Batch name:', batchName);
         
-        const result = await BulkDataOperations.importDataFromCSV(
+        // Use the enhanced import method with detailed error reporting
+        const result = await BulkDataOperations.importDataFromFile(
             req.file.path, 
             adminId, 
-            { batchName: batchName }
+            { 
+                batchName: batchName,
+                detailedErrors: true // Enable detailed error reporting
+            }
         );
         
         console.log('✅ Import result:', result);
 
-        if (result.success) {
-            res.status(200).json(result);
-        } else {
-            res.status(400).json(result);
+        // Clean up file after processing
+        try {
+            const fs = require('fs');
+            if (req.file && req.file.path && fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+                console.log('🗑️ Temp file deleted:', req.file.path);
+            }
+        } catch (cleanupError) {
+            console.error('Cleanup error:', cleanupError);
         }
+
+        // Return the result with detailed error information
+        res.status(result.success ? 200 : 400).json(result);
+        
     } catch (error) {
         console.error('🔥 [CONTROLLER ERROR]', error);
         
         // Clean up file if it exists
         try {
             const fs = require('fs');
-            if (req.file && fs.existsSync(req.file.path)) {
+            if (req.file && req.file.path && fs.existsSync(req.file.path)) {
                 fs.unlinkSync(req.file.path);
             }
         } catch (cleanupError) {
@@ -668,7 +753,7 @@ class DataController {
         res.status(500).json({
             success: false,
             error: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 }

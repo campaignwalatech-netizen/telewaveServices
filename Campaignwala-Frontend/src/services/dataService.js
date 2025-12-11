@@ -32,6 +32,110 @@ const dataService = {
       };
     }
   },
+
+  // Update the import method name and add new methods
+async importDataFromFile(file, options = {}) {
+  try {
+    const formData = new FormData();
+    formData.append('csv', file); // Keep same field name for backward compatibility
+    
+    // Add batchName if provided
+    if (options.batchName) {
+      formData.append('batchName', options.batchName);
+    }
+    
+    const token = apiHelpers.getAuthToken();
+    
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/data/import/csv`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formData
+    });
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Import file error:', error);
+    return {
+      success: false,
+      error: 'Failed to import file',
+      details: error.message
+    };
+  }
+},
+
+// Add Excel export method
+async exportDataToExcel(params = {}) {
+  try {
+    const response = await api.get('/data/export/excel', {
+      params,
+      responseType: 'blob'
+    });
+    
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    
+    // Extract filename from headers
+    const contentDisposition = response.headers['content-disposition'];
+    let fileName = 'data-export.xlsx';
+    if (contentDisposition) {
+      const fileNameMatch = contentDisposition.match(/filename="?(.+)"?/);
+      if (fileNameMatch && fileNameMatch.length > 1) {
+        fileName = fileNameMatch[1];
+      }
+    }
+    
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    
+    return {
+      success: true,
+      message: 'Data exported to Excel successfully'
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Failed to export data to Excel',
+      details: error.response?.data
+    };
+  }
+},
+
+// Add template download method
+async downloadExcelTemplate() {
+  try {
+    const response = await api.get('/data/download-template', {
+      responseType: 'blob'
+    });
+    
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'data-import-template.xlsx');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    
+    return {
+      success: true,
+      message: 'Template downloaded successfully'
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Failed to download template',
+      details: error.response?.data
+    };
+  }
+},
+
+
   
   /**
    * Assign data to TL (Admin only)
@@ -869,27 +973,10 @@ async adminWithdrawData(dataIds, reason = '') {
   /**
    * Download data template for import
    */
-  downloadTemplate() {
-    const templateData = [
-      ['Contact','Name'],
-      [ '9785641782','Rajkumar'],
-      [ '9876543211', 'Jane Smith'],
-      [ '9876543212', 'Mike Johnson',]
-    ];
-    
-    let csvContent = "data:text/csv;charset=utf-8,";
-    templateData.forEach(row => {
-      csvContent += row.join(",") + "\r\n";
-    });
-    
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', 'data-import-template.csv');
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  }
+  // Update the existing downloadTemplate to use Excel
+downloadTemplate() {
+  return this.downloadExcelTemplate();
+}
 };
 
 export default dataService;

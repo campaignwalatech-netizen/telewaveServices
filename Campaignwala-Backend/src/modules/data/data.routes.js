@@ -17,6 +17,8 @@ if (!fs.existsSync(uploadsDir)) {
   console.log('✅ Created uploads directory');
 }
 
+// Update this section in data.routes.js:
+
 // Configure multer for file uploads
 const upload = multer({
   storage: multer.diskStorage({
@@ -33,20 +35,40 @@ const upload = multer({
     }
   }),
   fileFilter: (req, file, cb) => {
-    const allowedMimeTypes = ['text/csv', 'application/csv'];
-    const allowedExtensions = ['.csv'];
+    const allowedMimeTypes = [
+      'text/csv', 
+      'application/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ];
+    const allowedExtensions = ['.csv', '.xlsx', '.xls'];
     const fileExt = path.extname(file.originalname).toLowerCase();
     
     if (allowedMimeTypes.includes(file.mimetype) || allowedExtensions.includes(fileExt)) {
       cb(null, true);
     } else {
-      cb(new Error('Only CSV files are allowed'), false);
+      cb(new Error('Only CSV and Excel files are allowed'), false);
     }
   },
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 10 * 1024 * 1024 // Increase to 10MB for Excel files
   }
 });
+
+// Add these routes:
+
+// Export data to Excel
+router.get('/export/excel',
+    authenticate,
+    DataController.exportDataExcel
+);
+
+// Download Excel template
+router.get('/download-template',
+    authenticate,
+    DataController.downloadTemplate
+);
 
 // Add this route after other admin routes
 router.post('/admin/bulk-assign', 
@@ -177,12 +199,12 @@ router.get('/export/csv',
 );
 
 // Add debug middleware
-router.use('/import/csv', (req, res, next) => {
-  console.log('📁 [DEBUG] Import route hit');
-  console.log('📁 [DEBUG] Headers:', req.headers);
-  console.log('📁 [DEBUG] Method:', req.method);
-  next();
-});
+// router.use('/import/csv', (req, res, next) => {
+//   console.log('📁 [DEBUG] Import route hit');
+//   console.log('📁 [DEBUG] Headers:', req.headers);
+//   console.log('📁 [DEBUG] Method:', req.method);
+//   next();
+// });
 
 // Import data
 router.post('/import/csv', 
