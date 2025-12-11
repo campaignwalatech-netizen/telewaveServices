@@ -1,5 +1,6 @@
+// Change to:
 import api from './api';
-
+import { apiHelpers } from './api';
 /**
  * Data Service for handling all data-related API calls
  */
@@ -577,35 +578,47 @@ const dataService = {
    * @param {Object} options - Import options
    * @returns {Promise}
    */
-  async importDataFromCSV(file, options = {}) {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      // Add options
-      Object.keys(options).forEach(key => {
-        formData.append(key, options[key]);
-      });
-      
-      const response = await api.post('/data/import/csv', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
-      
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?.error || 'Failed to import data',
-        details: error.response?.data
-      };
+  /**
+ * Import data from CSV file
+ * @param {File} file - CSV file
+ * @param {Object} options - Import options
+ * @returns {Promise}
+ */
+
+async importDataFromCSV(file, options = {}) {
+  try {
+    const formData = new FormData();
+    formData.append('csv', file); // 'csv' should match the field name in multer
+    
+    // Add batchName if provided
+    if (options.batchName) {
+      formData.append('batchName', options.batchName);
     }
-  },
+    
+    const token = apiHelpers.getAuthToken(); // Use apiHelpers here
+    
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/data/import/csv`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // DON'T set Content-Type header - let browser set it with boundary
+      },
+      body: formData
+    });
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Import CSV error:', error);
+    return {
+      success: false,
+      error: 'Failed to import CSV data',
+      details: error.message
+    };
+  }
+},
   
+
+
   /**
    * Get data analytics
    * @param {Object} params - Analytics parameters

@@ -620,29 +620,59 @@ class DataController {
     }
 
     static async importData(req, res) {
-        try {
-            if (!req.file) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'CSV file is required'
-                });
-            }
-
-            const adminId = req.user._id;
-            const result = await BulkDataOperations.importDataFromCSV(req.file.path, adminId);
-
-            if (result.success) {
-                res.status(200).json(result);
-            } else {
-                res.status(400).json(result);
-            }
-        } catch (error) {
-            res.status(500).json({
+    try {
+        console.log('📁 [CONTROLLER] ImportData called');
+        console.log('📁 [CONTROLLER] File:', req.file);
+        console.log('📁 [CONTROLLER] User:', req.user ? 'Yes' : 'No');
+        console.log('📁 [CONTROLLER] User ID:', req.user?._id);
+        
+        if (!req.file) {
+            console.log('❌ No file in request');
+            return res.status(400).json({
                 success: false,
-                error: error.message
+                error: 'CSV file is required'
             });
         }
+
+        // Log file details
+        console.log('📁 File details:', {
+            path: req.file.path,
+            size: req.file.size,
+            originalname: req.file.originalname,
+            mimetype: req.file.mimetype
+        });
+
+        // Check if file exists on disk
+        const fs = require('fs');
+        if (!fs.existsSync(req.file.path)) {
+            console.log('❌ File does not exist on disk:', req.file.path);
+            return res.status(500).json({
+                success: false,
+                error: 'File upload failed - file not found on server'
+            });
+        }
+
+        const adminId = req.user._id;
+        console.log('👤 Admin ID:', adminId);
+        
+        const result = await BulkDataOperations.importDataFromCSV(req.file.path, adminId);
+        console.log('✅ Import result:', result);
+
+        if (result.success) {
+            res.status(200).json(result);
+        } else {
+            res.status(400).json(result);
+        }
+    } catch (error) {
+        console.error('🔥 [CONTROLLER ERROR]', error);
+        console.error('🔥 Stack:', error.stack);
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
+}
 
     static async getAnalytics(req, res) {
         try {
