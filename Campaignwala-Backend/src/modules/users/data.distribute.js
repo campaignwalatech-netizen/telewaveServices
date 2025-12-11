@@ -345,6 +345,78 @@ dataDistributionSchema.methods.distributeToTeamMember = async function(teamMembe
     };
 };
 
+
+// Add this method to the methods section
+dataDistributionSchema.methods.withdrawData = async function(withdrawnById, reason = '', notes = '') {
+    // Check if data is currently assigned to someone
+    if (this.distributionStatus === 'pending') {
+        throw new Error('Data is not assigned to anyone');
+    }
+    
+    const withdrawnFrom = this.assignedTo;
+    const assignedType = this.assignedType;
+    
+    // If data was assigned directly to a user, remove from teamAssignments
+    if (assignedType === 'direct_user') {
+        const userAssignment = this.teamAssignments.find(ta => 
+            ta.teamMember.toString() === this.assignedTo.toString() && !ta.withdrawn
+        );
+        
+        if (userAssignment) {
+            userAssignment.withdrawn = true;
+            userAssignment.withdrawnAt = new Date();
+            userAssignment.withdrawnBy = withdrawnById;
+            userAssignment.withdrawalReason = reason;
+        }
+    }
+    
+    // Add to withdrawal history
+    this.withdrawalHistory.push({
+        withdrawnFrom: this.assignedTo,
+        withdrawnAt: new Date(),
+        withdrawnBy: withdrawnById,
+        reason: reason,
+        notes: notes
+    });
+    
+    // Reset assignment fields
+    this.assignedTo = undefined;
+    this.assignedType = undefined;
+    this.assignedAt = undefined;
+    this.distributionStatus = 'withdrawn';
+    this.updatedAt = new Date();
+    
+    // If TL was distributing to team, update TL distribution info
+    if (this.tlDistribution && this.tlDistribution.distributedBy) {
+        // Keep the distribution history but mark as withdrawn
+        this.tlDistribution.withdrawn = true;
+        this.tlDistribution.withdrawnAt = new Date();
+        this.tlDistribution.withdrawnBy = withdrawnById;
+    }
+    
+    await this.save();
+    
+    // Update user statistics if it was a direct user assignment
+    if (assignedType === 'direct_user') {
+        const User = mongoose.model('User');
+        await User.findByIdAndUpdate(withdrawnFrom, {
+            $inc: { 
+                'statistics.totalLeads': -1,
+                'statistics.pendingLeads': -1,
+                'statistics.todaysLeads': -1
+            }
+        });
+    }
+    
+    return {
+        success: true,
+        dataId: this._id,
+        withdrawnFrom: withdrawnFrom,
+        withdrawnAt: new Date(),
+        reason: reason
+    };
+};
+
 // TL withdraws data from team member
 dataDistributionSchema.methods.withdrawFromTeamMember = async function(teamMemberId, tlId, reason = '', notes = '') {
     // Verify this is TL's data

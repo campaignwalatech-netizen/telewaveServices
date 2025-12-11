@@ -1,130 +1,526 @@
 const DataDistribution = require('./data.distribute');
 const User = require('./user.model');
+const mongoose = require('mongoose');
 
 class BulkDataOperations {
+    /**
+     * Import data from CSV file
+     */
+    static async importDataFromCSV(filePath, adminId, options = {}) {
+        try {
+            console.log('📁 [BulkOperations] Importing from CSV:', filePath);
+            
+            const fs = require('fs');
+            const csv = require('csv-parser');
+            
+            if (!fs.existsSync(filePath)) {
+                return {
+                    success: false,
+                    error: 'CSV file not found'
+                };
+            }
+            
+            const dataArray = [];
+            const errors = [];
+            let batchNumber;
+            
+            // Generate batch number
+            if (options.batchName) {
+                const cleanBatchName = options.batchName
+                    .replace(/[^\w\s-]/g, '')
+                    .replace(/\s+/g, '_')
+                    .toUpperCase();
+                batchNumber = `${cleanBatchName}_${Date.now()}`;
+            } else {
+                batchNumber = `BATCH_${Date.now()}`;
+            }
+            
+            // Read and parse CSV file
+            const results = await new Promise((resolve, reject) => {
+                const rows = [];
+                fs.createReadStream(filePath)
+                    .pipe(csv())
+                    .on('data', (row) => {
+                        rows.push(row);
+                    })
+                    .on('end', () => {
+                        resolve(rows);
+                    })
+                    .on('error', (error) => {
+                        reject(error);
+                    });
+            });
+            
+            console.log(`📁 [BulkOperations] CSV parsed, ${results.length} rows found`);
+            
+            // Process each row
+            for (let i = 0; i < results.length; i++) {
+                const row = results[i];
+                
+                try {
+                    // Extract data from CSV row
+                    const name = row.Name || row.name || row['Full Name'] || row['Full name'] || '';
+                    let contact = row.Contact || row.contact || row.Phone || row.PhoneNumber || row['Phone Number'] || row.phone || '';
+                    
+                    // Clean contact number
+                    if (contact) {
+                        contact = contact.toString().replace(/\D/g, '');
+                    }
+                    
+                    if (!name.trim()) {
+                        errors.push(`Row ${i + 1}: Missing name`);
+                        continue;
+                    }
+                    
+                    if (!contact.trim()) {
+                        errors.push(`Row ${i + 1}: Missing contact`);
+                        continue;
+                    }
+                    
+                    // Validate phone number (10 digits)
+                    const phoneRegex = /^[0-9]{10}$/;
+                    if (!phoneRegex.test(contact)) {
+                        errors.push(`Row ${i + 1}: Invalid phone number format: ${contact} (must be 10 digits)`);
+                        continue;
+                    }
+                    
+                    // Check for duplicate contact in this batch
+                    const duplicate = dataArray.find(item => item.contact === contact);
+                    if (duplicate) {
+                        errors.push(`Row ${i + 1}: Duplicate contact number: ${contact} (also found in row ${dataArray.indexOf(duplicate) + 1})`);
+                        continue;
+                    }
+                    
+                    dataArray.push({
+                        name: name.trim(),
+                        contact: contact
+                    });
+                } catch (rowError) {
+                    errors.push(`Row ${i + 1}: ${rowError.message}`);
+                }
+            }
+            
+            console.log(`📁 [BulkOperations] Valid rows: ${dataArray.length}, Errors: ${errors.length}`);
+            
+            if (dataArray.length === 0) {
+                // Clean up file
+                fs.unlinkSync(filePath);
+                return {
+                    success: false,
+                    error: 'No valid data found in CSV file',
+                    details: errors
+                };
+            }
+            
+            // Check for existing contacts in database
+            const existingContacts = await DataDistribution.find({
+                contact: { $in: dataArray.map(item => item.contact) }
+            }).select('contact');
+            
+            const existingContactNumbers = existingContacts.map(c => c.contact);
+            const duplicatesInDB = [];
+            const filteredData = [];
+            
+            dataArray.forEach((item, index) => {
+                if (existingContactNumbers.includes(item.contact)) {
+                    duplicatesInDB.push(`Row ${index + 1}: Contact ${item.contact} already exists in database`);
+                } else {
+                    filteredData.push(item);
+                }
+            });
+            
+            if (filteredData.length === 0) {
+                fs.unlinkSync(filePath);
+                return {
+                    success: false,
+                    error: 'All contacts already exist in database',
+                    details: [...errors, ...duplicatesInDB]
+                };
+            }
+            
+            // Prepare data for bulk insertion
+            const dataToInsert = filteredData.map(item => ({
+                name: item.name,
+                contact: item.contact,
+                batchNumber: batchNumber,
+                distributionStatus: 'pending', // Initially pending, not assigned to anyone
+                assignedBy: adminId, // Admin who uploaded the data
+                // assignedType is NOT set here - it will be set when assigned to someone
+                // assignedTo is NOT set here - it will be set when assigned to someone
+                createdBy: adminId,
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                source: 'csv_import',
+                priority: 'medium'
+            }));
+            
+            // Insert data in bulk
+            const insertedData = await DataDistribution.insertMany(dataToInsert);
+            
+            console.log(`✅ [BulkOperations] Imported ${insertedData.length} records`);
+            
+            // Clean up the uploaded file
+            fs.unlinkSync(filePath);
+            
+            return {
+                success: true,
+                data: {
+                    count: insertedData.length,
+                    batchNumber: batchNumber,
+                    errors: errors.length > 0 ? errors : undefined,
+                    duplicatesInDB: duplicatesInDB.length > 0 ? duplicatesInDB : undefined,
+                    message: `Successfully imported ${insertedData.length} records${errors.length > 0 ? ` (with ${errors.length} errors)` : ''}`
+                }
+            };
+            
+        } catch (error) {
+            console.error('❌ [BulkOperations] CSV import error:', error);
+            
+            // Clean up file if it exists
+            try {
+                const fs = require('fs');
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                }
+            } catch (cleanupError) {
+                console.error('Failed to cleanup file:', cleanupError);
+            }
+            
+            return {
+                success: false,
+                error: error.message || 'Failed to import CSV file',
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+            };
+        }
+    }
+
+
+    /**
+ * Admin withdraws data from TL or User
+ */
+static async adminWithdrawData(dataIds, adminId, reason = '') {
+    try {
+        if (!Array.isArray(dataIds) || dataIds.length === 0) {
+            return {
+                success: false,
+                error: 'Data IDs array is required'
+            };
+        }
+        
+        const dataRecords = await DataDistribution.find({
+            _id: { $in: dataIds },
+            isActive: true
+        });
+        
+        if (dataRecords.length === 0) {
+            return {
+                success: false,
+                error: 'No data found'
+            };
+        }
+        
+        const withdrawalResults = [];
+        const errors = [];
+        
+        // Withdraw each data record
+        for (const data of dataRecords) {
+            try {
+                const result = await data.withdrawData(adminId, reason);
+                withdrawalResults.push(result);
+            } catch (error) {
+                errors.push(`Data ${data._id}: ${error.message}`);
+            }
+        }
+        
+        return {
+            success: true,
+            data: {
+                withdrawnCount: withdrawalResults.length,
+                errors: errors.length > 0 ? errors : undefined,
+                reason: reason,
+                message: `Withdrawn ${withdrawalResults.length} records`
+            }
+        };
+        
+    } catch (error) {
+        console.error('❌ [BulkOperations] Admin withdraw error:', error);
+        return {
+            success: false,
+            error: error.message || 'Failed to withdraw data'
+        };
+    }
+}
     
     /**
-     * Add bulk data with names and contacts
+     * Add bulk data manually
      */
     static async addBulkData(dataArray, adminId, batchName = null) {
         try {
-            const timestamp = Date.now();
-            const random = Math.floor(Math.random() * 1000);
-            const batchNumber = batchName || `BATCH_${timestamp}_${random}`;
-            
-            const validatedData = dataArray.map((item, index) => {
-                if (!item.name || !item.contact) {
-                    throw new Error(`Invalid data at index ${index}: Name and contact are required`);
-                }
-                
-                if (!/^[0-9]{10}$/.test(item.contact)) {
-                    throw new Error(`Invalid contact at index ${index}: Must be 10 digits`);
-                }
-                
+            if (!Array.isArray(dataArray) || dataArray.length === 0) {
                 return {
-                    name: item.name.trim(),
-                    contact: item.contact.trim(),
-                    batchNumber: batchNumber,
-                    assignedBy: adminId,
-                    distributionStatus: 'pending'
+                    success: false,
+                    error: 'Data array is required and must not be empty'
                 };
+            }
+            
+            // Generate batch number
+            let batchNumber;
+            if (batchName) {
+                const cleanBatchName = batchName
+                    .replace(/[^\w\s-]/g, '')
+                    .replace(/\s+/g, '_')
+                    .toUpperCase();
+                batchNumber = `${cleanBatchName}_${Date.now()}`;
+            } else {
+                batchNumber = `MANUAL_BATCH_${Date.now()}`;
+            }
+            
+            const validatedData = [];
+            const errors = [];
+            
+            // Validate each data item
+            dataArray.forEach((item, index) => {
+                if (!item.name || !item.contact) {
+                    errors.push(`Row ${index + 1}: Missing name or contact`);
+                    return;
+                }
+                
+                const phoneRegex = /^[0-9]{10}$/;
+                if (!phoneRegex.test(item.contact.toString().replace(/\D/g, ''))) {
+                    errors.push(`Row ${index + 1}: Invalid phone number: ${item.contact} (must be 10 digits)`);
+                    return;
+                }
+                
+                validatedData.push({
+                    name: item.name.trim(),
+                    contact: item.contact.toString().replace(/\D/g, '')
+                });
             });
             
-            const result = await DataDistribution.insertMany(validatedData);
+            if (validatedData.length === 0) {
+                return {
+                    success: false,
+                    error: 'No valid data found',
+                    details: errors
+                };
+            }
+            
+            // Check for duplicates in database
+            const existingContacts = await DataDistribution.find({
+                contact: { $in: validatedData.map(item => item.contact) }
+            }).select('contact');
+            
+            const existingContactNumbers = existingContacts.map(c => c.contact);
+            const duplicatesInDB = [];
+            const filteredData = [];
+            
+            validatedData.forEach((item, index) => {
+                if (existingContactNumbers.includes(item.contact)) {
+                    duplicatesInDB.push(`Contact ${item.contact} already exists in database`);
+                } else {
+                    filteredData.push(item);
+                }
+            });
+            
+            if (filteredData.length === 0) {
+                return {
+                    success: false,
+                    error: 'All contacts already exist in database',
+                    details: [...errors, ...duplicatesInDB]
+                };
+            }
+            
+            // Prepare data for insertion
+            const dataToInsert = filteredData.map(item => ({
+                name: item.name,
+                contact: item.contact,
+                batchNumber: batchNumber,
+                distributionStatus: 'pending',
+                assignedBy: adminId,
+                createdBy: adminId,
+                isActive: true,
+                source: 'manual_entry',
+                priority: 'medium'
+            }));
+            
+            const insertedData = await DataDistribution.insertMany(dataToInsert);
             
             return {
                 success: true,
-                batchNumber: batchNumber,
-                count: result.length,
-                message: `Successfully added ${result.length} data records in batch ${batchNumber}`
+                data: {
+                    count: insertedData.length,
+                    batchNumber: batchNumber,
+                    errors: errors.length > 0 ? errors : undefined,
+                    duplicatesInDB: duplicatesInDB.length > 0 ? duplicatesInDB : undefined,
+                    message: `Successfully added ${insertedData.length} records`
+                }
             };
             
         } catch (error) {
-            console.error('Error adding bulk data:', error);
+            console.error('❌ [BulkOperations] Add bulk data error:', error);
             return {
                 success: false,
-                error: error.message
+                error: error.message || 'Failed to add bulk data'
             };
         }
     }
     
     /**
-     * Assign bulk data to TL
+     * Assign data to TL
      */
     static async assignDataToTL(count, tlId, adminId) {
         try {
-            const tl = await User.findById(tlId);
-            if (!tl || tl.role !== 'TL' || tl.status !== 'active') {
-                throw new Error('Invalid or inactive TL');
+            if (!count || count <= 0 || !tlId) {
+                return {
+                    success: false,
+                    error: 'Valid count and TL ID are required'
+                };
             }
             
-            const pendingData = await DataDistribution.find({ 
+            // Check if TL exists and has TL role
+            const tl = await User.findOne({ _id: tlId, role: 'TL', status: 'active' });
+            if (!tl) {
+                return {
+                    success: false,
+                    error: 'TL not found or not active'
+                };
+            }
+            
+            // Find pending data
+            const pendingData = await DataDistribution.find({
                 distributionStatus: 'pending',
-                isActive: true 
+                isActive: true
             }).limit(count);
             
             if (pendingData.length === 0) {
-                throw new Error('No pending data available for assignment');
+                return {
+                    success: false,
+                    error: 'No pending data available'
+                };
             }
             
             const dataIds = pendingData.map(data => data._id);
-            const result = await DataDistribution.assignBulkData(dataIds, tlId, 'tl', adminId);
+            
+            // Update data to assign to TL
+            await DataDistribution.updateMany(
+                { _id: { $in: dataIds } },
+                {
+                    $set: {
+                        assignedTo: tlId,
+                        assignedType: 'tl',
+                        assignedBy: adminId,
+                        assignedAt: new Date(),
+                        distributionStatus: 'assigned',
+                        updatedAt: new Date()
+                    }
+                }
+            );
             
             return {
                 success: true,
-                assignedCount: result.nModified,
-                tlName: tl.name,
-                tlEmail: tl.email,
-                message: `Assigned ${result.nModified} data records to TL: ${tl.name}`
+                data: {
+                    count: pendingData.length,
+                    tlId: tlId,
+                    tlName: tl.name,
+                    assignedAt: new Date(),
+                    message: `Successfully assigned ${pendingData.length} records to TL ${tl.name}`
+                }
             };
             
         } catch (error) {
-            console.error('Error assigning data to TL:', error);
+            console.error('❌ [BulkOperations] Assign to TL error:', error);
             return {
                 success: false,
-                error: error.message
+                error: error.message || 'Failed to assign data to TL'
             };
         }
     }
     
     /**
-     * Assign bulk data directly to user
+     * Assign data directly to user
      */
     static async assignDataToUser(count, userId, adminId) {
         try {
-            const user = await User.findById(userId);
-            if (!user || user.role !== 'user' || user.status !== 'active') {
-                throw new Error('Invalid or inactive user');
+            if (!count || count <= 0 || !userId) {
+                return {
+                    success: false,
+                    error: 'Valid count and User ID are required'
+                };
             }
             
-            if (user.attendance.todayStatus !== 'present') {
-                throw new Error('User is not present today');
+            // Check if user exists and is active
+            const user = await User.findOne({ _id: userId, role: 'user', status: 'active' });
+            if (!user) {
+                return {
+                    success: false,
+                    error: 'User not found or not active'
+                };
             }
             
-            const pendingData = await DataDistribution.find({ 
+            // Find pending data
+            const pendingData = await DataDistribution.find({
                 distributionStatus: 'pending',
-                isActive: true 
+                isActive: true
             }).limit(count);
             
             if (pendingData.length === 0) {
-                throw new Error('No pending data available for assignment');
+                return {
+                    success: false,
+                    error: 'No pending data available'
+                };
             }
             
             const dataIds = pendingData.map(data => data._id);
-            const result = await DataDistribution.assignBulkData(dataIds, userId, 'direct_user', adminId);
+            
+            // Update data to assign directly to user
+            await DataDistribution.updateMany(
+                { _id: { $in: dataIds } },
+                {
+                    $set: {
+                        assignedTo: userId,
+                        assignedType: 'direct_user',
+                        assignedBy: adminId,
+                        assignedAt: new Date(),
+                        distributionStatus: 'assigned',
+                        updatedAt: new Date()
+                    },
+                    $push: {
+                        teamAssignments: {
+                            teamMember: userId,
+                            assignedBy: adminId,
+                            status: 'pending',
+                            assignedAt: new Date()
+                        }
+                    }
+                }
+            );
+            
+            // Update user statistics
+            await User.findByIdAndUpdate(userId, {
+                $inc: {
+                    'statistics.totalLeads': pendingData.length,
+                    'statistics.pendingLeads': pendingData.length,
+                    'statistics.todaysLeads': pendingData.length
+                }
+            });
             
             return {
                 success: true,
-                assignedCount: result.nModified,
-                userName: user.name,
-                message: `Assigned ${result.nModified} data records to user: ${user.name}`
+                data: {
+                    count: pendingData.length,
+                    userId: userId,
+                    userName: user.name,
+                    assignedAt: new Date(),
+                    message: `Successfully assigned ${pendingData.length} records to user ${user.name}`
+                }
             };
             
         } catch (error) {
-            console.error('Error assigning data to user:', error);
+            console.error('❌ [BulkOperations] Assign to user error:', error);
             return {
                 success: false,
-                error: error.message
+                error: error.message || 'Failed to assign data to user'
             };
         }
     }
@@ -134,68 +530,140 @@ class BulkDataOperations {
      */
     static async tlDistributeDataToTeam(tlId, dataIds, teamMemberIds, distributionMethod = 'manual') {
         try {
+            if (!Array.isArray(dataIds) || dataIds.length === 0) {
+                return {
+                    success: false,
+                    error: 'Data IDs array is required'
+                };
+            }
+            
+            if (!Array.isArray(teamMemberIds) || teamMemberIds.length === 0) {
+                return {
+                    success: false,
+                    error: 'Team member IDs array is required'
+                };
+            }
+            
+            // Verify TL exists
             const tl = await User.findById(tlId);
             if (!tl || tl.role !== 'TL') {
-                throw new Error('Invalid TL');
+                return {
+                    success: false,
+                    error: 'TL not found'
+                };
             }
             
-            // Verify all team members belong to this TL
-            const invalidMembers = teamMemberIds.filter(memberId => 
-                !tl.teamMembers.includes(memberId)
-            );
+            // Get data assigned to this TL
+            const dataRecords = await DataDistribution.find({
+                _id: { $in: dataIds },
+                assignedTo: tlId,
+                assignedType: 'tl',
+                distributionStatus: 'assigned',
+                isActive: true
+            });
             
-            if (invalidMembers.length > 0) {
-                throw new Error('Some users are not in your team');
+            if (dataRecords.length === 0) {
+                return {
+                    success: false,
+                    error: 'No data found or data not assigned to you'
+                };
             }
             
-            const results = [];
+            // Verify team members belong to this TL
+            const teamMembers = await User.find({
+                _id: { $in: teamMemberIds },
+                reportingTo: tlId,
+                role: 'user',
+                status: 'active'
+            });
+            
+            if (teamMembers.length === 0) {
+                return {
+                    success: false,
+                    error: 'No valid team members found'
+                };
+            }
+            
+            // Distribute data based on method
+            const distributionResults = [];
             const errors = [];
             
-            // Distribute each data item
-            for (const dataId of dataIds) {
-                try {
-                    const data = await DataDistribution.findById(dataId);
+            if (distributionMethod === 'manual') {
+                // Manual distribution: equal distribution among team members
+                const dataPerMember = Math.ceil(dataRecords.length / teamMembers.length);
+                
+                for (let i = 0; i < teamMembers.length; i++) {
+                    const member = teamMembers[i];
+                    const startIdx = i * dataPerMember;
+                    const endIdx = Math.min(startIdx + dataPerMember, dataRecords.length);
+                    const memberData = dataRecords.slice(startIdx, endIdx);
                     
-                    if (!data) {
-                        errors.push(`Data ${dataId} not found`);
-                        continue;
+                    for (const data of memberData) {
+                        try {
+                            const result = await data.distributeToTeamMember(member._id, tlId, distributionMethod);
+                            distributionResults.push(result);
+                        } catch (error) {
+                            errors.push(`Data ${data._id}: ${error.message}`);
+                        }
+                    }
+                }
+            } else if (distributionMethod === 'equal') {
+                // Equal distribution
+                const dataPerMember = Math.floor(dataRecords.length / teamMembers.length);
+                let remaining = dataRecords.length % teamMembers.length;
+                
+                let dataIndex = 0;
+                for (const member of teamMembers) {
+                    let memberCount = dataPerMember;
+                    if (remaining > 0) {
+                        memberCount++;
+                        remaining--;
                     }
                     
-                    // Check if data belongs to this TL
-                    if (data.assignedTo.toString() !== tlId.toString() || data.assignedType !== 'tl') {
-                        errors.push(`Data ${dataId} is not assigned to you`);
-                        continue;
+                    for (let j = 0; j < memberCount; j++) {
+                        if (dataIndex < dataRecords.length) {
+                            try {
+                                const result = await dataRecords[dataIndex].distributeToTeamMember(member._id, tlId, distributionMethod);
+                                distributionResults.push(result);
+                            } catch (error) {
+                                errors.push(`Data ${dataRecords[dataIndex]._id}: ${error.message}`);
+                            }
+                            dataIndex++;
+                        }
                     }
+                }
+            } else {
+                // For other methods, distribute sequentially
+                for (let i = 0; i < dataRecords.length; i++) {
+                    const data = dataRecords[i];
+                    const memberIndex = i % teamMembers.length;
+                    const member = teamMembers[memberIndex];
                     
-                    // Distribute to each team member
-                    for (const teamMemberId of teamMemberIds) {
-                        await data.distributeToTeamMember(teamMemberId, tlId, distributionMethod);
+                    try {
+                        const result = await data.distributeToTeamMember(member._id, tlId, distributionMethod);
+                        distributionResults.push(result);
+                    } catch (error) {
+                        errors.push(`Data ${data._id}: ${error.message}`);
                     }
-                    
-                    results.push({
-                        dataId: dataId,
-                        distributedTo: teamMemberIds.length,
-                        success: true
-                    });
-                    
-                } catch (error) {
-                    errors.push(`Data ${dataId}: ${error.message}`);
                 }
             }
             
             return {
-                success: errors.length === 0,
-                distributedCount: results.length,
-                totalDistributions: results.reduce((sum, r) => sum + r.distributedTo, 0),
-                results: results,
-                errors: errors.length > 0 ? errors : undefined
+                success: true,
+                data: {
+                    distributedCount: distributionResults.length,
+                    errors: errors.length > 0 ? errors : undefined,
+                    teamMemberIds: teamMemberIds,
+                    distributionMethod: distributionMethod,
+                    message: `Distributed ${distributionResults.length} records to ${teamMembers.length} team members`
+                }
             };
             
         } catch (error) {
-            console.error('Error in TL data distribution:', error);
+            console.error('❌ [BulkOperations] TL distribute error:', error);
             return {
                 success: false,
-                error: error.message
+                error: error.message || 'Failed to distribute data'
             };
         }
     }
@@ -205,108 +673,76 @@ class BulkDataOperations {
      */
     static async tlWithdrawDataFromTeam(tlId, dataIds, teamMemberIds, reason = '') {
         try {
-            const tl = await User.findById(tlId);
-            if (!tl || tl.role !== 'TL') {
-                throw new Error('Invalid TL');
+            if (!Array.isArray(dataIds) || dataIds.length === 0) {
+                return {
+                    success: false,
+                    error: 'Data IDs array is required'
+                };
             }
             
-            const results = [];
+            if (!Array.isArray(teamMemberIds) || teamMemberIds.length === 0) {
+                return {
+                    success: false,
+                    error: 'Team member IDs array is required'
+                };
+            }
+            
+            // Get data assigned to this TL
+            const dataRecords = await DataDistribution.find({
+                _id: { $in: dataIds },
+                assignedTo: tlId,
+                assignedType: 'tl',
+                isActive: true
+            });
+            
+            if (dataRecords.length === 0) {
+                return {
+                    success: false,
+                    error: 'No data found or data not assigned to you'
+                };
+            }
+            
+            const withdrawalResults = [];
             const errors = [];
             
-            // Withdraw each data item
-            for (const dataId of dataIds) {
-                try {
-                    const data = await DataDistribution.findById(dataId);
-                    
-                    if (!data) {
-                        errors.push(`Data ${dataId} not found`);
-                        continue;
+            // Withdraw data from team members
+            for (const data of dataRecords) {
+                for (const teamMemberId of teamMemberIds) {
+                    try {
+                        const result = await data.withdrawFromTeamMember(teamMemberId, tlId, reason);
+                        withdrawalResults.push(result);
+                    } catch (error) {
+                        // Check if data is assigned to this team member
+                        const isAssigned = data.teamAssignments.some(ta => 
+                            ta.teamMember.toString() === teamMemberId.toString() && !ta.withdrawn
+                        );
+                        
+                        if (!isAssigned) {
+                            errors.push(`Data ${data._id}: Not assigned to team member ${teamMemberId}`);
+                        } else {
+                            errors.push(`Data ${data._id}: ${error.message}`);
+                        }
                     }
-                    
-                    // Check if data belongs to this TL
-                    if (data.assignedTo.toString() !== tlId.toString() || data.assignedType !== 'tl') {
-                        errors.push(`Data ${dataId} is not assigned to you`);
-                        continue;
-                    }
-                    
-                    // Withdraw from each team member
-                    for (const teamMemberId of teamMemberIds) {
-                        await data.withdrawFromTeamMember(teamMemberId, tlId, reason);
-                    }
-                    
-                    results.push({
-                        dataId: dataId,
-                        withdrawnFrom: teamMemberIds.length,
-                        success: true
-                    });
-                    
-                } catch (error) {
-                    errors.push(`Data ${dataId}: ${error.message}`);
                 }
             }
             
             return {
-                success: errors.length === 0,
-                withdrawnCount: results.length,
-                totalWithdrawals: results.reduce((sum, r) => sum + r.withdrawnFrom, 0),
-                results: results,
-                errors: errors.length > 0 ? errors : undefined
-            };
-            
-        } catch (error) {
-            console.error('Error in TL data withdrawal:', error);
-            return {
-                success: false,
-                error: error.message
-            };
-        }
-    }
-    
-    /**
-     * Get TL data statistics
-     */
-    static async getTLStatistics(tlId) {
-        try {
-            const tl = await User.findById(tlId);
-            if (!tl || tl.role !== 'TL') {
-                throw new Error('Invalid TL');
-            }
-            
-            const dataStats = await DataDistribution.getTLDataStats(tlId);
-            const teamStats = await tl.getTeamDataStats();
-            
-            return {
                 success: true,
-                tlInfo: {
-                    name: tl.name,
-                    email: tl.email,
-                    teamSize: tl.teamMembers.length
-                },
-                dataStatistics: dataStats,
-                teamStatistics: teamStats
+                data: {
+                    withdrawnCount: withdrawalResults.length,
+                    errors: errors.length > 0 ? errors : undefined,
+                    teamMemberIds: teamMemberIds,
+                    reason: reason,
+                    message: `Withdrawn ${withdrawalResults.length} records from team members`
+                }
             };
             
         } catch (error) {
-            console.error('Error getting TL statistics:', error);
+            console.error('❌ [BulkOperations] TL withdraw error:', error);
             return {
                 success: false,
-                error: error.message
+                error: error.message || 'Failed to withdraw data'
             };
-        }
-    }
-    
-    /**
-     * Get available pending data count
-     */
-    static async getPendingDataCount() {
-        try {
-            return await DataDistribution.countDocuments({
-                distributionStatus: 'pending',
-                isActive: true
-            });
-        } catch (error) {
-            console.error('Error getting pending data count:', error);
-            throw error;
         }
     }
     
@@ -315,9 +751,270 @@ class BulkDataOperations {
      */
     static async getBatchStatistics(batchNumber) {
         try {
-            return await DataDistribution.getBatchStats(batchNumber);
+            if (!batchNumber) {
+                return {
+                    success: false,
+                    error: 'Batch number is required'
+                };
+            }
+            
+            const stats = await DataDistribution.getBatchStats(batchNumber);
+            
+            return {
+                success: true,
+                data: stats
+            };
+            
         } catch (error) {
-            console.error('Error getting batch statistics:', error);
+            console.error('❌ [BulkOperations] Get batch stats error:', error);
+            return {
+                success: false,
+                error: error.message || 'Failed to get batch statistics'
+            };
+        }
+    }
+    
+    /**
+     * Get TL statistics
+     */
+    static async getTLStatistics(tlId) {
+        try {
+            const stats = await DataDistribution.getTLDataStats(tlId);
+            
+            return {
+                success: true,
+                data: stats
+            };
+            
+        } catch (error) {
+            console.error('❌ [BulkOperations] Get TL stats error:', error);
+            return {
+                success: false,
+                error: error.message || 'Failed to get TL statistics'
+            };
+        }
+    }
+    
+    /**
+     * Bulk assign data based on criteria
+     */
+    static async bulkAssignData(assignmentType, adminId, options = {}) {
+        try {
+            let userQuery = {};
+            let assignmentMessage = '';
+            
+            switch (assignmentType) {
+                case 'all_active':
+                    userQuery = { role: 'user', status: 'active' };
+                    assignmentMessage = 'all active users';
+                    break;
+                    
+                case 'present_today':
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    userQuery = {
+                        role: 'user',
+                        status: 'active',
+                        'attendance.todayStatus': 'present',
+                        'attendance.todayMarkedAt': { $gte: today }
+                    };
+                    assignmentMessage = 'users present today';
+                    break;
+                    
+                case 'without_data':
+                    const todayDate = new Date();
+                    todayDate.setHours(0, 0, 0, 0);
+                    userQuery = {
+                        role: 'user',
+                        status: 'active',
+                        $or: [
+                            { 'leadDistribution.lastLeadDistributionDate': { $lt: todayDate } },
+                            { 'leadDistribution.lastLeadDistributionDate': { $exists: false } }
+                        ]
+                    };
+                    assignmentMessage = 'users without data today';
+                    break;
+                    
+                default:
+                    return {
+                        success: false,
+                        error: 'Invalid assignment type'
+                    };
+            }
+            
+            // Get users
+            const users = await User.find(userQuery);
+            
+            if (users.length === 0) {
+                return {
+                    success: false,
+                    error: `No ${assignmentMessage} found`
+                };
+            }
+            
+            // Get pending data
+            const dataPerUser = options.dataPerUser || 5; // Default 5 per user
+            const totalDataNeeded = users.length * dataPerUser;
+            
+            const pendingData = await DataDistribution.find({
+                distributionStatus: 'pending',
+                isActive: true
+            }).limit(totalDataNeeded);
+            
+            if (pendingData.length === 0) {
+                return {
+                    success: false,
+                    error: 'No pending data available'
+                };
+            }
+            
+            const dataIds = pendingData.map(data => data._id);
+            
+            // Create bulk write operations
+            const bulkOps = [];
+            let dataIndex = 0;
+            
+            for (const user of users) {
+                for (let i = 0; i < dataPerUser; i++) {
+                    if (dataIndex >= dataIds.length) break;
+                    
+                    bulkOps.push({
+                        updateOne: {
+                            filter: { _id: dataIds[dataIndex] },
+                            update: {
+                                $set: {
+                                    assignedTo: user._id,
+                                    assignedType: 'direct_user',
+                                    assignedBy: adminId,
+                                    assignedAt: new Date(),
+                                    distributionStatus: 'assigned',
+                                    updatedAt: new Date()
+                                },
+                                $push: {
+                                    teamAssignments: {
+                                        teamMember: user._id,
+                                        assignedBy: adminId,
+                                        status: 'pending',
+                                        assignedAt: new Date()
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    
+                    dataIndex++;
+                }
+            }
+            
+            if (bulkOps.length === 0) {
+                return {
+                    success: false,
+                    error: 'No data to assign'
+                };
+            }
+            
+            // Execute bulk write
+            const result = await DataDistribution.bulkWrite(bulkOps);
+            
+            // Update user statistics
+            const userUpdateOps = users.map(user => ({
+                updateOne: {
+                    filter: { _id: user._id },
+                    update: {
+                        $inc: {
+                            'statistics.totalLeads': dataPerUser,
+                            'statistics.pendingLeads': dataPerUser,
+                            'statistics.todaysLeads': dataPerUser
+                        }
+                    }
+                }
+            }));
+            
+            await User.bulkWrite(userUpdateOps);
+            
+            return {
+                success: true,
+                data: {
+                    assignedCount: result.modifiedCount,
+                    userCount: users.length,
+                    dataPerUser: dataPerUser,
+                    assignmentType: assignmentType,
+                    message: `Assigned ${result.modifiedCount} records to ${users.length} users (${assignmentMessage})`
+                }
+            };
+            
+        } catch (error) {
+            console.error('❌ [BulkOperations] Bulk assign error:', error);
+            return {
+                success: false,
+                error: error.message || 'Failed to bulk assign data'
+            };
+        }
+    }
+    
+    /**
+     * Get all batches summary
+     */
+    static async getAllBatches() {
+        try {
+            const batches = await DataDistribution.aggregate([
+                {
+                    $group: {
+                        _id: '$batchNumber',
+                        total: { $sum: 1 },
+                        pending: {
+                            $sum: { $cond: [{ $eq: ['$distributionStatus', 'pending'] }, 1, 0] }
+                        },
+                        assigned: {
+                            $sum: { $cond: [{ $eq: ['$distributionStatus', 'assigned'] }, 1, 0] }
+                        },
+                        distributed: {
+                            $sum: { $cond: [{ $eq: ['$distributionStatus', 'distributed'] }, 1, 0] }
+                        },
+                        withdrawn: {
+                            $sum: { $cond: [{ $eq: ['$distributionStatus', 'withdrawn'] }, 1, 0] }
+                        },
+                        createdAt: { $first: '$createdAt' },
+                        createdBy: { $first: '$createdBy' }
+                    }
+                },
+                {
+                    $lookup: {
+                        from: 'users',
+                        localField: 'createdBy',
+                        foreignField: '_id',
+                        as: 'creatorInfo'
+                    }
+                },
+                {
+                    $unwind: {
+                        path: '$creatorInfo',
+                        preserveNullAndEmptyArrays: true
+                    }
+                },
+                {
+                    $project: {
+                        batchNumber: '$_id',
+                        _id: 0,
+                        total: 1,
+                        pending: 1,
+                        assigned: 1,
+                        distributed: 1,
+                        withdrawn: 1,
+                        createdAt: 1,
+                        creatorName: '$creatorInfo.name',
+                        creatorEmail: '$creatorInfo.email'
+                    }
+                },
+                {
+                    $sort: { createdAt: -1 }
+                }
+            ]);
+            
+            return batches;
+            
+        } catch (error) {
+            console.error('❌ [BulkOperations] Get batches error:', error);
             throw error;
         }
     }

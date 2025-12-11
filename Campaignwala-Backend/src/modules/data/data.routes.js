@@ -1,11 +1,12 @@
 const express = require('express');
 const multer = require('multer');
-const fs = require('fs'); // Add this
-const path = require('path'); // Add this
+const fs = require('fs');
+const path = require('path');
 const router = express.Router();
 const DataController = require('./data.controller');
 const { authenticateToken, authorize } = require('../../middleware/user.middleware');
 const { authenticate } = require('../../middleware/auth');
+
 
 // ==================== ADMIN ROUTES ====================
 
@@ -47,6 +48,19 @@ const upload = multer({
   }
 });
 
+// Add this route after other admin routes
+router.post('/admin/bulk-assign', 
+    authenticate, 
+    authorize(['admin']), 
+    DataController.bulkAssignData
+);
+
+// Admin withdraws data from anyone
+router.post('/admin/withdraw-data', 
+    authenticate, 
+    authorize(['admin']), 
+    DataController.adminWithdrawData
+);
 // Add bulk data
 router.post('/admin/bulk-add', 
     authenticate, 
@@ -176,7 +190,8 @@ router.post('/import/csv',
     authorize('admin'),
     (req, res, next) => {
       console.log('📁 [DEBUG] Before multer middleware');
-      console.log('📁 [DEBUG] Request body keys:', Object.keys(req.body));
+      console.log('📁 [DEBUG] Request headers:', req.headers['content-type']);
+      console.log('📁 [DEBUG] Has body:', !!req.body);
       next();
     },
     upload.single('csv'),

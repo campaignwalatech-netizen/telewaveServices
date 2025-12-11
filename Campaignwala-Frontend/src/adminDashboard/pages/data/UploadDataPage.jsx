@@ -40,60 +40,60 @@ const UploadDataPage = () => {
   };
   
   const handleUpload = async () => {
-    // Validation
+  // Validation
+  if (uploadMethod === 'manual') {
+    const validData = manualData.filter(row => row.name.trim() && row.contact.trim());
+    if (validData.length === 0) {
+      alert('Please enter at least one valid data row');
+      return;
+    }
+    
+    // Validate phone numbers
+    for (const row of validData) {
+      if (!dataService.validatePhoneNumber(row.contact)) {
+        alert(`Invalid phone number: ${row.contact}. Must be 10 digits.`);
+        return;
+      }
+    }
+  } else {
+    if (!file) {
+      alert('Please select a CSV file');
+      return;
+    }
+  }
+  
+  setUploading(true);
+  
+  try {
+    let uploadResult;
+    
     if (uploadMethod === 'manual') {
-      const validData = manualData.filter(row => row.name.trim() && row.contact.trim());
-      if (validData.length === 0) {
-        alert('Please enter at least one valid data row');
-        return;
-      }
-      
-      // Validate phone numbers
-      for (const row of validData) {
-        if (!dataService.validatePhoneNumber(row.contact)) {
-          alert(`Invalid phone number: ${row.contact}. Must be 10 digits.`);
-          return;
-        }
-      }
+      const dataToUpload = manualData.filter(row => row.name.trim() && row.contact.trim());
+      uploadResult = await dataService.addBulkData(dataToUpload, batchName || null);
     } else {
-      if (!file) {
-        alert('Please select a CSV file');
-        return;
-      }
+      uploadResult = await dataService.importDataFromCSV(file, {
+        batchName: batchName || undefined
+      });
     }
     
-    setUploading(true);
+    setResult(uploadResult);
     
-    try {
-      let uploadResult;
-      
-      if (uploadMethod === 'manual') {
-        const dataToUpload = manualData.filter(row => row.name.trim() && row.contact.trim());
-        uploadResult = await dataService.addBulkData(dataToUpload, null, batchName || undefined);
-      } else {
-        uploadResult = await dataService.importDataFromCSV(file, {
-          batchName: batchName || undefined
-        });
-      }
-      
-      setResult(uploadResult);
-      
-      if (uploadResult.success) {
-        alert(`Successfully uploaded ${uploadResult.data?.count || 'data'} records`);
-        // Reset form
-        setManualData([{ name: '', contact: '' }]);
-        setFile(null);
-        setBatchName('');
-      } else {
-        alert(`Error: ${uploadResult.error}`);
-      }
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('An error occurred during upload');
+    if (uploadResult.success) {
+      alert(`Successfully uploaded ${uploadResult.data?.count || 'data'} records`);
+      // Reset form
+      setManualData([{ name: '', contact: '' }]);
+      setFile(null);
+      setBatchName('');
+    } else {
+      alert(`Error: ${uploadResult.error || 'Upload failed'}`);
     }
-    
-    setUploading(false);
-  };
+  } catch (error) {
+    console.error('Upload error:', error);
+    alert('An error occurred during upload');
+  }
+  
+  setUploading(false);
+};
   
   const downloadTemplate = () => {
     dataService.downloadTemplate();

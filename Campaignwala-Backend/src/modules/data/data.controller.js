@@ -1,4 +1,5 @@
 const DataDistribution = require('../users/data.distribute');
+console.log('DataDistribution schema assignedType enum:', DataDistribution.schema.path('assignedType').enumValues);
 const BulkDataOperations = require('../users/bulk.operations');
 const User = require('../users/user.model');
 
@@ -622,9 +623,6 @@ class DataController {
     static async importData(req, res) {
     try {
         console.log('📁 [CONTROLLER] ImportData called');
-        console.log('📁 [CONTROLLER] File:', req.file);
-        console.log('📁 [CONTROLLER] User:', req.user ? 'Yes' : 'No');
-        console.log('📁 [CONTROLLER] User ID:', req.user?._id);
         
         if (!req.file) {
             console.log('❌ No file in request');
@@ -634,28 +632,19 @@ class DataController {
             });
         }
 
-        // Log file details
-        console.log('📁 File details:', {
-            path: req.file.path,
-            size: req.file.size,
-            originalname: req.file.originalname,
-            mimetype: req.file.mimetype
-        });
-
-        // Check if file exists on disk
-        const fs = require('fs');
-        if (!fs.existsSync(req.file.path)) {
-            console.log('❌ File does not exist on disk:', req.file.path);
-            return res.status(500).json({
-                success: false,
-                error: 'File upload failed - file not found on server'
-            });
-        }
-
         const adminId = req.user._id;
-        console.log('👤 Admin ID:', adminId);
+        const batchName = req.body.batchName;
         
-        const result = await BulkDataOperations.importDataFromCSV(req.file.path, adminId);
+        console.log('📁 [CONTROLLER] File path:', req.file.path);
+        console.log('📁 [CONTROLLER] Admin ID:', adminId);
+        console.log('📁 [CONTROLLER] Batch name:', batchName);
+        
+        const result = await BulkDataOperations.importDataFromCSV(
+            req.file.path, 
+            adminId, 
+            { batchName: batchName }
+        );
+        
         console.log('✅ Import result:', result);
 
         if (result.success) {
@@ -665,11 +654,82 @@ class DataController {
         }
     } catch (error) {
         console.error('🔥 [CONTROLLER ERROR]', error);
-        console.error('🔥 Stack:', error.stack);
+        
+        // Clean up file if it exists
+        try {
+            const fs = require('fs');
+            if (req.file && fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+            }
+        } catch (cleanupError) {
+            console.error('Cleanup error:', cleanupError);
+        }
+        
         res.status(500).json({
             success: false,
             error: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+}
+// Add this new method for bulk assignment
+static async bulkAssignData(req, res) {
+    try {
+        const adminId = req.user._id;
+        const { assignmentType, dataPerUser } = req.body;
+        
+        if (!assignmentType) {
+            return res.status(400).json({
+                success: false,
+                error: 'Assignment type is required'
+            });
+        }
+        
+        const result = await BulkDataOperations.bulkAssignData(
+            assignmentType,
+            adminId,
+            { dataPerUser: dataPerUser || 5 }
+        );
+        
+        if (result.success) {
+            res.status(200).json(result);
+        } else {
+            res.status(400).json(result);
+        }
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+}
+
+/**
+ * Admin withdraws data from anyone
+ */
+static async adminWithdrawData(req, res) {
+    try {
+        const adminId = req.user._id;
+        const { dataIds, reason } = req.body;
+        
+        if (!Array.isArray(dataIds) || dataIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Data IDs array is required'
+            });
+        }
+        
+        const result = await BulkDataOperations.adminWithdrawData(dataIds, adminId, reason || '');
+        
+        if (result.success) {
+            res.status(200).json(result);
+        } else {
+            res.status(400).json(result);
+        }
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
         });
     }
 }

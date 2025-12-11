@@ -588,25 +588,36 @@ const dataService = {
 async importDataFromCSV(file, options = {}) {
   try {
     const formData = new FormData();
-    formData.append('csv', file); // 'csv' should match the field name in multer
+    formData.append('csv', file); // Field name must be 'csv' to match multer config
     
     // Add batchName if provided
     if (options.batchName) {
       formData.append('batchName', options.batchName);
     }
     
-    const token = apiHelpers.getAuthToken(); // Use apiHelpers here
+    // Get token from localStorage or your auth system
+    const token = localStorage.getItem('token') || apiHelpers.getAuthToken();
     
     const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/data/import/csv`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
-        // DON'T set Content-Type header - let browser set it with boundary
+        // DO NOT set Content-Type header for FormData - browser will set it automatically
       },
       body: formData
     });
     
-    return await response.json();
+    const data = await response.json();
+    
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || 'Upload failed',
+        details: data
+      };
+    }
+    
+    return data;
   } catch (error) {
     console.error('Import CSV error:', error);
     return {
@@ -615,6 +626,49 @@ async importDataFromCSV(file, options = {}) {
       details: error.message
     };
   }
+},
+
+
+// Add this method for bulk assignment
+async bulkAssignData(assignmentType, dataPerUser = 5) {
+    try {
+        const response = await api.post('/data/admin/bulk-assign', {
+            assignmentType,
+            dataPerUser
+        });
+        
+        return {
+            success: true,
+            data: response.data
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: error.response?.data?.error || 'Failed to bulk assign data',
+            details: error.response?.data
+        };
+    }
+},
+
+// Add this method for admin withdrawal
+async adminWithdrawData(dataIds, reason = '') {
+    try {
+        const response = await api.post('/data/admin/withdraw-data', {
+            dataIds,
+            reason
+        });
+        
+        return {
+            success: true,
+            data: response.data
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: error.response?.data?.error || 'Failed to withdraw data',
+            details: error.response?.data
+        };
+    }
 },
   
 
@@ -817,10 +871,10 @@ async importDataFromCSV(file, options = {}) {
    */
   downloadTemplate() {
     const templateData = [
-      ['Name', 'Contact'],
-      ['John Doe', '9876543210'],
-      ['Jane Smith', '9876543211'],
-      ['Mike Johnson', '9876543212']
+      ['Contact','Name'],
+      [ '9785641782','Rajkumar'],
+      [ '9876543211', 'Jane Smith'],
+      [ '9876543212', 'Mike Johnson',]
     ];
     
     let csvContent = "data:text/csv;charset=utf-8,";
