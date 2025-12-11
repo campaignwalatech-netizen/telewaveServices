@@ -106,8 +106,8 @@ router.post('/admin/assign-to-user',
 
 // Get pending data
 router.get('/admin/pending-data', 
-    authenticate, 
-    authorize(['admin']), 
+    authenticateToken, 
+    authorize('admin'), 
     DataController.getPendingData
 );
 
