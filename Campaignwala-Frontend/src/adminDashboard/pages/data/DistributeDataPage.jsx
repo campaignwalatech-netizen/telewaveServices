@@ -1,13 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Users, Search, Filter, Upload, UserPlus, 
   Target, CheckCircle, XCircle, RefreshCw,
   ArrowRight, ChevronDown, User, Crown,
   MoreVertical, Download, FileText, Eye,
-  Grid, List, Filter as FilterIcon, Settings
+  Grid, List, Filter as FilterIcon, Settings,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import dataService from '../../../services/dataService';
 import userService from '../../../services/userService';
+
+// Custom debounce function
+const debounce = (func, wait) => {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
 
 const DistributeDataPage = () => {
   // State for data table
@@ -15,10 +29,14 @@ const DistributeDataPage = () => {
   const [loadingData, setLoadingData] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
   const [selectedData, setSelectedData] = useState([]);
-  const [viewMode, setViewMode] = useState('table'); // 'table' or 'card'
+  const [viewMode, setViewMode] = useState('table');
+  const [batchFilter, setBatchFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
+  const [availableBatches, setAvailableBatches] = useState([]);
   
   // State for distribution modal
   const [showDistributionModal, setShowDistributionModal] = useState(false);
@@ -32,25 +50,69 @@ const DistributeDataPage = () => {
   const [result, setResult] = useState(null);
   const [availableDataCount, setAvailableDataCount] = useState(0);
 
-  // Fetch uploaded data
-  const fetchUploadedData = async (page = 1) => {
+  // Search debounce reference
+  const debouncedSearchRef = useRef();
+
+  // Initialize debounce
+  useEffect(() => {
+    debouncedSearchRef.current = debounce((searchValue) => {
+      if (searchValue !== searchTerm) {
+        setSearchTerm(searchValue);
+        setCurrentPage(1);
+      }
+    }, 500);
+
+    return () => {
+      if (debouncedSearchRef.current) {
+        debouncedSearchRef.current.cancel?.(); // If using lodash-like API
+      }
+    };
+  }, []);
+
+  // Fetch uploaded data with filters
+  const fetchUploadedData = useCallback(async (page = 1) => {
     try {
       setLoadingData(true);
-      const result = await dataService.getPendingData({
+      const filters = {
         page,
         limit: itemsPerPage,
-        search: searchTerm || undefined
-      });
+        search: searchTerm || undefined,
+        batchNumber: batchFilter || undefined,
+        status: statusFilter || undefined,
+        date: dateFilter || undefined,
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
+      };
+
+      // Remove undefined filters
+      Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
+
+      const result = await dataService.getPendingData(filters);
       
       if (result.success) {
         setUploadedData(result.data || []);
         setTotalItems(result.pagination?.total || 0);
         setCurrentPage(page);
+      } else {
+        console.error('Failed to fetch data:', result.error);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoadingData(false);
+    }
+  }, [searchTerm, batchFilter, statusFilter, dateFilter, itemsPerPage]);
+
+  // Fetch available batches
+  const fetchAvailableBatches = async () => {
+    try {
+      const batchesResult = await dataService.getAllBatches();
+      if (batchesResult.success && batchesResult.data) {
+        const batchNumbers = [...new Set(batchesResult.data.map(batch => batch.batchNumber))].filter(Boolean);
+        setAvailableBatches(batchNumbers);
+      }
+    } catch (error) {
+      console.error('Error fetching batches:', error);
     }
   };
 
@@ -73,6 +135,9 @@ const DistributeDataPage = () => {
       const countResult = await dataService.getPendingData({ page: 1, limit: 1 });
       if (countResult.success) {
         setAvailableDataCount(countResult.pagination?.total || 0);
+      } else {
+        // Fallback: count from current data
+        setAvailableDataCount(totalItems);
       }
     } catch (error) {
       console.error('Error fetching users/TLs:', error);
@@ -82,11 +147,15 @@ const DistributeDataPage = () => {
   useEffect(() => {
     fetchUploadedData();
     fetchUsersAndTLs();
-  }, []);
+    fetchAvailableBatches();
+  }, [fetchUploadedData]);
 
-  useEffect(() => {
-    fetchUploadedData(1);
-  }, [searchTerm]);
+  // Handle search input with debounce
+  const handleSearchChange = (value) => {
+    if (debouncedSearchRef.current) {
+      debouncedSearchRef.current(value);
+    }
+  };
 
   // Handle data selection
   const handleSelectData = (id) => {
@@ -105,6 +174,22 @@ const DistributeDataPage = () => {
     }
   };
 
+  // Apply filters
+  const applyFilters = () => {
+    setCurrentPage(1);
+    fetchUploadedData(1);
+  };
+
+  // Clear filters
+  const clearFilters = () => {
+    setSearchTerm('');
+    setBatchFilter('');
+    setStatusFilter('');
+    setDateFilter('');
+    setCurrentPage(1);
+    fetchUploadedData(1);
+  };
+
   // Open distribution modal with specific type
   const openDistributionModal = (type) => {
     setDistributionType(type);
@@ -121,17 +206,14 @@ const DistributeDataPage = () => {
     try {
       switch (distributionType) {
         case 'present_today':
-          // Distribute to present HR today
           distributionResult = await dataService.bulkAssignData('present_today', count);
           break;
           
         case 'without_data':
-          // Distribute to HR who didn't get data today
           distributionResult = await dataService.bulkAssignData('without_data', count);
           break;
           
         case 'all_active':
-          // Distribute to all active HR
           distributionResult = await dataService.bulkAssignData('all_active', count);
           break;
           
@@ -164,8 +246,8 @@ const DistributeDataPage = () => {
       if (distributionResult.success) {
         alert('Data distributed successfully!');
         setShowDistributionModal(false);
-        fetchUploadedData(); // Refresh data
-        fetchUsersAndTLs(); // Refresh counts
+        fetchUploadedData();
+        fetchUsersAndTLs();
       } else {
         alert(`Error: ${distributionResult.error}`);
       }
@@ -176,6 +258,25 @@ const DistributeDataPage = () => {
     
     setLoading(false);
   };
+
+  // Pagination handlers
+  const goToPage = (page) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+      fetchUploadedData(page);
+    }
+  };
+
+  const goToFirstPage = () => goToPage(1);
+  const goToLastPage = () => goToPage(totalPages);
+  const goToPrevPage = () => goToPage(currentPage - 1);
+  const goToNextPage = () => goToPage(currentPage + 1);
+
+  // Calculate total pages
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+  // Items per page options
+  const itemsPerPageOptions = [5, 10, 25, 50, 100];
 
   // Distribution type options
   const distributionOptions = [
@@ -216,8 +317,14 @@ const DistributeDataPage = () => {
     }
   ];
 
-  // Calculate total pages
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  // Status options
+  const statusOptions = [
+    { value: '', label: 'All Status' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'assigned', label: 'Assigned' },
+    { value: 'distributed', label: 'Distributed' },
+    { value: 'withdrawn', label: 'Withdrawn' }
+  ];
 
   return (
     <div className="p-6">
@@ -241,7 +348,7 @@ const DistributeDataPage = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl shadow p-6">
           <div className="flex justify-between items-center">
             <div>
@@ -277,42 +384,122 @@ const DistributeDataPage = () => {
             </div>
           </div>
         </div>
+
+        <div className="bg-white rounded-xl shadow p-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="text-gray-500 text-sm">Current Page</p>
+              <p className="text-2xl font-bold mt-2">{currentPage} / {totalPages || 1}</p>
+            </div>
+            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
+              <List className="text-orange-600" size={24} />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Data Table */}
       <div className="bg-white rounded-xl shadow overflow-hidden mb-6">
-        {/* Table Header */}
-        <div className="p-4 border-b flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder="Search data..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
+        {/* Table Header with Filters */}
+        <div className="p-4 border-b">
+          <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
+            {/* Left side: Search and View Mode */}
+            <div className="flex items-center space-x-4">
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  type="text"
+                  placeholder="Search by name, phone, batch..."
+                  defaultValue={searchTerm}
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <button 
+                  onClick={() => setViewMode('table')}
+                  className={`p-2 rounded-lg ${viewMode === 'table' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}
+                  title="Table View"
+                >
+                  <List size={18} />
+                </button>
+                <button 
+                  onClick={() => setViewMode('card')}
+                  className={`p-2 rounded-lg ${viewMode === 'card' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}
+                  title="Card View"
+                >
+                  <Grid size={18} />
+                </button>
+              </div>
             </div>
-            
-            <button className="p-2 border rounded-lg hover:bg-gray-50">
-              <FilterIcon size={18} />
-            </button>
-          </div>
-          
-          <div className="flex items-center space-x-2">
-            <button 
-              onClick={() => setViewMode('table')}
-              className={`p-2 rounded-lg ${viewMode === 'table' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'}`}
-            >
-              <List size={18} />
-            </button>
-            <button 
-              onClick={() => setViewMode('card')}
-              className={`p-2 rounded-lg ${viewMode === 'card' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'}`}
-            >
-              <Grid size={18} />
-            </button>
+
+            {/* Right side: Filters and Actions */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Batch Filter */}
+              <select
+                value={batchFilter}
+                onChange={(e) => setBatchFilter(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">All Batches</option>
+                {availableBatches.map(batch => (
+                  <option key={batch} value={batch}>{batch}</option>
+                ))}
+              </select>
+
+              {/* Status Filter */}
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {statusOptions.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+
+              {/* Date Filter */}
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+
+              {/* Action Buttons */}
+              <button
+                onClick={applyFilters}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+              >
+                Apply Filters
+              </button>
+              
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
+              >
+                Clear All
+              </button>
+
+              {/* Items per page selector */}
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">Show:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(parseInt(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {itemsPerPageOptions.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+                <span className="text-sm text-gray-600">per page</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -321,12 +508,12 @@ const DistributeDataPage = () => {
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left">
+                <th className="px-6 py-3 text-left w-12">
                   <input
                     type="checkbox"
-                    checked={selectedData.length === uploadedData.length && uploadedData.length > 0}
+                    checked={uploadedData.length > 0 && selectedData.length === uploadedData.length}
                     onChange={handleSelectAll}
-                    className="rounded"
+                    className="rounded border-gray-300"
                   />
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
@@ -340,16 +527,21 @@ const DistributeDataPage = () => {
             <tbody className="divide-y divide-gray-200">
               {loadingData ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center">
-                    <div className="flex justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <td colSpan="7" className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
+                      <p className="text-gray-500">Loading data...</p>
                     </div>
                   </td>
                 </tr>
               ) : uploadedData.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
-                    No data found
+                  <td colSpan="7" className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center justify-center">
+                      <FileText className="text-gray-400 mb-4" size={48} />
+                      <p className="text-gray-500 text-lg font-medium mb-2">No data found</p>
+                      <p className="text-gray-400">Try adjusting your filters or search term</p>
+                    </div>
                   </td>
                 </tr>
               ) : (
@@ -360,36 +552,57 @@ const DistributeDataPage = () => {
                         type="checkbox"
                         checked={selectedData.includes(item._id)}
                         onChange={() => handleSelectData(item._id)}
-                        className="rounded"
+                        className="rounded border-gray-300"
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {new Date(item.createdAt).toLocaleDateString()}
+                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      }) : 'N/A'}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{item.name}</div>
+                      <div className="font-medium text-gray-900">{item.name || 'N/A'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-gray-900">{item.contact}</div>
+                      <div className="text-gray-900 font-mono">{item.contact || 'N/A'}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                        {item.batchNumber || 'N/A'}
+                      <span className="px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                        {item.batchNumber || 'Default'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`px-2 py-1 text-xs rounded ${
+                      <span className={`px-3 py-1 text-xs rounded-full ${
                         item.distributionStatus === 'pending' 
                           ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-green-100 text-green-800'
+                          : item.distributionStatus === 'assigned'
+                          ? 'bg-blue-100 text-blue-800'
+                          : item.distributionStatus === 'distributed'
+                          ? 'bg-purple-100 text-purple-800'
+                          : item.distributionStatus === 'withdrawn'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-gray-100 text-gray-800'
                       }`}>
-                        {item.distributionStatus}
+                        {item.distributionStatus || 'pending'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <button className="p-1 hover:bg-gray-100 rounded">
-                        <MoreVertical size={18} />
-                      </button>
+                      <div className="flex space-x-2">
+                        <button 
+                          className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-gray-900"
+                          title="View Details"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button 
+                          className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-gray-900"
+                          title="More Options"
+                        >
+                          <MoreVertical size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -399,41 +612,113 @@ const DistributeDataPage = () => {
         </div>
 
         {/* Pagination */}
-        <div className="px-6 py-4 border-t flex justify-between items-center">
+        <div className="px-6 py-4 border-t flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+          {/* Left side: Items info */}
           <div className="text-sm text-gray-700">
-            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} entries
+            Showing <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> to{' '}
+            <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{' '}
+            <span className="font-medium">{totalItems}</span> entries
+            {selectedData.length > 0 && (
+              <span className="ml-4">
+                (<span className="font-medium text-blue-600">{selectedData.length}</span> selected)
+              </span>
+            )}
           </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => fetchUploadedData(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Previous
-            </button>
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              const pageNum = i + 1;
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => fetchUploadedData(pageNum)}
-                  className={`px-3 py-1 rounded ${
-                    currentPage === pageNum 
-                      ? 'bg-blue-600 text-white' 
-                      : 'border hover:bg-gray-50'
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-            <button
-              onClick={() => fetchUploadedData(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 border rounded disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Next
-            </button>
+
+          {/* Right side: Pagination controls */}
+          <div className="flex items-center space-x-2">
+            {/* Page size selector (duplicate for mobile) */}
+            <div className="flex items-center space-x-2 md:hidden">
+              <span className="text-sm text-gray-600">Show:</span>
+              <select
+                value={itemsPerPage}
+                onChange={(e) => {
+                  setItemsPerPage(parseInt(e.target.value));
+                  setCurrentPage(1);
+                  fetchUploadedData(1);
+                }}
+                className="px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {itemsPerPageOptions.map(option => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Pagination buttons */}
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={goToFirstPage}
+                disabled={currentPage === 1}
+                className="p-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                title="First Page"
+              >
+                <ChevronsLeft size={16} />
+              </button>
+              
+              <button
+                onClick={goToPrevPage}
+                disabled={currentPage === 1}
+                className="p-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                title="Previous Page"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              {/* Page numbers */}
+              <div className="flex items-center space-x-1">
+                {(() => {
+                  const pages = [];
+                  const maxVisible = 5;
+                  let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                  let end = Math.min(totalPages, start + maxVisible - 1);
+                  
+                  if (end - start + 1 < maxVisible) {
+                    start = Math.max(1, end - maxVisible + 1);
+                  }
+
+                  for (let i = start; i <= end; i++) {
+                    pages.push(
+                      <button
+                        key={i}
+                        onClick={() => goToPage(i)}
+                        className={`px-3 py-1 rounded ${
+                          currentPage === i 
+                            ? 'bg-blue-600 text-white' 
+                            : 'border hover:bg-gray-50'
+                        }`}
+                      >
+                        {i}
+                      </button>
+                    );
+                  }
+                  return pages;
+                })()}
+              </div>
+
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                className="p-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                title="Next Page"
+              >
+                <ChevronRight size={16} />
+              </button>
+              
+              <button
+                onClick={goToLastPage}
+                disabled={currentPage === totalPages}
+                className="p-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                title="Last Page"
+              >
+                <ChevronsRight size={16} />
+              </button>
+            </div>
+
+            {/* Page info */}
+            <div className="text-sm text-gray-600 hidden md:block">
+              Page {currentPage} of {totalPages || 1}
+            </div>
           </div>
         </div>
       </div>
@@ -464,7 +749,7 @@ const DistributeDataPage = () => {
                     <button
                       key={option.id}
                       onClick={() => openDistributionModal(option.id)}
-                      className="p-6 border-2 border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all text-left"
+                      className="p-6 border-2 border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all text-left hover:shadow-sm"
                     >
                       <div className="flex items-start">
                         <div className={`${option.color} p-3 rounded-lg mr-4`}>
@@ -517,16 +802,26 @@ const DistributeDataPage = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Number of Data Records to Distribute
                   </label>
-                  <input
-                    type="number"
-                    value={count}
-                    onChange={(e) => setCount(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    min="1"
-                    max={availableDataCount}
-                  />
+                  <div className="flex items-center space-x-4">
+                    <input
+                      type="range"
+                      value={count}
+                      onChange={(e) => setCount(parseInt(e.target.value))}
+                      className="w-full"
+                      min="1"
+                      max={Math.min(100, availableDataCount)}
+                    />
+                    <input
+                      type="number"
+                      value={count}
+                      onChange={(e) => setCount(Math.max(1, Math.min(availableDataCount, parseInt(e.target.value) || 1)))}
+                      className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
+                      min="1"
+                      max={availableDataCount}
+                    />
+                  </div>
                   <p className="text-sm text-gray-500 mt-2">
-                    Available: {availableDataCount} records
+                    Available: <span className="font-medium">{availableDataCount}</span> records
                   </p>
                 </div>
 
@@ -545,10 +840,10 @@ const DistributeDataPage = () => {
                       }
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
-                      <option value="">Choose...</option>
+                      <option value="">Select {distributionType === 'particular_employee' ? 'Employee' : 'Team Leader'}...</option>
                       {(distributionType === 'particular_employee' ? users : TLs).map(person => (
                         <option key={person._id} value={person._id}>
-                          {person.name} ({person.phoneNumber})
+                          {person.name} ({person.phoneNumber || person.email})
                         </option>
                       ))}
                     </select>

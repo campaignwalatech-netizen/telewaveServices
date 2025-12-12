@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const router = express.Router();
 const DataController = require('./data.controller');
-const { authenticateToken, authorize } = require('../../middleware/user.middleware');
+const { authenticateToken, authorize, protect } = require('../../middleware/user.middleware');
 const { authenticate } = require('../../middleware/auth');
 
 
@@ -72,7 +72,8 @@ router.get('/download-template',
 
 // Add this route after other admin routes
 router.post('/admin/bulk-assign', 
-    authenticate, 
+    // authenticate,
+    protect, 
     authorize(['admin']), 
     DataController.bulkAssignData
 );
@@ -106,7 +107,8 @@ router.post('/admin/assign-to-user',
 
 // Get pending data
 router.get('/admin/pending-data', 
-    authenticateToken, 
+    // authenticateToken,
+    protect, 
     authorize('admin'), 
     DataController.getPendingData
 );
