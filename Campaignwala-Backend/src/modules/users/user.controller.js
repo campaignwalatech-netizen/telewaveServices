@@ -186,6 +186,77 @@ const rejectUser = async (req, res) => {
   }
 };
 
+// Add this combined approval + TL assignment function
+const approveAndAssignTL = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const adminId = req.user._id;
+    const { tlId, tlName, notes = '' } = req.body;
+
+    if (!tlId || !tlName) {
+      return res.status(400).json({
+        success: false,
+        message: 'TL ID and TL Name are required'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.registrationStatus !== 'admin_approval_pending') {
+      return res.status(400).json({
+        success: false,
+        message: `User is not pending admin approval. Current status: ${user.registrationStatus}`
+      });
+    }
+
+    // Check if TL exists
+    const tl = await User.findById(tlId);
+    if (!tl || tl.role !== 'TL') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Team Leader'
+      });
+    }
+
+    // Approve user and assign TL in one step
+    user.registrationStatus = 'approved';
+    user.reportingTo = tlId;
+    user.assignedTL = tlId;
+    user.approvedAt = new Date();
+    user.approvedBy = adminId;
+    user.isActive = true;
+    user.status = 'active';
+    
+    // Add user to TL's team
+    if (!tl.teamMembers.includes(userId)) {
+      tl.teamMembers.push(userId);
+      tl.tlDetails.totalTeamMembers = tl.teamMembers.length;
+      await tl.save();
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `User approved and assigned to TL ${tlName} successfully`,
+      data: { user: user.toJSON() }
+    });
+
+  } catch (error) {
+    console.error('Approve and assign TL error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to approve and assign TL'
+    });
+  }
+};
+
 // Assign TL to user
 const assignUserToTL = async (req, res) => {
   try {
@@ -839,7 +910,7 @@ const login = async (req, res) => {
         if (user.registrationStatus !== 'approved') {
             return res.status(401).json({
                 success: false,
-                message: 'Account is pending approval. Please wait for admin approval.',
+                message: 'Account is pending, Please wait for admin approval.',
                 registrationStatus: user.registrationStatus,
                 requiresAdminApproval: user.registrationStatus === 'admin_approval_pending',
                 requiresTLAssignment: user.registrationStatus === 'tl_assignment_pending'
@@ -1806,12 +1877,13 @@ const getUserById = async (req, res) => {
 const updateUserRole = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { role } = req.body;
+        const adminId = req.user._id;
+        const { newRole, reason } = req.body;
 
-        if (!['user', 'admin', 'TL'].includes(role)) {
+        if (!['user', 'TL'].includes(newRole)) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid role. Must be "user", "admin", or "TL"'
+                message: 'Invalid role. Can only change between "user" and "TL"'
             });
         }
 
@@ -1823,51 +1895,30 @@ const updateUserRole = async (req, res) => {
             });
         }
 
-        const oldRole = user.role;
-        user.role = role;
-
-        // If changing to TL, initialize TL details
-        if (role === 'TL' && oldRole !== 'TL') {
-            user.tlDetails = {
-                assignedTeam: [],
-                totalTeamMembers: 0,
-                teamPerformance: 0,
-                assignedLeads: [],
-                canAssignLeads: true,
-                canApproveLeads: false,
-                canViewReports: true,
-                permissions: {
-                    addUsers: false,
-                    editUsers: false,
-                    viewUsers: true,
-                    assignLeads: true,
-                    approveLeads: false,
-                    viewReports: true,
-                    manageTeam: true
-                }
-            };
+        if (user.role === newRole) {
+            return res.status(400).json({
+                success: false,
+                message: `User is already a ${newRole}`
+            });
         }
 
-        // If changing from TL to another role, remove TL details
-        if (oldRole === 'TL' && role !== 'TL') {
-            user.tlDetails = undefined;
-            user.teamMembers = [];
-            user.reportingTo = null;
-        }
-
+        user.changeRole(newRole, adminId, reason);
         await user.save();
 
         res.json({
             success: true,
-            message: 'User role updated successfully',
-            data: { user: user.toJSON() }
+            message: `User role changed to ${newRole} successfully`,
+            data: { 
+                user: user.toJSON(),
+                roleHistory: user.roleHistory // Include role history in response
+            }
         });
 
     } catch (error) {
-        console.error('Update user role error:', error);
+        console.error('Change user role error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to update user role'
+            message: 'Failed to change user role'
         });
     }
 };
@@ -4451,6 +4502,7 @@ module.exports = {
     assignUserToTL,
     bulkApproveUsers,
     exportPendingUsers,
+    approveAndAssignTL,
     
     // Legacy functions
     sendOTP

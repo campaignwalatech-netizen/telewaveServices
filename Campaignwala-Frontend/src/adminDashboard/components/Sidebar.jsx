@@ -125,7 +125,7 @@ export default function AdminSidebar({
         
         { id: "present-users", label: "Present HR", icon: Users, path: "/admin/present-users" },
         { id: "all-tl", label: "Team Leaders", icon: Award, path: "/admin/all-tl" },
-        { id: "hr", label: "HR", icon: UserPlus, path: "/admin/all-users" },
+        { id: "hr", label: "HR", icon: UserPlus, path: "/admin/all-approved-users" },
         { id: "leaderboard", label: "Leaderboard", icon: TrendingUp, path: "/admin/team/leaderboard" },
         { id: "live-toppers", label: "Live Toppers List", icon: Star, path: "/admin/team/toppers" },
         { id: "monthly-winners", label: "Monthly Winner List", icon: Award, path: "/admin/team/winners" },

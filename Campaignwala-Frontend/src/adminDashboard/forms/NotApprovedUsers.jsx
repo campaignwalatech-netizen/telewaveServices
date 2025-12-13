@@ -422,6 +422,121 @@ const ActionMenu = ({ user, onViewDetails, onDelete, loading = false }) => {
   );
 };
 
+// TL Assignment Modal Component
+const TLAssignmentModal = ({ isOpen, onClose, user, teamLeaders, onAssignTL, loading }) => {
+  const [selectedTL, setSelectedTL] = useState('');
+  const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (isOpen && teamLeaders.length > 0) {
+      setSelectedTL('');
+      setNotes('');
+    }
+  }, [isOpen, teamLeaders]);
+
+  const handleSubmit = async () => {
+    if (!selectedTL) {
+      alert('Please select a Team Leader');
+      return;
+    }
+
+    const tl = teamLeaders.find(t => t._id === selectedTL);
+    if (tl) {
+      await onAssignTL(user._id, selectedTL, tl.name, notes);
+      onClose();
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-md">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Assign Team Leader</h3>
+            <button 
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="space-y-4">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                Approving user: <span className="font-medium">{user?.name}</span>
+              </p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Email: <span className="font-medium">{user?.email}</span>
+              </p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Select Team Leader *
+              </label>
+              <Select
+                value={selectedTL}
+                onValueChange={setSelectedTL}
+                className="w-full"
+              >
+                <option value="">Choose a TL</option>
+                {teamLeaders.map((tl) => (
+                  <option key={tl._id} value={tl._id}>
+                    {tl.name} ({tl.email}) - {tl.teamMembers?.length || 0} members
+                  </option>
+                ))}
+              </Select>
+              {teamLeaders.length === 0 && (
+                <p className="text-sm text-red-500 mt-1">
+                  No Team Leaders available. Please add TLs first.
+                </p>
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1">
+                Notes (Optional)
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full h-20 p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+                placeholder="Add any notes about this assignment..."
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2 mt-6">
+            <Button
+              variant="default"
+              onClick={handleSubmit}
+              disabled={!selectedTL || loading}
+              className="flex-1"
+            >
+              {loading ? (
+                <RefreshCw className="w-3 h-3 animate-spin mr-1" />
+              ) : (
+                <Check className="w-3 h-3 mr-1" />
+              )}
+              Approve & Assign TL
+            </Button>
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function NotApprovedUsers() {
   const [users, setUsers] = useState([]);
   const [teamLeaders, setTeamLeaders] = useState([]);
@@ -429,6 +544,10 @@ export default function NotApprovedUsers() {
   const [actionLoading, setActionLoading] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [modalState, setModalState] = useState({
+    isOpen: false,
+    user: null
+  });
   
   const [filters, setFilters] = useState({
     search: '',
@@ -503,6 +622,22 @@ export default function NotApprovedUsers() {
     }
   };
 
+  // Handler function for quick approve with TL assignment
+  const handleQuickApprove = (userId) => {
+    const user = users.find(u => u._id === userId);
+    if (!user) return;
+    
+    if (teamLeaders.length === 0) {
+      alert('No Team Leaders available. Please add TLs before approving users.');
+      return;
+    }
+    
+    setModalState({
+      isOpen: true,
+      user: user
+    });
+  };
+
   // Approve User (Admin approval)
   const approveUser = async (userId) => {
     try {
@@ -546,21 +681,66 @@ export default function NotApprovedUsers() {
     }
   };
 
-  // Assign TL to user (for tl_assignment_pending users)
   const assignTL = async (userId, tlId, tlName, notes = '') => {
+  try {
+    console.log('Starting approve & assign TL for user:', userId);
+    console.log('Current user data:', users.find(u => u._id === userId));
+    
+    setActionLoading(prev => ({ ...prev, [userId]: true }));
+    
+    // First approve the user (admin approval)
+    console.log('Calling approveUser API...');
+    const approveResponse = await userService.approveUser(userId, { 
+      notes: 'Approved by admin via TL assignment' 
+    });
+    
+    console.log('Approve response:', approveResponse);
+    
+    if (!approveResponse.success) {
+      throw new Error(approveResponse.message || 'Failed to approve user');
+    }
+    
+    // Then assign TL to the user
+    console.log('Calling assignUserToTL API...');
+    const assignResponse = await userService.assignUserToTL(userId, { 
+      tlId, 
+      tlName,
+      notes 
+    });
+    
+    console.log('Assign response:', assignResponse);
+    
+    if (assignResponse.success) {
+      setSuccess(`User approved and assigned to TL ${tlName} successfully!`);
+      await fetchNotApprovedUsers();
+    } else {
+      throw new Error(assignResponse.message || 'Failed to assign TL');
+    }
+  } catch (err) {
+    console.error('Error in approve & assign TL:', err);
+    setError(err.message || 'Failed to approve and assign TL');
+  } finally {
+    setActionLoading(prev => ({ ...prev, [userId]: false }));
+  }
+};
+
+  // For existing tl_assignment_pending users
+  const assignTLToPending = async (userId, tlId, tlName, notes = '') => {
     try {
       setActionLoading(prev => ({ ...prev, [userId]: true }));
-      const response = await userService.assignUserToTL(userId, { 
+      
+      // Assign TL to the user (for users already in tl_assignment_pending status)
+      const assignResponse = await userService.assignUserToTL(userId, { 
         tlId, 
         tlName,
         notes 
       });
       
-      if (response.success) {
-        setSuccess(`User assigned to TL ${tlName} successfully! User is now active.`);
+      if (assignResponse.success) {
+        setSuccess(`User assigned to TL ${tlName} successfully!`);
         await fetchNotApprovedUsers();
       } else {
-        setError(response.message || 'Failed to assign TL');
+        throw new Error(assignResponse.message || 'Failed to assign TL');
       }
     } catch (err) {
       console.error('Error assigning TL:', err);
@@ -633,25 +813,9 @@ export default function NotApprovedUsers() {
       return;
     }
     
-    if (!window.confirm(`Are you sure you want to approve ${users.length} users?`)) return;
-    
-    try {
-      setLoading(true);
-      const userIds = users.map(user => user._id);
-      const response = await userService.bulkApproveUsers({ userIds });
-      
-      if (response.success) {
-        setSuccess(`Successfully approved ${response.data?.approvedCount || 0} users`);
-        await fetchNotApprovedUsers();
-      } else {
-        setError(response.message || 'Failed to bulk approve users');
-      }
-    } catch (err) {
-      console.error('Error bulk approving users:', err);
-      setError(err.message || 'Failed to bulk approve users');
-    } finally {
-      setLoading(false);
-    }
+    // For bulk approval, you might want to assign all to a specific TL
+    // or show a bulk assignment modal
+    alert('For bulk approval with TL assignment, please use individual approval or contact support for bulk TL assignment.');
   };
 
   // Effects
@@ -810,11 +974,11 @@ export default function NotApprovedUsers() {
                 className="w-full sm:w-[180px]"
                 disabled={loading}
               >
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="email_verification_pending">Email Pending</SelectItem>
-                <SelectItem value="admin_approval_pending">Admin Approval</SelectItem>
-                <SelectItem value="tl_assignment_pending">TL Assignment</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
+                <option value="all">All Status</option>
+                <option value="email_verification_pending">Email Pending</option>
+                <option value="admin_approval_pending">Admin Approval</option>
+                <option value="tl_assignment_pending">TL Assignment</option>
+                <option value="rejected">Rejected</option>
               </Select>
             </div>
           </div>
@@ -950,10 +1114,10 @@ export default function NotApprovedUsers() {
                         
                         <TableCell>
                           <div className="text-center">
-                            <Badge variant={user.emailVerified === 'Yes' ? 'success' : 'warning'}>
-                              {user.emailVerified}
+                            <Badge variant={user.isVerified === 'true' ? 'success' : 'warning'}>
+                              {user.isVerified}
                             </Badge>
-                            {user.emailVerifiedDate !== '-' && (
+                            {user.isVerifiedDate !== '-' && (
                               <p className="text-xs text-gray-500 mt-1">{user.emailVerifiedDate}</p>
                             )}
                           </div>
@@ -967,12 +1131,35 @@ export default function NotApprovedUsers() {
                         
                         <TableCell>
                           {user.registrationStatus === 'admin_approval_pending' ? (
-                            <ApprovalButtons 
-                              user={user}
-                              onApprove={approveUser}
-                              onReject={rejectUser}
-                              loading={actionLoading[user._id]}
-                            />
+                            <div className="flex flex-col gap-2">
+                              {/* Quick Approve & Assign TL Button */}
+                              <Button
+                                variant="success"
+                                size="sm"
+                                onClick={() => handleQuickApprove(user._id)}
+                                disabled={actionLoading[user._id]}
+                                className="min-w-[120px]"
+                              >
+                                {actionLoading[user._id] ? (
+                                  <RefreshCw className="w-3 h-3 animate-spin mr-1" />
+                                ) : (
+                                  <Check className="w-3 h-3 mr-1" />
+                                )}
+                                Approve & Assign TL
+                              </Button>
+                              
+                              {/* Reject Button */}
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => rejectUser(user._id)}
+                                disabled={actionLoading[user._id]}
+                                className="min-w-[120px]"
+                              >
+                                <X className="w-3 h-3 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
                           ) : user.registrationStatus === 'rejected' ? (
                             <Badge variant="destructive" className="min-w-[120px] justify-center">
                               Rejected
@@ -987,7 +1174,7 @@ export default function NotApprovedUsers() {
                             <TLPendingAssignment 
                               user={user}
                               teamLeaders={teamLeaders}
-                              onAssignTL={assignTL}
+                              onAssignTL={assignTLToPending}
                               loading={actionLoading[user._id]}
                             />
                           ) : user.registrationStatus === 'approved' ? (
@@ -1109,6 +1296,16 @@ export default function NotApprovedUsers() {
           </Card>
         </div>
       )}
+
+      {/* TL Assignment Modal */}
+      <TLAssignmentModal
+        isOpen={modalState.isOpen}
+        onClose={() => setModalState({ isOpen: false, user: null })}
+        user={modalState.user}
+        teamLeaders={teamLeaders}
+        onAssignTL={assignTL}
+        loading={modalState.user ? actionLoading[modalState.user._id] : false}
+      />
     </div>
   );
 }

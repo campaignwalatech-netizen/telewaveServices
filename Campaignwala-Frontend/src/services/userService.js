@@ -113,6 +113,15 @@ class UserService {
     }
   }
 
+  async approveAndAssignTL(userId, data) {
+  try {
+    const response = await api.post(`/users/admin/users/${userId}/approve-and-assign-tl`, data);
+    return response.data;
+  } catch (error) {
+    throw this.handleError(error);
+  }
+}
+
   /**
    * Update TL permissions
    * @param {string} userId - User ID

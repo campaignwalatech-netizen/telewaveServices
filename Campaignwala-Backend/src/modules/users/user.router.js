@@ -96,7 +96,8 @@ const {
     updateUser,
     getApprovedUsers,
     getPresentUsers,
-    getNotApprovedUsers
+    getNotApprovedUsers,
+    approveAndAssignTL
 } = require('./user.controller');
 
 const {
@@ -132,6 +133,7 @@ router.get('/test-email', async (req, res) => {
     }
 });
 
+router.post('/admin/users/:userId/approve-and-assign-tl', authenticateToken, requireAdmin, approveAndAssignTL);
 
 /**
  * @swagger

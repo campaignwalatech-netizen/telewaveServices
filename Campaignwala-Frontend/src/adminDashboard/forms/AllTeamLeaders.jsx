@@ -885,12 +885,8 @@ export default function AllTeamLeaders() {
                         
                         <TableCell>
                           <div className="text-center">
-                            <span className="font-bold text-lg">{tl.totalHR}</span>
-                            {tl.attendancePercentage && (
-                              <p className="text-xs text-gray-500">
-                                ({tl.attendancePercentage}% attendance)
-                              </p>
-                            )}
+                            <span className="font-bold text-lg">{tl.teamMembers.length}</span>
+                            
                           </div>
                         </TableCell>
                         
@@ -906,7 +902,7 @@ export default function AllTeamLeaders() {
                         
                         <TableCell>
                           <div className="text-center">
-                            <span className="font-bold text-green-600">{tl.presentHR}</span>
+                            <span className="font-bold text-green-600">{tl.teamMembers.length}</span>
                             <p className="text-xs text-gray-500">present today</p>
                           </div>
                         </TableCell>

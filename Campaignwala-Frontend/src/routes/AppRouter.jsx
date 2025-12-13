@@ -102,6 +102,7 @@ import TLDistributeDataPage from "../tlDashboard/pages/data/TLDistributeDataPage
 // User Data Management Pages
 import UserTodayDataPage from "../userDashboard/pages/data/UserTodayDataPage";
 import NotApprovedUsers from "../adminDashboard/forms/NotApprovedUsers";
+import ApprovedUsers from "../adminDashboard/forms/ApprovedUsers";
 
 /**
  * Main Application Router
@@ -167,6 +168,7 @@ export default function AppRouter() {
           
           {/* User Management routes */}
           <Route path="user-management" element={<Navigate to="all-users" replace />} />
+          <Route path="all-approved-users" element={<ApprovedUsers />} />
           <Route path="all-users" element={<AllUsers />} />
           <Route path="present-users" element={<PresentUsers />} />
           <Route path="all-tl" element={<AllTeamLeaders />} />

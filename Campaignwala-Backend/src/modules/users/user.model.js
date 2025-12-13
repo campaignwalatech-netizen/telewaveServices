@@ -42,6 +42,24 @@ const userSchema = new mongoose.Schema({
         enum: ['user', 'admin', 'TL'],
         default: 'user'
     },
+    roleHistory: [{
+        role: {
+            type: String,
+            enum: ['user', 'admin', 'TL']
+        },
+        changedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        changedAt: {
+            type: Date,
+            default: Date.now
+        },
+        reason: {
+            type: String,
+            trim: true
+        }
+    }],
     // Status Management
     status: {
         type: String,
@@ -51,7 +69,7 @@ const userSchema = new mongoose.Schema({
     registrationStatus: {
     type: String,
     enum: ['email_verification_pending', 'admin_approval_pending', 'tl_assignment_pending', 'approved', 'rejected'],
-    default: 'email_verification_pending'
+    default: 'admin_approval_pending'
   },
   
   rejectedAt: {
@@ -678,6 +696,8 @@ const userSchema = new mongoose.Schema({
     toObject: { virtuals: true }
 });
 
+
+
 // ==================== VIRTUAL FIELDS ====================
 
 userSchema.virtual('leads', {
@@ -1039,11 +1059,59 @@ userSchema.methods.changeRole = function(newRole, adminId, reason = '') {
         this.teamMembers = [];
     }
     
+    // Initialize TL details if changing to TL
+    if (newRole === 'TL' && oldRole !== 'TL') {
+        if (!this.tlDetails) {
+            this.tlDetails = {
+                assignedTeam: [],
+                totalTeamMembers: 0,
+                teamPerformance: 0,
+                assignedLeads: [],
+                dailyLeadQuota: 0,
+                canAssignLeads: true,
+                canWithdrawLeads: true,
+                canMarkHold: true,
+                canApproveLeads: false,
+                canViewReports: true,
+                permissions: {
+                    addUsers: false,
+                    editUsers: false,
+                    viewUsers: true,
+                    assignLeads: true,
+                    withdrawLeads: true,
+                    markHold: true,
+                    approveLeads: false,
+                    viewReports: true,
+                    manageTeam: true
+                }
+            };
+        }
+        
+        // If user was reporting to someone, clear it when they become TL
+        this.reportingTo = null;
+    }
+    
+    // Add to role history
+    this.roleHistory.push({
+        role: newRole,
+        changedBy: adminId,
+        reason: reason || `Role changed from ${oldRole} to ${newRole}`
+    });
+    
+    // Also add to statusHistory with a valid status
     this.statusHistory.push({
-        status: `role_changed_${newRole}`,
+        status: 'active', // Using 'active' as it's a valid status
         changedBy: adminId,
         reason: `Role changed from ${oldRole} to ${newRole}. ${reason}`
     });
+};
+userSchema.methods.getRoleHistory = function() {
+    return this.roleHistory.sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt));
+};
+
+userSchema.methods.updateUserRole = function(newRole, adminId, reason = '') {
+    // Just call the changeRole method
+    return this.changeRole(newRole, adminId, reason);
 };
 
 // Lead Distribution Methods
