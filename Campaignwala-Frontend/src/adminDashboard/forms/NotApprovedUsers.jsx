@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import userService from '../../services/userService';
 import { 
   Search, 
@@ -18,32 +18,44 @@ import {
   XCircle,
   MoreVertical,
   Settings,
-  Shield,
-  Download,
   Upload,
   TrendingUp,
   Clock,
-  Award,
-  BarChart3,
-  Target,
+  Download,
   Check,
   X,
-  UserPlus,
-  UserCheck,
   UserX,
   Filter,
-  UserMinus,
+  CalendarDays,
+  PhoneCall,
+  UserCheck,
   AlertCircle,
-  Clock4,
-  ShieldAlert,
+  ArrowUpDown,
   Trash2,
-  ArrowRight,
-  ArrowLeft,
-  Key,
-  Hash,
-  Link,
+  DollarSign,
+  Target,
+  TrendingDown,
+  Clock as ClockIcon,
+  MailCheck,
+  UserPlus,
+  ShieldAlert,
+  Hourglass,
+  CalendarClock,
   UserCog,
-  Building
+  CheckSquare,
+  Ban,
+  ThumbsUp,
+  ThumbsDown,
+  UserCheck as UserCheckIcon,
+  Shield,
+  Clock4,
+  CalendarCheck,
+  FileText,
+  AlertTriangle,
+  UserCircle,
+  Mail as MailIcon,
+  Phone as PhoneIcon,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 
 // Basic UI Components
@@ -123,7 +135,6 @@ const Button = ({ children, variant = 'default', size = 'default', className = '
     success: 'bg-green-600 text-white hover:bg-green-700',
     warning: 'bg-yellow-600 text-white hover:bg-yellow-700',
     info: 'bg-blue-600 text-white hover:bg-blue-700',
-    orange: 'bg-orange-600 text-white hover:bg-orange-700'
   };
   const sizes = {
     default: 'h-10 py-2 px-4',
@@ -173,7 +184,8 @@ const Badge = ({ children, variant = 'default', className = '' }) => {
     warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
     info: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
     purple: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
-    orange: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'
+    orange: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+    gray: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
   };
 
   return (
@@ -207,10 +219,91 @@ const CardContent = ({ children, className = '' }) => (
   </div>
 );
 
-// TL Assignment Component
-const TLAssignmentButton = ({ user, teamLeaders, onAssignTL, loading = false }) => {
+// Registration Status Badge
+const RegistrationStatusBadge = ({ status }) => {
+  const getVariant = () => {
+    switch(status) {
+      case 'email_verification_pending': return "warning";
+      case 'admin_approval_pending': return "orange";
+      case 'tl_assignment_pending': return "info";
+      case 'approved': return "success";
+      case 'rejected': return "destructive";
+      default: return "secondary";
+    }
+  };
+
+  const getLabel = () => {
+    switch(status) {
+      case 'email_verification_pending': return 'Email Pending';
+      case 'admin_approval_pending': return 'Admin Approval';
+      case 'tl_assignment_pending': return 'TL Assignment';
+      case 'approved': return 'Approved';
+      case 'rejected': return 'Rejected';
+      default: return status || 'Unknown';
+    }
+  };
+
+  return (
+    <Badge variant={getVariant()} className="min-w-[120px] justify-center">
+      {getLabel()}
+    </Badge>
+  );
+};
+
+// Approve/Reject Buttons Component
+const ApprovalButtons = ({ user, onApprove, onReject, loading = false }) => {
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="success"
+        size="sm"
+        onClick={() => onApprove(user._id)}
+        disabled={loading}
+        className="min-w-[80px]"
+      >
+        {loading ? (
+          <RefreshCw className="w-3 h-3 animate-spin mr-1" />
+        ) : (
+          <Check className="w-3 h-3 mr-1" />
+        )}
+        Approve
+      </Button>
+      
+      <Button
+        variant="destructive"
+        size="sm"
+        onClick={() => onReject(user._id)}
+        disabled={loading}
+        className="min-w-[80px]"
+      >
+        {loading ? (
+          <RefreshCw className="w-3 h-3 animate-spin mr-1" />
+        ) : (
+          <X className="w-3 h-3 mr-1" />
+        )}
+        Reject
+      </Button>
+    </div>
+  );
+};
+
+// TL Assignment Component for Pending Users
+const TLPendingAssignment = ({ user, teamLeaders, onAssignTL, loading = false }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedTL, setSelectedTL] = useState(user.reportingTo?._id || '');
+  const [selectedTL, setSelectedTL] = useState('');
+  const [notes, setNotes] = useState('');
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleAssignTL = async () => {
     if (!selectedTL) {
@@ -220,72 +313,76 @@ const TLAssignmentButton = ({ user, teamLeaders, onAssignTL, loading = false }) 
 
     const tl = teamLeaders.find(t => t._id === selectedTL);
     if (tl) {
-      await onAssignTL(user._id, tl._id, tl.name);
+      await onAssignTL(user._id, tl._id, tl.name, notes);
       setIsOpen(false);
+      setSelectedTL('');
+      setNotes('');
     }
   };
 
-  const currentTL = teamLeaders.find(t => t._id === user.reportingTo?._id);
+  const currentTLName = user.reportingTo?.name || 'Not Assigned';
 
   return (
-    <div className="relative">
+    <div className="relative" ref={menuRef}>
       <Button
-        variant="outline"
+        variant={user.registrationStatus === 'tl_assignment_pending' ? 'default' : 'outline'}
         size="sm"
         onClick={() => setIsOpen(!isOpen)}
-        disabled={loading}
-        className="min-w-[120px]"
+        disabled={loading || teamLeaders.length === 0}
+        className="min-w-[140px]"
       >
-        <UserCog className="w-4 h-4 mr-2" />
-        {currentTL ? 'Change TL' : 'Assign TL'}
+        {user.registrationStatus === 'tl_assignment_pending' ? 'Assign TL' : currentTLName}
+        <ChevronDown className="w-3 h-3 ml-1" />
       </Button>
 
       {isOpen && (
         <div className="absolute left-0 top-10 z-50 w-64 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
           <div className="p-3 space-y-3">
             <div>
-              <label className="block text-sm font-medium mb-2">Select Team Leader</label>
+              <label className="text-xs font-medium mb-1 block">Select Team Leader</label>
               <Select
                 value={selectedTL}
                 onValueChange={setSelectedTL}
                 className="w-full"
               >
-                <option value="">Select TL...</option>
+                <SelectItem value="">Select TL</SelectItem>
                 {teamLeaders.map((tl) => (
-                  <option key={tl._id} value={tl._id}>
+                  <SelectItem key={tl._id} value={tl._id}>
                     {tl.name} ({tl.teamMembers?.length || 0} members)
-                  </option>
+                  </SelectItem>
                 ))}
               </Select>
             </div>
             
-            {selectedTL && (
-              <div className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                <p className="text-sm">
-                  <span className="font-medium">Selected: </span>
-                  {teamLeaders.find(t => t._id === selectedTL)?.name}
-                </p>
-              </div>
-            )}
-
+            <div>
+              <label className="text-xs font-medium mb-1 block">Notes (Optional)</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full h-16 p-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+                placeholder="Add notes about this assignment..."
+              />
+            </div>
+            
             <div className="flex gap-2">
               <Button
+                size="sm"
                 onClick={handleAssignTL}
                 disabled={!selectedTL || loading}
                 className="flex-1"
-                size="sm"
               >
                 {loading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin mr-2" />
+                  <RefreshCw className="w-3 h-3 animate-spin mr-1" />
                 ) : (
-                  <Check className="w-4 h-4 mr-2" />
+                  <Check className="w-3 h-3 mr-1" />
                 )}
                 Assign
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setIsOpen(false)}
                 size="sm"
+                onClick={() => setIsOpen(false)}
+                className="flex-1"
               >
                 Cancel
               </Button>
@@ -297,105 +394,31 @@ const TLAssignmentButton = ({ user, teamLeaders, onAssignTL, loading = false }) 
   );
 };
 
-// Matched Fields Component
-const MatchedFields = ({ user }) => {
-  const calculateMatches = () => {
-    const matches = [];
-    
-    // Check for duplicate email pattern
-    if (user.email) {
-      const emailPattern = user.email.split('@')[0];
-      if (emailPattern.length <= 5) {
-        matches.push(`Email pattern: ${emailPattern}`);
-      }
-    }
-    
-    // Check phone number patterns
-    if (user.phoneNumber) {
-      const lastFour = user.phoneNumber.slice(-4);
-      if (/^\d{4}$/.test(lastFour)) {
-        matches.push(`Phone ends: ${lastFour}`);
-      }
-    }
-    
-    // Check name patterns
-    if (user.name) {
-      const nameParts = user.name.split(' ');
-      if (nameParts.length === 1 && nameParts[0].length <= 4) {
-        matches.push(`Short name: ${nameParts[0]}`);
-      }
-    }
-    
-    // Check registration date (fresh within 7 days)
-    const registrationDate = new Date(user.createdAt);
-    const today = new Date();
-    const daysSinceReg = Math.floor((today - registrationDate) / (1000 * 60 * 60 * 24));
-    if (daysSinceReg <= 7) {
-      matches.push(`Registered ${daysSinceReg} days ago`);
-    }
-    
-    // Check if user has any previous history
-    if (!user.lastActivity && !user.statistics?.totalLeads) {
-      matches.push('No activity history');
-    }
-    
-    return matches;
-  };
-
-  const matches = calculateMatches();
-  
+// Action Menu Component
+const ActionMenu = ({ user, onViewDetails, onDelete, loading = false }) => {
   return (
-    <div className="relative group">
-      <Badge variant={matches.length > 0 ? 'warning' : 'success'}>
-        {matches.length} matches
-      </Badge>
+    <div className="flex items-center gap-2">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onViewDetails}
+        disabled={loading}
+        title="View Details"
+      >
+        <Eye className="w-4 h-4" />
+      </Button>
       
-      {matches.length > 0 && (
-        <div className="absolute left-0 top-10 z-50 w-64 p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Matched Patterns:</p>
-            <ul className="text-xs space-y-1">
-              {matches.map((match, index) => (
-                <li key={index} className="flex items-center gap-2">
-                  <Hash className="w-3 h-3 text-gray-500" />
-                  {match}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onDelete}
+        disabled={loading}
+        title="Delete User"
+        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+      >
+        <Trash2 className="w-4 h-4" />
+      </Button>
     </div>
-  );
-};
-
-// Status Badge Component
-const StatusBadge = ({ user }) => {
-  const getStatusInfo = () => {
-    const registrationDate = new Date(user.createdAt);
-    const today = new Date();
-    const daysSinceReg = Math.floor((today - registrationDate) / (1000 * 60 * 60 * 24));
-    
-    if (daysSinceReg === 0) {
-      return { label: 'Today', variant: 'success', icon: <UserPlus className="w-3 h-3" /> };
-    } else if (daysSinceReg === 1) {
-      return { label: 'Yesterday', variant: 'success', icon: <UserCheck className="w-3 h-3" /> };
-    } else if (daysSinceReg <= 3) {
-      return { label: `${daysSinceReg} days`, variant: 'info', icon: <Clock4 className="w-3 h-3" /> };
-    } else if (daysSinceReg <= 7) {
-      return { label: `${daysSinceReg} days`, variant: 'warning', icon: <AlertCircle className="w-3 h-3" /> };
-    } else {
-      return { label: `${daysSinceReg}+ days`, variant: 'destructive', icon: <UserX className="w-3 h-3" /> };
-    }
-  };
-
-  const statusInfo = getStatusInfo();
-
-  return (
-    <Badge variant={statusInfo.variant} className="flex items-center gap-1">
-      {statusInfo.icon}
-      Fresh Join ({statusInfo.label})
-    </Badge>
   );
 };
 
@@ -409,6 +432,7 @@ export default function NotApprovedUsers() {
   
   const [filters, setFilters] = useState({
     search: '',
+    registrationStatus: 'all',
     page: 1,
     limit: 20
   });
@@ -418,38 +442,25 @@ export default function NotApprovedUsers() {
     direction: 'desc'
   });
 
-  // Enhance user data
+  // Enhance user data with calculated fields
   const enhanceUserData = (user) => {
-    // Calculate days since registration
-    const registrationDate = new Date(user.createdAt);
-    const today = new Date();
-    const daysSinceReg = Math.floor((today - registrationDate) / (1000 * 60 * 60 * 24));
-    
-    // Get previous TL info
-    const previousTL = user.oldReportingTo?.name || '-';
-    
-    // Check if user is fresh join (not approved yet)
-    const isFreshJoin = !user.isVerified || user.status === 'pending_approval' || daysSinceReg <= 30;
-    
-    // Calculate matched fields
-    const matchedFields = [];
-    if (user.email && user.email.split('@')[0].length <= 5) matchedFields.push('email');
-    if (user.phoneNumber && /^(\d)\1{5,}$/.test(user.phoneNumber)) matchedFields.push('phone');
-    if (user.name && user.name.split(' ').length === 1) matchedFields.push('name');
+    const joinDate = new Date(user.createdAt).toLocaleDateString('en-IN');
+    const registrationDate = new Date(user.createdAt).toLocaleString('en-IN');
+    const emailVerified = user.emailVerified ? 'Yes' : 'No';
+    const emailVerifiedDate = user.emailVerifiedAt ? 
+      new Date(user.emailVerifiedAt).toLocaleDateString('en-IN') : '-';
 
     return {
       ...user,
-      daysSinceReg,
-      previousTL,
-      isFreshJoin,
-      matchedFields,
-      matchedCount: matchedFields.length,
-      registrationDate: registrationDate.toLocaleDateString('en-IN'),
-      registrationTime: registrationDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+      joinDate,
+      registrationDate,
+      emailVerified,
+      emailVerifiedDate,
+      waitingSince: Math.floor((new Date() - new Date(user.createdAt)) / (1000 * 60 * 60 * 24)) + ' days'
     };
   };
 
-  // Fetch not approved users (fresh joins)
+  // Fetch not approved users (pending_approval status)
   const fetchNotApprovedUsers = async () => {
     try {
       setLoading(true);
@@ -461,36 +472,29 @@ export default function NotApprovedUsers() {
         sort: sort.key,
         order: sort.direction,
         ...(filters.search && { search: filters.search }),
-        status: 'pending_approval', // Fetch only pending approval users
-        isVerified: false // Not verified users
+        ...(filters.registrationStatus !== 'all' && { registrationStatus: filters.registrationStatus })
       };
 
-      const response = await userService.getAllUsersWithStats(params);
+      const response = await userService.getNotApprovedUsers(params);
       
       if (response.success) {
-        const enhancedUsers = response.data.users
-          .map(enhanceUserData)
-          .filter(user => user.isFreshJoin); // Filter only fresh joins
-        
+        const enhancedUsers = response.data.users.map(enhanceUserData);
         setUsers(enhancedUsers);
       } else {
-        setError(response.message || 'Failed to fetch users');
+        setError(response.message || 'Failed to fetch pending users');
       }
     } catch (err) {
-      console.error('Error fetching not approved users:', err);
-      setError(err.message || 'Failed to fetch users');
+      console.error('Error fetching pending users:', err);
+      setError(err.message || 'Failed to fetch pending users');
     } finally {
       setLoading(false);
     }
   };
 
-  // Fetch Team Leaders for assignment
+  // Fetch Team Leaders for TL assignment dropdown
   const fetchTeamLeaders = async () => {
     try {
-      const response = await userService.getAllUsersWithStats({ 
-        role: 'TL',
-        status: 'active'
-      });
+      const response = await userService.getAllUsersWithStats({ role: 'TL' });
       if (response.success) {
         setTeamLeaders(response.data.users);
       }
@@ -499,40 +503,14 @@ export default function NotApprovedUsers() {
     }
   };
 
-  // Assign TL to user
-  const assignTLToUser = async (userId, tlId, tlName) => {
-    try {
-      setActionLoading(prev => ({ ...prev, [userId]: true }));
-      
-      // First assign TL
-      const assignResponse = await userService.updateUser(userId, {
-        reportingTo: { _id: tlId, name: tlName },
-        status: 'active', // Auto-approve when TL is assigned
-        isVerified: true
-      });
-      
-      if (assignResponse.success) {
-        setSuccess(`User assigned to TL ${tlName} and approved successfully`);
-        await fetchNotApprovedUsers(); // Refresh list (user will be removed as they're now approved)
-      } else {
-        setError(assignResponse.message || 'Failed to assign TL');
-      }
-    } catch (err) {
-      console.error('Error assigning TL:', err);
-      setError(err.message || 'Failed to assign TL');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [userId]: false }));
-    }
-  };
-
-  // Approve user directly
+  // Approve User (Admin approval)
   const approveUser = async (userId) => {
     try {
       setActionLoading(prev => ({ ...prev, [userId]: true }));
-      const response = await userService.approveUserRegistration(userId);
+      const response = await userService.approveUser(userId, { notes: 'Approved by admin' });
       
       if (response.success) {
-        setSuccess('User approved successfully');
+        setSuccess('User approved successfully! User is now pending TL assignment.');
         await fetchNotApprovedUsers();
       } else {
         setError(response.message || 'Failed to approve user');
@@ -540,6 +518,53 @@ export default function NotApprovedUsers() {
     } catch (err) {
       console.error('Error approving user:', err);
       setError(err.message || 'Failed to approve user');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  // Reject User
+  const rejectUser = async (userId) => {
+    const reason = prompt('Please enter rejection reason:');
+    if (!reason) return;
+    
+    try {
+      setActionLoading(prev => ({ ...prev, [userId]: true }));
+      const response = await userService.rejectUser(userId, { reason });
+      
+      if (response.success) {
+        setSuccess('User rejected successfully');
+        await fetchNotApprovedUsers();
+      } else {
+        setError(response.message || 'Failed to reject user');
+      }
+    } catch (err) {
+      console.error('Error rejecting user:', err);
+      setError(err.message || 'Failed to reject user');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  // Assign TL to user (for tl_assignment_pending users)
+  const assignTL = async (userId, tlId, tlName, notes = '') => {
+    try {
+      setActionLoading(prev => ({ ...prev, [userId]: true }));
+      const response = await userService.assignUserToTL(userId, { 
+        tlId, 
+        tlName,
+        notes 
+      });
+      
+      if (response.success) {
+        setSuccess(`User assigned to TL ${tlName} successfully! User is now active.`);
+        await fetchNotApprovedUsers();
+      } else {
+        setError(response.message || 'Failed to assign TL');
+      }
+    } catch (err) {
+      console.error('Error assigning TL:', err);
+      setError(err.message || 'Failed to assign TL');
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -567,29 +592,63 @@ export default function NotApprovedUsers() {
     }
   };
 
+  // View user details
+  const viewUserDetails = (user) => {
+    console.log('View user details:', user);
+    // You can implement modal or navigate to user details page
+    alert(`Viewing details for: ${user.name}\nEmail: ${user.email}\nPhone: ${user.phoneNumber}\nStatus: ${user.registrationStatus}`);
+  };
+
   // Export not approved users
-  const exportUsers = async () => {
+  const exportNotApprovedUsers = async () => {
     try {
       setLoading(true);
-      const blob = await userService.exportUsers({
+      const blob = await userService.exportNotApprovedUsers({
         format: 'excel',
-        ...filters,
-        status: 'pending_approval'
+        ...filters
       });
       
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `not_approved_users_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.download = `pending_users_export_${new Date().toISOString().split('T')[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      setSuccess('Not approved users exported successfully');
+      setSuccess('Pending users exported successfully');
     } catch (err) {
-      console.error('Error exporting users:', err);
-      setError(err.message || 'Failed to export users');
+      console.error('Error exporting pending users:', err);
+      setError(err.message || 'Failed to export pending users');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Bulk approve users
+  const bulkApproveUsers = async () => {
+    if (users.length === 0) {
+      setError('No users to approve');
+      return;
+    }
+    
+    if (!window.confirm(`Are you sure you want to approve ${users.length} users?`)) return;
+    
+    try {
+      setLoading(true);
+      const userIds = users.map(user => user._id);
+      const response = await userService.bulkApproveUsers({ userIds });
+      
+      if (response.success) {
+        setSuccess(`Successfully approved ${response.data?.approvedCount || 0} users`);
+        await fetchNotApprovedUsers();
+      } else {
+        setError(response.message || 'Failed to bulk approve users');
+      }
+    } catch (err) {
+      console.error('Error bulk approving users:', err);
+      setError(err.message || 'Failed to bulk approve users');
     } finally {
       setLoading(false);
     }
@@ -599,7 +658,7 @@ export default function NotApprovedUsers() {
   useEffect(() => {
     fetchNotApprovedUsers();
     fetchTeamLeaders();
-  }, [filters.page, filters.limit, sort]);
+  }, [filters.page, filters.limit, filters.registrationStatus, sort]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -635,40 +694,44 @@ export default function NotApprovedUsers() {
     }));
   };
 
-  // Calculate statistics
-  const calculateStats = () => {
-    const totalUsers = users.length;
-    const todayRegistrations = users.filter(u => u.daysSinceReg === 0).length;
-    const weekOldRegistrations = users.filter(u => u.daysSinceReg > 7).length;
-    const usersWithTL = users.filter(u => u.reportingTo).length;
-    
-    return {
-      totalUsers,
-      todayRegistrations,
-      weekOldRegistrations,
-      usersWithTL,
-      usersWithoutTL: totalUsers - usersWithTL
-    };
-  };
-
-  const stats = calculateStats();
-
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Not Approved Users</h1>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <ShieldAlert className="w-8 h-8 text-yellow-600" />
+            Pending Approval Users
+          </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Manage new registrations and users pending admin approval
+            Review and approve user registrations. Assign TLs to complete activation.
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Pending Count Badge */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg border border-yellow-200 dark:border-yellow-800">
+            <Hourglass className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+            <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">
+              {users.length} Pending Approval
+            </span>
+          </div>
+          
+          {/* Bulk Approve */}
+          <Button
+            variant="success"
+            size="sm"
+            onClick={bulkApproveUsers}
+            disabled={loading || users.length === 0}
+          >
+            <Check className="w-4 h-4 mr-2" />
+            Bulk Approve
+          </Button>
+          
           {/* Export */}
           <Button
             variant="outline"
             size="sm"
-            onClick={exportUsers}
+            onClick={exportNotApprovedUsers}
             disabled={loading}
           >
             <Download className="w-4 h-4 mr-2" />
@@ -700,76 +763,30 @@ export default function NotApprovedUsers() {
         </div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Pending Approval</p>
-                <p className="text-3xl font-bold text-orange-600">{stats.totalUsers}</p>
-              </div>
-              <div className="p-3 bg-orange-100 rounded-full">
-                <ShieldAlert className="w-6 h-6 text-orange-600" />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Users waiting for approval
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Today's Registrations</p>
-                <p className="text-3xl font-bold text-green-600">{stats.todayRegistrations}</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-full">
-                <UserPlus className="w-6 h-6 text-green-600" />
+      {/* Registration Flow Info Card */}
+      <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-semibold text-blue-800 dark:text-blue-300 mb-2">
+                Registration Approval Flow
+              </h3>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
+                <Badge variant="warning">1. Email Verification</Badge>
+                <ChevronRight className="w-4 h-4" />
+                <Badge variant="orange">2. Admin Approval</Badge>
+                <ChevronRight className="w-4 h-4" />
+                <Badge variant="info">3. TL Assignment</Badge>
+                <ChevronRight className="w-4 h-4" />
+                <Badge variant="success">4. Active User</Badge>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Registered today
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Without TL</p>
-                <p className="text-3xl font-bold text-blue-600">{stats.usersWithoutTL}</p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-full">
-                <UserMinus className="w-6 h-6 text-blue-600" />
-              </div>
+            <div className="text-sm text-blue-700 dark:text-blue-400">
+              Total Pending Users: <span className="font-bold">{users.length}</span>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Need TL assignment
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Old Registrations</p>
-                <p className="text-3xl font-bold text-red-600">{stats.weekOldRegistrations}</p>
-              </div>
-              <div className="p-3 bg-red-100 rounded-full">
-                <Clock4 className="w-6 h-6 text-red-600" />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Registered 7 days ago
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Filters */}
       <Card>
@@ -778,26 +795,41 @@ export default function NotApprovedUsers() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
               <Input
-                placeholder="Search by name, email, phone..."
+                placeholder="Search pending users by name, email, phone..."
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
                 className="pl-9"
                 disabled={loading}
               />
             </div>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Select 
+                value={filters.registrationStatus} 
+                onValueChange={(value) => handleFilterChange('registrationStatus', value)}
+                placeholder="Registration Status"
+                className="w-full sm:w-[180px]"
+                disabled={loading}
+              >
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="email_verification_pending">Email Pending</SelectItem>
+                <SelectItem value="admin_approval_pending">Admin Approval</SelectItem>
+                <SelectItem value="tl_assignment_pending">TL Assignment</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Not Approved Users Table */}
+      {/* Pending Users Table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5" />
-            Pending Approval Users
+            <UserCircle className="w-5 h-5 text-yellow-600" />
+            Pending Approval Users List
             {users.length > 0 && (
-              <Badge variant="orange" className="ml-2">
-                {users.length} pending
+              <Badge variant="warning" className="ml-2">
+                {users.length} pending users
               </Badge>
             )}
           </CardTitle>
@@ -809,51 +841,67 @@ export default function NotApprovedUsers() {
                 <TableHeader>
                   <TableRow>
                     <TableHead sortable onSort={handleSort} sortKey="createdAt" currentSort={sort}>
-                      Status
-                    </TableHead>
-                    <TableHead sortable onSort={handleSort} sortKey="name" currentSort={sort}>
-                      Name
-                    </TableHead>
-                    <TableHead sortable onSort={handleSort} sortKey="email" currentSort={sort}>
-                      Email Id
+                      <CalendarClock className="w-4 h-4 inline mr-1" />
+                      Registered On
                     </TableHead>
                     <TableHead>
+                      <UserCog className="w-4 h-4 inline mr-1" />
+                      Registration Status
+                    </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="name" currentSort={sort}>
+                      <UserCircle className="w-4 h-4 inline mr-1" />
+                      Name
+                    </TableHead>
+                    <TableHead>
+                      <PhoneIcon className="w-4 h-4 inline mr-1" />
                       Phone Number
                     </TableHead>
                     <TableHead>
-                      Assign TL
+                      <MailIcon className="w-4 h-4 inline mr-1" />
+                      Email ID
                     </TableHead>
                     <TableHead>
-                      Previous TL
+                      <Shield className="w-4 h-4 inline mr-1" />
+                      Email Verified
                     </TableHead>
                     <TableHead>
-                      Matched Fields
+                      <Clock4 className="w-4 h-4 inline mr-1" />
+                      Waiting Since
                     </TableHead>
                     <TableHead>
-                      Action
+                      <UserCheckIcon className="w-4 h-4 inline mr-1" />
+                      Approve/Reject
+                    </TableHead>
+                    <TableHead>
+                      <CalendarCheck className="w-4 h-4 inline mr-1" />
+                      TL Assignment
+                    </TableHead>
+                    <TableHead>
+                      <AlertTriangle className="w-4 h-4 inline mr-1" />
+                      Actions
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12">
+                      <TableCell colSpan={10} className="text-center py-12">
                         <div className="flex flex-col items-center justify-center">
-                          <RefreshCw className="w-10 h-10 animate-spin text-blue-600 mb-4" />
-                          <span className="text-lg">Loading users...</span>
+                          <RefreshCw className="w-10 h-10 animate-spin text-yellow-600 mb-4" />
+                          <span className="text-lg">Loading pending users...</span>
                           <p className="text-sm text-gray-500 mt-2">Please wait while we fetch the data</p>
                         </div>
                       </TableCell>
                     </TableRow>
                   ) : users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12 text-gray-500">
-                        <UserCheck className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                        <p className="text-xl font-medium">No users pending approval</p>
+                      <TableCell colSpan={10} className="text-center py-12 text-gray-500">
+                        <Hourglass className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                        <p className="text-xl font-medium">No pending approval users</p>
                         <p className="text-sm mt-2">
-                          {filters.search 
+                          {(filters.search || filters.registrationStatus !== 'all') 
                             ? 'Try adjusting your search filters' 
-                            : 'All users are approved! Great job!'}
+                            : 'All users have been approved or no pending registrations'}
                         </p>
                       </TableCell>
                     </TableRow>
@@ -861,32 +909,28 @@ export default function NotApprovedUsers() {
                     users.map((user) => (
                       <TableRow key={user._id} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50">
                         <TableCell>
-                          <div className="space-y-2">
-                            <StatusBadge user={user} />
-                            <div className="text-xs text-gray-500">
-                              {user.registrationDate} at {user.registrationTime}
+                          <div className="flex items-center gap-2">
+                            <CalendarIcon className="w-4 h-4 text-gray-500" />
+                            <div>
+                              <span className="text-sm">{user.joinDate}</span>
+                              <p className="text-xs text-gray-500">{user.registrationDate.split(',')[1]}</p>
                             </div>
                           </div>
                         </TableCell>
                         
                         <TableCell>
+                          <RegistrationStatusBadge status={user.registrationStatus} />
+                        </TableCell>
+                        
+                        <TableCell>
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
-                              <User className="w-4 h-4 text-orange-600 dark:text-orange-300" />
+                            <div className="w-8 h-8 rounded-full bg-yellow-100 dark:bg-yellow-900 flex items-center justify-center">
+                              <User className="w-4 h-4 text-yellow-600 dark:text-yellow-300" />
                             </div>
                             <div>
                               <p className="font-medium">{user.name}</p>
-                              <p className="text-xs text-gray-500">
-                                ID: {user._id?.substring(0, 8)}...
-                              </p>
+                              <p className="text-xs text-gray-500">ID: {user._id?.substring(0, 6)}...</p>
                             </div>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Mail className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm truncate max-w-[200px]">{user.email}</span>
                           </div>
                         </TableCell>
                         
@@ -898,69 +942,70 @@ export default function NotApprovedUsers() {
                         </TableCell>
                         
                         <TableCell>
-                          <div className="min-w-[140px]">
-                            <TLAssignmentButton 
+                          <div className="flex items-center gap-2 min-w-[200px]">
+                            <Mail className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm truncate">{user.email}</span>
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <div className="text-center">
+                            <Badge variant={user.emailVerified === 'Yes' ? 'success' : 'warning'}>
+                              {user.emailVerified}
+                            </Badge>
+                            {user.emailVerifiedDate !== '-' && (
+                              <p className="text-xs text-gray-500 mt-1">{user.emailVerifiedDate}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <div className="text-center">
+                            <span className="font-medium">{user.waitingSince}</span>
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell>
+                          {user.registrationStatus === 'admin_approval_pending' ? (
+                            <ApprovalButtons 
                               user={user}
-                              teamLeaders={teamLeaders}
-                              onAssignTL={assignTLToUser}
+                              onApprove={approveUser}
+                              onReject={rejectUser}
                               loading={actionLoading[user._id]}
                             />
-                            {!user.reportingTo && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => approveUser(user._id)}
-                                disabled={actionLoading[user._id]}
-                                className="mt-2 w-full"
-                              >
-                                <Check className="w-3 h-3 mr-2" />
-                                Approve Directly
-                              </Button>
-                            )}
-                          </div>
+                          ) : user.registrationStatus === 'rejected' ? (
+                            <Badge variant="destructive" className="min-w-[120px] justify-center">
+                              Rejected
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-gray-500">-</span>
+                          )}
                         </TableCell>
                         
                         <TableCell>
-                          <div className="text-sm">
-                            {user.previousTL !== '-' ? (
-                              <div className="flex items-center gap-2 text-orange-600">
-                                <UserMinus className="w-4 h-4" />
-                                {user.previousTL}
-                              </div>
-                            ) : (
-                              <span className="text-gray-500">No previous TL</span>
-                            )}
-                          </div>
+                          {user.registrationStatus === 'tl_assignment_pending' ? (
+                            <TLPendingAssignment 
+                              user={user}
+                              teamLeaders={teamLeaders}
+                              onAssignTL={assignTL}
+                              loading={actionLoading[user._id]}
+                            />
+                          ) : user.registrationStatus === 'approved' ? (
+                            <Badge variant="success" className="min-w-[120px] justify-center">
+                              TL Assigned
+                            </Badge>
+                          ) : (
+                            <span className="text-sm text-gray-500">-</span>
+                          )}
                         </TableCell>
                         
                         <TableCell>
-                          <MatchedFields user={user} />
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => deleteUser(user._id)}
-                              disabled={actionLoading[user._id]}
-                              title="Delete User"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                            
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => approveUser(user._id)}
-                              disabled={actionLoading[user._id]}
-                              title="Approve User"
-                              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                            </Button>
-                          </div>
+                          <ActionMenu
+                            user={user}
+                            onViewDetails={() => viewUserDetails(user)}
+                            onDelete={() => deleteUser(user._id)}
+                            loading={actionLoading[user._id]}
+                          />
                         </TableCell>
                       </TableRow>
                     ))
@@ -976,7 +1021,7 @@ export default function NotApprovedUsers() {
       {users.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-500">
-            Showing {users.length} users pending approval
+            Showing {users.length} pending approval users
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -1001,6 +1046,67 @@ export default function NotApprovedUsers() {
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* Quick Stats */}
+      {users.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-yellow-700 dark:text-yellow-300">Email Pending</p>
+                  <p className="text-2xl font-bold text-yellow-800 dark:text-yellow-200">
+                    {users.filter(u => u.registrationStatus === 'email_verification_pending').length}
+                  </p>
+                </div>
+                <MailCheck className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-orange-700 dark:text-orange-300">Admin Approval</p>
+                  <p className="text-2xl font-bold text-orange-800 dark:text-orange-200">
+                    {users.filter(u => u.registrationStatus === 'admin_approval_pending').length}
+                  </p>
+                </div>
+                <Shield className="w-8 h-8 text-orange-600 dark:text-orange-400" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-700 dark:text-blue-300">TL Assignment</p>
+                  <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">
+                    {users.filter(u => u.registrationStatus === 'tl_assignment_pending').length}
+                  </p>
+                </div>
+                <UserCheck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-red-700 dark:text-red-300">Rejected</p>
+                  <p className="text-2xl font-bold text-red-800 dark:text-red-200">
+                    {users.filter(u => u.registrationStatus === 'rejected').length}
+                  </p>
+                </div>
+                <Ban className="w-8 h-8 text-red-600 dark:text-red-400" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

@@ -1,33 +1,61 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import userService from '../../services/userService';
 import { 
   Search, 
   Users, 
   Eye, 
-  Calendar,
-  User,
+  Edit, 
+  RefreshCw, 
+  Mail, 
   Phone,
-  Mail,
-  CheckCircle,
-  TrendingUp,
-  Clock,
-  RefreshCw,
-  Download,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   ChevronDown,
-  BarChart3,
-  Target,
+  Calendar,
+  User,
+  CheckCircle,
+  XCircle,
+  MoreVertical,
+  Settings,
+  Key,
+  Shield,
+  FileSpreadsheet,
+  Upload,
+  TrendingUp,
+  Clock,
+  Download,
   Check,
   X,
+  Pause,
+  Play,
+  Ban,
+  UserX,
+  Filter,
   CalendarDays,
+  PhoneCall,
   UserCheck,
-  Building
+  AlertCircle,
+  ArrowUpDown,
+  Trash2,
+  DollarSign,
+  Bookmark,
+  Target,
+  TrendingDown,
+  CheckSquare,
+  UserCog,
+  CalendarCheck,
+  Clock4,
+  UserCircle,
+  EyeOff,
+  CalendarClock,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+  UserCheck as UserCheckIcon
 } from 'lucide-react';
 
-// Reuse the same UI components
+// Basic UI Components
 const TableContainer = ({ children, className = '' }) => (
   <div className={`relative overflow-hidden ${className}`}>
     {children}
@@ -103,7 +131,7 @@ const Button = ({ children, variant = 'default', size = 'default', className = '
     ghost: 'hover:bg-gray-100 dark:hover:bg-gray-800',
     success: 'bg-green-600 text-white hover:bg-green-700',
     warning: 'bg-yellow-600 text-white hover:bg-yellow-700',
-    info: 'bg-blue-600 text-white hover:bg-blue-700'
+    info: 'bg-blue-600 text-white hover:bg-blue-700',
   };
   const sizes = {
     default: 'h-10 py-2 px-4',
@@ -152,7 +180,9 @@ const Badge = ({ children, variant = 'default', className = '' }) => {
     success: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300',
     warning: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300',
     info: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300',
-    purple: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+    purple: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300',
+    orange: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300',
+    gray: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
   };
 
   return (
@@ -186,111 +216,412 @@ const CardContent = ({ children, className = '' }) => (
   </div>
 );
 
-// Attendance Status Component
-const AttendanceStatus = ({ user }) => {
-  const getStatusVariant = (status) => {
-    switch(status) {
-      case 'present': return 'success';
-      case 'late': return 'warning';
-      case 'half-day': return 'orange';
-      case 'absent': return 'destructive';
-      default: return 'secondary';
-    }
-  };
+// Role Change Component
+const RoleChangeButton = ({ user, onChangeRole, loading = false }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef(null);
 
-  const getStatusIcon = (status) => {
-    switch(status) {
-      case 'present': return <CheckCircle className="w-4 h-4" />;
-      case 'late': return <Clock className="w-4 h-4" />;
-      case 'half-day': return <Clock className="w-4 h-4" />;
-      case 'absent': return <X className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
-    }
-  };
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
 
-  const getStatusText = (status) => {
-    switch(status) {
-      case 'present': return 'Present';
-      case 'late': return 'Late';
-      case 'half-day': return 'Half Day';
-      case 'absent': return 'Absent';
-      default: return 'Not Marked';
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleRoleChange = async (newRole) => {
+    if (newRole !== user.role) {
+      await onChangeRole(user._id, newRole);
+      setIsOpen(false);
     }
   };
 
   return (
-    <Badge 
-      variant={getStatusVariant(user.todayStatus)}
-      className="flex items-center gap-1"
-    >
-      {getStatusIcon(user.todayStatus)}
-      {getStatusText(user.todayStatus)}
+    <div className="relative" ref={menuRef}>
+      <Button
+        variant={user.role === 'TL' ? 'default' : user.role === 'admin' ? 'destructive' : 'default'}
+        size="sm"
+        onClick={() => setIsOpen(!isOpen)}
+        disabled={loading}
+        className="min-w-[80px]"
+      >
+        {loading ? (
+          <RefreshCw className="w-3 h-3 animate-spin mr-1" />
+        ) : null}
+        {user.role}
+        <ChevronDown className="w-3 h-3 ml-1" />
+      </Button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-10 z-50 w-32 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+          <div className="p-1 space-y-1">
+            {user.role !== 'user' && (
+              <button
+                onClick={() => handleRoleChange('user')}
+                disabled={loading}
+                className="flex items-center w-full px-3 py-2 text-sm text-left rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50"
+              >
+                User
+              </button>
+            )}
+            {user.role !== 'TL' && (
+              <button
+                onClick={() => handleRoleChange('TL')}
+                disabled={loading}
+                className="flex items-center w-full px-3 py-2 text-sm text-left text-purple-600 rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/20 disabled:opacity-50"
+              >
+                TL
+              </button>
+            )}
+            
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Status Change Component
+const StatusChangeButton = ({ user, onChangeStatus, loading = false }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const getVariant = () => {
+    switch(user.status) {
+      case 'active': return "success";
+      case 'hold': return "warning";
+      case 'dead': return "destructive";
+      default: return "secondary";
+    }
+  };
+
+  const getLabel = () => {
+    switch(user.status) {
+      case 'active': return 'Active';
+      case 'hold': return 'Hold';
+      case 'dead': return 'Dead';
+      default: return user.status || 'Unknown';
+    }
+  };
+
+  const handleStatusChange = async (newStatus) => {
+    if (newStatus !== user.status) {
+      await onChangeStatus(user._id, newStatus);
+      setIsOpen(false);
+    }
+  };
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <Button
+        variant={getVariant()}
+        size="sm"
+        onClick={() => setIsOpen(!isOpen)}
+        disabled={loading}
+        className="min-w-[80px]"
+      >
+        {loading ? (
+          <RefreshCw className="w-3 h-3 animate-spin mr-1" />
+        ) : null}
+        {getLabel()}
+        <ChevronDown className="w-3 h-3 ml-1" />
+      </Button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-10 z-50 w-32 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+          <div className="p-1 space-y-1">
+            {user.status !== 'active' && (
+              <button
+                onClick={() => handleStatusChange('active')}
+                disabled={loading}
+                className="flex items-center w-full px-3 py-2 text-sm text-left text-green-600 rounded-md hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50"
+              >
+                Active
+              </button>
+            )}
+            {user.status !== 'hold' && (
+              <button
+                onClick={() => handleStatusChange('hold')}
+                disabled={loading}
+                className="flex items-center w-full px-3 py-2 text-sm text-left text-yellow-600 rounded-md hover:bg-yellow-50 dark:hover:bg-yellow-900/20 disabled:opacity-50"
+              >
+                Hold
+              </button>
+            )}
+            {user.status !== 'dead' && (
+              <button
+                onClick={() => handleStatusChange('dead')}
+                disabled={loading}
+                className="flex items-center w-full px-3 py-2 text-sm text-left text-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
+              >
+                Dead
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Attendance Component - Special for present users
+const PresentBadge = ({ user }) => {
+  return (
+    <Badge variant="success" className="min-w-[80px] justify-center">
+      <div className="flex items-center gap-1">
+        <CheckSquare className="w-3 h-3" />
+        Present
+      </div>
     </Badge>
+  );
+};
+
+// TL Change Component
+const TLChangeButton = ({ user, teamLeaders, onChangeTL, loading = false }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleTLChange = async (tlId, tlName) => {
+    if (tlId !== user.reportingTo?._id) {
+      await onChangeTL(user._id, tlId, tlName);
+      setIsOpen(false);
+    }
+  };
+
+  const currentTLName = user.reportingTo?.name || 'Not Assigned';
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setIsOpen(!isOpen)}
+        disabled={loading || teamLeaders.length === 0}
+        className="min-w-[120px]"
+      >
+        {currentTLName}
+        <ChevronDown className="w-3 h-3 ml-1" />
+      </Button>
+
+      {isOpen && (
+        <div className="absolute left-0 top-10 z-50 w-48 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg max-h-60 overflow-y-auto">
+          <div className="p-1 space-y-1">
+            <button
+              onClick={() => handleTLChange('', 'Not Assigned')}
+              className="flex items-center w-full px-3 py-2 text-sm text-left rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              Not Assigned
+            </button>
+            {teamLeaders.map((tl) => (
+              <button
+                key={tl._id}
+                onClick={() => handleTLChange(tl._id, tl.name)}
+                className={`flex items-center w-full px-3 py-2 text-sm text-left rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 ${
+                  user.reportingTo?._id === tl._id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                }`}
+              >
+                {tl.name} ({tl.teamMembers?.length || 0})
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Open Leads Withrow Component
+const OpenLeadsWithrow = ({ openLeads, onWithrow }) => {
+  const [showWithrow, setShowWithrow] = useState(false);
+  const [amount, setAmount] = useState('');
+
+  const handleWithrow = () => {
+    if (amount && !isNaN(amount) && parseFloat(amount) > 0) {
+      onWithrow(parseFloat(amount));
+      setAmount('');
+      setShowWithrow(false);
+    }
+  };
+
+  return (
+    <div className="relative">
+      <div className="flex items-center gap-2">
+        <Badge variant={openLeads > 0 ? 'warning' : 'success'}>
+          {openLeads}
+        </Badge>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setShowWithrow(!showWithrow)}
+          title="Withrow"
+          className="h-6 w-6"
+        >
+          <DollarSign className="w-3 h-3" />
+        </Button>
+      </div>
+
+      {showWithrow && (
+        <div className="absolute right-0 top-10 z-50 w-48 p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
+          <div className="space-y-2">
+            <label className="text-xs font-medium">Withrow Amount</label>
+            <Input
+              type="number"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Enter amount"
+              className="h-8 text-sm"
+            />
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                onClick={handleWithrow}
+                className="flex-1 h-8"
+              >
+                Withrow
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowWithrow(false)}
+                className="h-8"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Action Menu Component
+const ActionMenu = ({ user, onEdit, onDelete, loading = false }) => {
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onEdit}
+        disabled={loading}
+        title="Edit User"
+      >
+        <Edit className="w-4 h-4" />
+      </Button>
+      
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onDelete}
+        disabled={loading}
+        title="Delete User"
+        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+      >
+        <Trash2 className="w-4 h-4" />
+      </Button>
+    </div>
   );
 };
 
 export default function PresentUsers() {
   const [users, setUsers] = useState([]);
+  const [teamLeaders, setTeamLeaders] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
   const [filters, setFilters] = useState({
     search: '',
-    attendanceStatus: 'present', // Default to present only
-    role: 'all',
+    status: 'all',
+    role: 'user',
     page: 1,
     limit: 20
   });
 
   const [sort, setSort] = useState({
-    key: 'name',
-    direction: 'asc'
+    key: 'createdAt',
+    direction: 'desc'
   });
 
-  // Enhance user data for attendance view
+  // Enhance user data with calculated fields
   const enhanceUserData = (user) => {
-    // Get today's date
-    const today = new Date().toISOString().split('T')[0];
+    // Calculate lead statistics
+    const totalLeads = user.statistics?.totalLeads || 0;
+    const completedLeads = user.statistics?.completedLeads || 0;
+    const pendingLeads = user.statistics?.pendingLeads || 0;
+    const rejectedLeads = user.statistics?.rejectedLeads || 0;
+    const conversionRate = totalLeads > 0 ? (completedLeads / totalLeads * 100) : 0;
     
-    // Check if attendance was marked today
-    const attendanceToday = user.attendance?.todayMarkedAt && 
-      new Date(user.attendance.todayMarkedAt).toISOString().split('T')[0] === today;
-    
-    const todayStatus = attendanceToday ? user.attendance?.todayStatus : 'not_marked';
-    
-    // Calculate total present days
+    // Attendance
     const totalPresent = user.attendance?.totalPresent || 0;
-    const totalDays = user.attendance?.totalDays || 1;
-    const attendancePercentage = (totalPresent / totalDays * 100).toFixed(1);
+    const attendanceStatus = user.attendance?.todayStatus || 'not_marked';
     
-    // Time info
-    const checkInTime = attendanceToday && user.attendance?.todayCheckIn ? 
-      new Date(user.attendance.todayCheckIn).toLocaleTimeString('en-IN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      }) : '-';
+    // Rollback data
+    const rollbackData = user.rollback?.total || 0;
+    const rollbackDate = user.rollback?.lastDate ? 
+      new Date(user.rollback.lastDate).toLocaleDateString('en-IN') : '-';
     
-    const checkOutTime = attendanceToday && user.attendance?.todayCheckOut ? 
-      new Date(user.attendance.todayCheckOut).toLocaleTimeString('en-IN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      }) : '-';
+    // Lead data
+    const lastData = user.leadDistribution?.lastLeadDate ? 
+      new Date(user.leadDistribution.lastLeadDate).toLocaleDateString('en-IN') : '-';
+    const dateAssigned = user.leadDistribution?.lastAssignedDate ? 
+      new Date(user.leadDistribution.lastAssignedDate).toLocaleDateString('en-IN') : '-';
+    
+    // TL info
+    const tlName = user.reportingTo?.name || '-';
+    const manageTL = user.tlDetails?.managedBy?.name || '-';
 
     return {
       ...user,
-      todayStatus,
-      totalPresentDays: totalPresent,
-      attendancePercentage,
-      checkInTime,
-      checkOutTime,
-      isMarkedToday: attendanceToday,
-      markedAt: attendanceToday ? 
-        new Date(user.attendance.todayMarkedAt).toLocaleTimeString('en-IN') : '-'
+      totalLeads,
+      completedLeads,
+      pendingLeads,
+      rejectedLeads,
+      conversionRate: conversionRate.toFixed(2),
+      totalPresent,
+      attendanceStatus,
+      rollbackData,
+      rollbackDate,
+      lastData,
+      dateAssigned,
+      tlName,
+      manageTL,
+      openLeads: pendingLeads + rejectedLeads,
+      salary: user.financials?.salary || '-',
+      joinDate: new Date(user.createdAt).toLocaleDateString('en-IN'),
+      calledLeads: user.statistics?.calledLeads || 0,
+      closedLeads: user.statistics?.closedLeads || 0,
+      canReceiveLeads: user.status === 'active' && attendanceStatus === 'present'
     };
   };
 
-  // Fetch all users and filter for present ones
+  // Fetch present users only
   const fetchPresentUsers = async () => {
     try {
       setLoading(true);
@@ -301,96 +632,184 @@ export default function PresentUsers() {
         limit: filters.limit,
         sort: sort.key,
         order: sort.direction,
+        attendance: 'present', // Only fetch present users
         ...(filters.search && { search: filters.search }),
+        ...(filters.status !== 'all' && { 
+          ...(filters.status === 'ex' ? { isEx: true } : { status: filters.status })
+        }),
         ...(filters.role !== 'all' && { role: filters.role })
       };
 
-      // Use the existing getAllUsersWithStats method
-      const response = await userService.getAllUsersWithStats(params);
+      const response = await userService.getPresentUsers(params);
       
       if (response.success) {
-        // Filter users based on attendance status
-        const allUsers = response.data.users.map(enhanceUserData);
-        
-        let filteredUsers = allUsers;
-        
-        // Apply attendance filter
-        if (filters.attendanceStatus === 'present') {
-          filteredUsers = allUsers.filter(user => user.todayStatus === 'present');
-        } else if (filters.attendanceStatus === 'late') {
-          filteredUsers = allUsers.filter(user => user.todayStatus === 'late');
-        } else if (filters.attendanceStatus === 'half-day') {
-          filteredUsers = allUsers.filter(user => user.todayStatus === 'half-day');
-        } else if (filters.attendanceStatus === 'absent') {
-          filteredUsers = allUsers.filter(user => user.todayStatus === 'absent');
-        } else if (filters.attendanceStatus === 'not_marked') {
-          filteredUsers = allUsers.filter(user => user.todayStatus === 'not_marked');
-        }
-        // For 'all', don't filter
-        
-        setUsers(filteredUsers);
+        const enhancedUsers = response.data.users.map(enhanceUserData);
+        setUsers(enhancedUsers);
       } else {
-        setError(response.message || 'Failed to fetch users');
+        setError(response.message || 'Failed to fetch present users');
       }
     } catch (err) {
-      console.error('Error fetching users:', err);
-      setError(err.message || 'Failed to fetch users');
+      console.error('Error fetching present users:', err);
+      setError(err.message || 'Failed to fetch present users');
     } finally {
       setLoading(false);
     }
   };
 
-  // Mark attendance using existing method
-  const markAttendance = async (userId, status) => {
+  // Fetch Team Leaders for TL change dropdown
+  const fetchTeamLeaders = async () => {
     try {
-      setLoading(true);
-      // Assuming you have an updateUser method that can update attendance
+      const response = await userService.getAllUsersWithStats({ role: 'TL' });
+      if (response.success) {
+        setTeamLeaders(response.data.users);
+      }
+    } catch (err) {
+      console.error('Error fetching team leaders:', err);
+    }
+  };
+
+  // Change user role
+  const changeUserRole = async (userId, newRole) => {
+    try {
+      setActionLoading(prev => ({ ...prev, [userId]: true }));
+      const response = await userService.changeUserRole(userId, { newRole });
+      
+      if (response.success) {
+        setSuccess(`User role changed to ${newRole} successfully`);
+        await fetchPresentUsers();
+      } else {
+        setError(response.message || 'Failed to change user role');
+      }
+    } catch (err) {
+      console.error('Error changing user role:', err);
+      setError(err.message || 'Failed to change user role');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  // Change user status
+  const changeUserStatus = async (userId, newStatus) => {
+    try {
+      setActionLoading(prev => ({ ...prev, [userId]: true }));
+      
+      let response;
+      if (newStatus === 'active') {
+        response = await userService.markUserActive(userId);
+      } else if (newStatus === 'hold') {
+        response = await userService.markUserHold(userId, { reason: 'Manual status change' });
+      } else if (newStatus === 'dead') {
+        response = await userService.blockUser(userId, { reason: 'Marked as dead' });
+      } else if (newStatus === 'inactive') {
+        response = await userService.toggleUserStatus(userId);
+      }
+      
+      if (response?.success) {
+        setSuccess(`User status changed to ${newStatus} successfully`);
+        await fetchPresentUsers();
+      } else {
+        setError(response?.message || 'Failed to change user status');
+      }
+    } catch (err) {
+      console.error('Error changing user status:', err);
+      setError(err.message || 'Failed to change user status');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  // Change TL assignment
+  const changeUserTL = async (userId, tlId, tlName) => {
+    try {
+      setActionLoading(prev => ({ ...prev, [userId]: true }));
       const response = await userService.updateUser(userId, {
-        'attendance.todayStatus': status,
-        'attendance.todayMarkedAt': new Date().toISOString(),
-        'attendance.todayCheckIn': status === 'present' || status === 'late' ? 
-          new Date().toISOString() : null
+        reportingTo: tlId ? { _id: tlId, name: tlName } : null
       });
       
       if (response.success) {
-        setSuccess(`Attendance marked as ${status} successfully`);
+        setSuccess(`TL assigned successfully`);
         await fetchPresentUsers();
       } else {
-        setError(response.message || 'Failed to mark attendance');
+        setError(response.message || 'Failed to assign TL');
       }
     } catch (err) {
-      console.error('Error marking attendance:', err);
-      setError(err.message || 'Failed to mark attendance');
+      console.error('Error assigning TL:', err);
+      setError(err.message || 'Failed to assign TL');
     } finally {
-      setLoading(false);
+      setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
   };
 
-  // Export attendance report
-  const exportAttendanceReport = async () => {
+  // Handle withrow
+  const handleWithrow = async (userId, amount) => {
+    try {
+      setActionLoading(prev => ({ ...prev, [userId]: true }));
+      const response = await userService.processWithdrawal(userId, { amount });
+      
+      if (response.success) {
+        setSuccess(`Withrow of ₹${amount} processed successfully`);
+        await fetchPresentUsers();
+      } else {
+        setError(response.message || 'Failed to process withrow');
+      }
+    } catch (err) {
+      console.error('Error processing withrow:', err);
+      setError(err.message || 'Failed to process withrow');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  // Delete user
+  const deleteUser = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+    
+    try {
+      setActionLoading(prev => ({ ...prev, [userId]: true }));
+      const response = await userService.deleteUser(userId);
+      
+      if (response.success) {
+        setSuccess('User deleted successfully');
+        await fetchPresentUsers();
+      } else {
+        setError(response.message || 'Failed to delete user');
+      }
+    } catch (err) {
+      console.error('Error deleting user:', err);
+      setError(err.message || 'Failed to delete user');
+    } finally {
+      setActionLoading(prev => ({ ...prev, [userId]: false }));
+    }
+  };
+
+  // Edit user
+  const editUser = (user) => {
+    console.log('Edit user:', user);
+    // You can implement edit functionality here
+  };
+
+  // Export present users
+  const exportPresentUsers = async () => {
     try {
       setLoading(true);
-      // Use existing export method with attendance filter
-      const blob = await userService.exportUsers({
+      const blob = await userService.exportPresentUsers({
         format: 'excel',
-        ...filters,
-        exportType: 'attendance'
+        ...filters
       });
       
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const today = new Date().toISOString().split('T')[0];
-      a.download = `attendance_report_${today}.xlsx`;
+      a.download = `present_users_export_${new Date().toISOString().split('T')[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      setSuccess('Attendance report exported successfully');
+      setSuccess('Present users exported successfully');
     } catch (err) {
-      console.error('Error exporting report:', err);
-      setError(err.message || 'Failed to export report');
+      console.error('Error exporting present users:', err);
+      setError(err.message || 'Failed to export present users');
     } finally {
       setLoading(false);
     }
@@ -399,7 +818,8 @@ export default function PresentUsers() {
   // Effects
   useEffect(() => {
     fetchPresentUsers();
-  }, [filters.page, filters.limit, filters.role, filters.attendanceStatus, sort]);
+    fetchTeamLeaders();
+  }, [filters.page, filters.limit, filters.status, filters.role, sort]);
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -435,57 +855,42 @@ export default function PresentUsers() {
     }));
   };
 
-  // Calculate statistics
-  const calculateStats = () => {
-    const totalUsers = users.length;
-    const presentUsers = users.filter(u => u.todayStatus === 'present').length;
-    const lateUsers = users.filter(u => u.todayStatus === 'late').length;
-    const absentUsers = users.filter(u => u.todayStatus === 'absent').length;
-    const notMarked = users.filter(u => u.todayStatus === 'not_marked').length;
-    
-    const attendancePercentage = totalUsers > 0 ? 
-      ((presentUsers + lateUsers) / totalUsers * 100).toFixed(1) : 0;
-    
-    return {
-      totalUsers,
-      presentUsers,
-      lateUsers,
-      absentUsers,
-      notMarked,
-      attendancePercentage
-    };
-  };
-
-  const stats = calculateStats();
-
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <CheckCircle className="w-8 h-8 text-green-600" />
-            Present Users - Today
+            <UserCheckIcon className="w-8 h-8 text-green-600" />
+            Present Users
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            View and manage today's attendance for all users
+            View and manage users who are present today
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Export Report */}
+          {/* Present Users Count Badge */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800">
+            <UserCheck className="w-4 h-4 text-green-600 dark:text-green-400" />
+            <span className="text-sm font-medium text-green-700 dark:text-green-300">
+              {users.length} Present Today
+            </span>
+          </div>
+          
+          {/* Export */}
           <Button
             variant="outline"
             size="sm"
-            onClick={exportAttendanceReport}
+            onClick={exportPresentUsers}
             disabled={loading}
           >
             <Download className="w-4 h-4 mr-2" />
-            Export Report
+            Export
           </Button>
           
           {/* Refresh */}
           <Button 
-            onClick={fetchPresentUsers} 
+            onClick={() => { fetchPresentUsers(); fetchTeamLeaders(); }} 
             disabled={loading}
             size="sm"
           >
@@ -508,77 +913,6 @@ export default function PresentUsers() {
         </div>
       )}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Present Today</p>
-                <p className="text-3xl font-bold text-green-600">{stats.presentUsers}</p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-full">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Users marked as present
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Late Arrivals</p>
-                <p className="text-3xl font-bold text-yellow-600">{stats.lateUsers}</p>
-              </div>
-              <div className="p-3 bg-yellow-100 rounded-full">
-                <Clock className="w-6 h-6 text-yellow-600" />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Users marked as late
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Not Marked</p>
-                <p className="text-3xl font-bold text-blue-600">{stats.notMarked}</p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-full">
-                <Users className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Attendance not marked yet
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">Attendance %</p>
-                <p className="text-3xl font-bold text-purple-600">{stats.attendancePercentage}%</p>
-              </div>
-              <div className="p-3 bg-purple-100 rounded-full">
-                <TrendingUp className="w-6 h-6 text-purple-600" />
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Present + Late / Total
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -586,56 +920,40 @@ export default function PresentUsers() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
               <Input
-                placeholder="Search users by name, email, phone..."
+                placeholder="Search present users by name, email, phone..."
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
                 className="pl-9"
                 disabled={loading}
               />
             </div>
-            
             <div className="flex flex-col sm:flex-row gap-3">
               <Select 
-                value={filters.attendanceStatus} 
-                onValueChange={(value) => handleFilterChange('attendanceStatus', value)}
-                placeholder="Attendance Status"
-                className="w-full sm:w-[180px]"
-                disabled={loading}
-              >
-                <SelectItem value="present">Present</SelectItem>
-                <SelectItem value="late">Late</SelectItem>
-                <SelectItem value="half-day">Half Day</SelectItem>
-                <SelectItem value="absent">Absent</SelectItem>
-                <SelectItem value="not_marked">Not Marked</SelectItem>
-                <SelectItem value="all">All Status</SelectItem>
-              </Select>
-
-              <Select 
-                value={filters.role} 
-                onValueChange={(value) => handleFilterChange('role', value)}
-                placeholder="Role"
+                value={filters.status} 
+                onValueChange={(value) => handleFilterChange('status', value)}
+                placeholder="Status"
                 className="w-full sm:w-[150px]"
                 disabled={loading}
               >
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="user">User</SelectItem>
-                <SelectItem value="TL">Team Lead</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="hold">Hold</SelectItem>
+                <SelectItem value="dead">Dead</SelectItem>
               </Select>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Present Users Table */}
+      {/* Present Users Table with Horizontal Scroll */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <UserCheck className="w-5 h-5" />
-            Today's Attendance
+            <CalendarCheck className="w-5 h-5 text-green-600" />
+            Present Users List
             {users.length > 0 && (
               <Badge variant="success" className="ml-2">
-                {stats.presentUsers} Present
+                {users.length} present users
               </Badge>
             )}
           </CardTitle>
@@ -646,52 +964,93 @@ export default function PresentUsers() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead sortable onSort={handleSort} sortKey="name" currentSort={sort}>
-                      User Name
+                    <TableHead sortable onSort={handleSort} sortKey="createdAt" currentSort={sort}>
+                      <CalendarClock className="w-4 h-4 inline mr-1" />
+                      Joined On
                     </TableHead>
-                    <TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="role" currentSort={sort}>
+                      <UserCog className="w-4 h-4 inline mr-1" />
                       Role
                     </TableHead>
-                    <TableHead>
-                      Phone
+                    <TableHead sortable onSort={handleSort} sortKey="name" currentSort={sort}>
+                      <UserCircle className="w-4 h-4 inline mr-1" />
+                      Name
                     </TableHead>
-                    <TableHead sortable onSort={handleSort} sortKey="attendance.todayStatus" currentSort={sort}>
+                    <TableHead>
+                      <PhoneCall className="w-4 h-4 inline mr-1" />
+                      Phone Number
+                    </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="status" currentSort={sort}>
+                      <CheckCircle className="w-4 h-4 inline mr-1" />
                       Status
                     </TableHead>
                     <TableHead>
-                      Check-In
+                      <Clock4 className="w-4 h-4 inline mr-1" />
+                      Attendance
+                    </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="rollbackData" currentSort={sort}>
+                      RollBack Data
                     </TableHead>
                     <TableHead>
-                      Total Present Days
+                      RollBack Date
                     </TableHead>
                     <TableHead>
-                      Team Lead
+                      TL Name
                     </TableHead>
                     <TableHead>
-                      Actions
+                      Manage TL
+                    </TableHead>
+                    <TableHead>
+                      Last Data
+                    </TableHead>
+                    <TableHead>
+                      Called
+                    </TableHead>
+                    <TableHead>
+                      Closed
+                    </TableHead>
+                    <TableHead>
+                      Date Assigned
+                    </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="totalPresent" currentSort={sort}>
+                      <TrendingUpIcon className="w-4 h-4 inline mr-1" />
+                      Total Present
+                    </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="salary" currentSort={sort}>
+                      Salary
+                    </TableHead>
+                    <TableHead>
+                      <Mail className="w-4 h-4 inline mr-1" />
+                      Email Id
+                    </TableHead>
+                    <TableHead>
+                      Open Leads
+                    </TableHead>
+                    <TableHead>
+                      Action
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12">
+                      <TableCell colSpan={19} className="text-center py-12">
                         <div className="flex flex-col items-center justify-center">
-                          <RefreshCw className="w-10 h-10 animate-spin text-blue-600 mb-4" />
-                          <span className="text-lg">Loading attendance...</span>
+                          <RefreshCw className="w-10 h-10 animate-spin text-green-600 mb-4" />
+                          <span className="text-lg">Loading present users...</span>
                           <p className="text-sm text-gray-500 mt-2">Please wait while we fetch the data</p>
                         </div>
                       </TableCell>
                     </TableRow>
                   ) : users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-12 text-gray-500">
-                        <Users className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                        <p className="text-xl font-medium">No users found</p>
+                      <TableCell colSpan={19} className="text-center py-12 text-gray-500">
+                        <UserCheck className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                        <p className="text-xl font-medium">No users present today</p>
                         <p className="text-sm mt-2">
-                          {filters.attendanceStatus !== 'all' 
-                            ? `No users marked as ${filters.attendanceStatus} today` 
-                            : 'No users in the system'}
+                          {(filters.search || filters.status !== 'all' || filters.role !== 'all') 
+                            ? 'Try adjusting your search filters' 
+                            : 'No users have marked attendance as present today'}
                         </p>
                       </TableCell>
                     </TableRow>
@@ -699,21 +1058,30 @@ export default function PresentUsers() {
                     users.map((user) => (
                       <TableRow key={user._id} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50">
                         <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                              <User className="w-5 h-5 text-blue-600" />
-                            </div>
-                            <div>
-                              <p className="font-semibold">{user.name}</p>
-                              <p className="text-xs text-gray-500">{user.email}</p>
-                            </div>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm">{user.joinDate}</span>
                           </div>
                         </TableCell>
                         
                         <TableCell>
-                          <Badge variant={user.role === 'TL' ? 'purple' : user.role === 'admin' ? 'destructive' : 'default'}>
-                            {user.role}
-                          </Badge>
+                          <RoleChangeButton 
+                            user={user}
+                            onChangeRole={changeUserRole}
+                            loading={actionLoading[user._id]}
+                          />
+                        </TableCell>
+                        
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                              <User className="w-4 h-4 text-green-600 dark:text-green-300" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{user.name}</p>
+                              <p className="text-xs text-gray-500">ID: {user._id?.substring(0, 6)}...</p>
+                            </div>
+                          </div>
                         </TableCell>
                         
                         <TableCell>
@@ -724,82 +1092,109 @@ export default function PresentUsers() {
                         </TableCell>
                         
                         <TableCell>
-                          <AttendanceStatus user={user} />
-                          {user.todayStatus === 'late' && (
-                            <p className="text-xs text-yellow-600 mt-1">
-                              Late arrival
-                            </p>
-                          )}
+                          <StatusChangeButton 
+                            user={user}
+                            onChangeStatus={changeUserStatus}
+                            loading={actionLoading[user._id]}
+                          />
                         </TableCell>
                         
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Clock className="w-4 h-4 text-gray-500" />
-                            <span className="font-medium">{user.checkInTime}</span>
-                          </div>
-                          {user.markedAt !== '-' && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              Marked at: {user.markedAt}
-                            </p>
-                          )}
+                          <PresentBadge user={user} />
                         </TableCell>
                         
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <CalendarDays className="w-4 h-4 text-blue-500" />
-                            <span className="font-bold">{user.totalPresentDays}</span>
-                            <span className="text-xs text-gray-500">
-                              ({user.attendancePercentage}%)
-                            </span>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <span className="text-sm">
-                            {user.reportingTo?.name || '-'}
-                          </span>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              asChild
-                              title="View Profile"
-                            >
-                              <Link to={`/admin/user/${user._id}`}>
-                                <Eye className="w-4 h-4" />
-                              </Link>
-                            </Button>
-                            
-                            {/* Quick attendance actions */}
-                            {user.todayStatus !== 'present' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => markAttendance(user._id, 'present')}
-                                disabled={loading}
-                                title="Mark as Present"
-                                className="h-8 px-2"
-                              >
-                                <Check className="w-4 h-4" />
-                              </Button>
-                            )}
-                            
-                            {user.todayStatus !== 'absent' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => markAttendance(user._id, 'absent')}
-                                disabled={loading}
-                                title="Mark as Absent"
-                                className="h-8 px-2"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
+                          <div className="text-center">
+                            {user.rollbackData > 0 ? (
+                              <Badge variant="destructive">{user.rollbackData}</Badge>
+                            ) : (
+                              <span className="text-gray-500">0</span>
                             )}
                           </div>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <span className="text-sm">{user.rollbackDate}</span>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <span className="text-sm font-medium">{user.tlName}</span>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <TLChangeButton 
+                            user={user}
+                            teamLeaders={teamLeaders}
+                            onChangeTL={changeUserTL}
+                            loading={actionLoading[user._id]}
+                          />
+                        </TableCell>
+                        
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm">{user.lastData}</span>
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <div className="text-center">
+                            <span className="font-medium">{user.calledLeads}</span>
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <div className="text-center">
+                            <span className="font-medium text-green-600">{user.closedLeads}</span>
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <span className="text-sm">{user.dateAssigned}</span>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <div className="text-center">
+                            <span className="font-bold text-green-600">{user.totalPresent}</span>
+                            {user.conversionRate > 0 && (
+                              <p className="text-xs text-gray-500">{user.conversionRate}% conversion</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <div className="text-right">
+                            {user.salary && user.salary !== '-' ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="font-bold text-green-600">₹{user.salary.toLocaleString('en-IN')}</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500">{user.salary}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <div className="flex items-center gap-2 min-w-[200px]">
+                            <Mail className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm truncate">{user.email}</span>
+                          </div>
+                        </TableCell>
+                        
+                        <TableCell>
+                          <OpenLeadsWithrow 
+                            openLeads={user.openLeads}
+                            onWithrow={(amount) => handleWithrow(user._id, amount)}
+                          />
+                        </TableCell>
+                        
+                        <TableCell>
+                          <ActionMenu
+                            user={user}
+                            onEdit={() => editUser(user)}
+                            onDelete={() => deleteUser(user._id)}
+                            loading={actionLoading[user._id]}
+                          />
                         </TableCell>
                       </TableRow>
                     ))
@@ -815,7 +1210,7 @@ export default function PresentUsers() {
       {users.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-500">
-            Showing {users.length} users
+            Showing {users.length} present users
           </div>
           <div className="flex items-center gap-2">
             <Button

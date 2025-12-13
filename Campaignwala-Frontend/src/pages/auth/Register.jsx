@@ -28,10 +28,17 @@ export default function RegisterPage() {
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [registrationEmail, setRegistrationEmail] = useState("");
   const [developmentOTP, setDevelopmentOTP] = useState("");
+  const [pendingApproval, setPendingApproval] = useState(false);
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated AND approved
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user) {
+      // Check if user is approved
+      if (user.role !== 'admin' && user.status !== 'approved') {
+        navigate('/pending-approval', { replace: true });
+        return;
+      }
+      
       const roleToRoute = {
         admin: "/admin",
         TL: "/tl",
@@ -51,6 +58,7 @@ export default function RegisterPage() {
     setFormError("");
     setSuccessMessage("");
     setDevelopmentOTP("");
+    setPendingApproval(false);
     clearAuthError();
 
     console.log("=== REGISTRATION FORM SUBMITTED ===");
@@ -134,15 +142,31 @@ export default function RegisterPage() {
   };
 
   const handleVerifyOTP = async (otp) => {
-    try {
-      console.log("🔑 Verifying registration OTP:", otp);
-      await verifyRegistrationOTP(registrationEmail, otp);
-      // verifyRegistrationOTP should handle navigation on success
-    } catch (error) {
-      console.error("OTP verification error:", error);
-      throw error;
+  try {
+    console.log("🔑 Verifying registration OTP:", otp);
+    const result = await verifyRegistrationOTP(registrationEmail, otp);
+    
+    if (result?.requiresAdminApproval) {
+      // Show message about pending admin approval
+      setPendingApproval(true);
+      setSuccessMessage("✅ Registration successful! Your account is now pending admin approval. You will be notified once approved.");
+      
+      // Clear OTP modal and redirect after delay
+      setTimeout(() => {
+        setShowOtpModal(false);
+        setSuccessMessage("");
+        setDevelopmentOTP("");
+        navigate('/pending-approval', { replace: true });
+      }, 2000); // Reduced delay for better UX
+    } else {
+      // Standard redirect - verifyRegistrationOTP should handle navigation
+      console.log("✅ Registration completed successfully!");
     }
-  };
+  } catch (error) {
+    console.error("OTP verification error:", error);
+    throw error;
+  }
+};
 
   const handleResendOTP = async () => {
     try {
@@ -179,9 +203,11 @@ export default function RegisterPage() {
   };
 
   const handleCloseOtpModal = () => {
-    setShowOtpModal(false);
-    setSuccessMessage("");
-    setDevelopmentOTP("");
+    if (!pendingApproval) {
+      setShowOtpModal(false);
+      setSuccessMessage("");
+      setDevelopmentOTP("");
+    }
   };
 
   return (
@@ -233,15 +259,22 @@ export default function RegisterPage() {
 
             {successMessage && (
               <div className={`${
-                developmentOTP ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' : 'bg-green-500/10 border-green-500/30 text-green-600'
+                developmentOTP ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' : 
+                pendingApproval ? 'bg-blue-500/10 border-blue-500/30 text-blue-600' :
+                'bg-green-500/10 border-green-500/30 text-green-600'
               } px-4 py-3 rounded-lg text-sm border`}>
                 <div className="flex items-start gap-2">
-                  <span>{developmentOTP ? '🔑' : '📧'}</span>
+                  <span>{developmentOTP ? '🔑' : pendingApproval ? '⏳' : '📧'}</span>
                   <div>
                     <div className="font-medium">{successMessage}</div>
                     {developmentOTP && (
                       <div className="mt-2 p-2 bg-amber-100 border border-amber-300 rounded text-amber-800 text-center font-mono text-lg">
                         OTP: {developmentOTP}
+                      </div>
+                    )}
+                    {pendingApproval && (
+                      <div className="mt-2 p-2 bg-blue-100 border border-blue-300 rounded text-blue-800 text-center text-sm">
+                        Redirecting to approval page...
                       </div>
                     )}
                   </div>
@@ -320,7 +353,7 @@ export default function RegisterPage() {
                   {showPassword ? (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268 2.943-9.542-7z" />
                     </svg>
                   ) : (
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -350,7 +383,7 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || pendingApproval}
               className="w-full bg-primary text-primary-foreground font-bold py-3 px-4 rounded-lg hover:opacity-90 transition disabled:opacity-50"
             >
               {isLoading ? "SENDING OTP..." : "SEND OTP & REGISTER"}
@@ -378,6 +411,7 @@ export default function RegisterPage() {
         purpose="registration"
         darkMode={false}
         developmentOTP={developmentOTP}
+        isPendingApproval={pendingApproval}
       />
     </main>
   );

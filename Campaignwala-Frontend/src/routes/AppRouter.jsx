@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { useSelector } from "react-redux";
-import { selectIsAuthenticated, selectUserRole } from "../redux/slices/authSlice";
 
 // TL Dashboard imports
 import TLDashboardLayout from "../tlDashboard/Components/TLDashboardLayout";
@@ -21,6 +19,7 @@ import TLSettings from "../tlDashboard/pages/Settings";
 import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/Register";
 import OtpVerification from "../pages/auth/OtpVerification";
+import PendingApproval from "../pages/auth/PendingApproval";
 
 // Admin Components
 import App from "../App";
@@ -96,26 +95,13 @@ import ClosedLeads from "../userDashboard/pages/ClosedLeads";
 import DataDashboard from "../adminDashboard/pages/data/DataDashboard";
 import UploadDataPage from "../adminDashboard/pages/data/UploadDataPage";
 import DistributeDataPage from "../adminDashboard/pages/data/DistributeDataPage";
-// import NotUsedDataPage from "../adminDashboard/pages/data/NotUsedDataPage";
-// import TodayAssignedDataPage from "../adminDashboard/pages/data/TodayAssignedDataPage";
-// import CalledDataPage from "../adminDashboard/pages/data/CalledDataPage";
-// import ClosedDataPage from "../adminDashboard/pages/data/ClosedDataPage";
-// import DataFeedbackAnalytics from "../adminDashboard/pages/data/DataFeedbackAnalytics";
-// import NewDataPage from "../adminDashboard/pages/data/NewDataPage";
 
 // TL Data Management Pages
-// import TLDataDashboard from "../tlDashboard/pages/data/TLDataDashboard";
 import TLDistributeDataPage from "../tlDashboard/pages/data/TLDistributeDataPage";
-// import TLDataAnalytics from "../tlDashboard/pages/data/TLDataAnalytics";
-// import TLWithdrawnDataPage from "../tlDashboard/pages/data/TLWithdrawnDataPage";
 
 // User Data Management Pages
-// import UserDataDashboard from "../userDashboard/pages/data/UserDataDashboard";
 import UserTodayDataPage from "../userDashboard/pages/data/UserTodayDataPage";
 import NotApprovedUsers from "../adminDashboard/forms/NotApprovedUsers";
-// import UserPreviousDataPage from "../userDashboard/pages/data/UserPreviousDataPage";
-// import UserClosedDataPage from "../userDashboard/pages/data/UserClosedDataPage";
-// import UserDataAnalytics from "../userDashboard/pages/data/UserDataAnalytics";
 
 /**
  * Main Application Router
@@ -136,6 +122,7 @@ export default function AppRouter() {
         <Route path="/" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-otp" element={<OtpVerification />} />
+        <Route path="/pending-approval" element={<PendingApproval darkMode={darkMode} />} /> {/* MOVE THIS HERE */}
 
         {/* Public Share Link Route */}
         <Route path="/share/:offerId/:hrUserId" element={<SharedOfferForm darkMode={darkMode} />} />
@@ -158,12 +145,6 @@ export default function AppRouter() {
           <Route path="data/dashboard" element={<DataDashboard />} />
           <Route path="data/distribute" element={<DistributeDataPage />} />
           <Route path="data/upload" element={<UploadDataPage />} />
-          {/* <Route path="data/not-used" element={<NotUsedDataPage />} /> */}
-          {/* <Route path="data/today-assigned" element={<TodayAssignedDataPage />} /> */}
-          {/* <Route path="data/called" element={<CalledDataPage />} /> */}
-          {/* <Route path="data/closed" element={<ClosedDataPage />} /> */}
-          {/* <Route path="data/analytics/feedback" element={<DataFeedbackAnalytics />} /> */}
-          {/* <Route path="data/new" element={<NewDataPage />} /> */}
           
           {/* Manage Account routes */}
           <Route path="manage-account" element={<Navigate to="all-Offers" replace />} />
@@ -233,10 +214,7 @@ export default function AppRouter() {
           <Route path="team" element={<TeamManagement />} />
           
           {/* ==================== TL DATA MANAGEMENT ROUTES ==================== */}
-          {/* <Route path="data" element={<TLDataDashboard />} /> */}
           <Route path="data/distribute" element={<TLDistributeDataPage />} />
-          {/* <Route path="data/analytics" element={<TLDataAnalytics />} /> */}
-          {/* <Route path="data/withdrawn" element={<TLWithdrawnDataPage />} /> */}
           
           <Route path="performance" element={<TLPerformance />} />
           <Route path="reports" element={<TLReports />} />
@@ -257,15 +235,11 @@ export default function AppRouter() {
             </RoleBasedRoute>
           }
         >
-          <Route index element={<Dashboard darkMode={darkMode} />} />
+          <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard darkMode={darkMode} />} />
           
           {/* ==================== USER DATA MANAGEMENT ROUTES ==================== */}
-          {/* <Route path="data" element={<UserDataDashboard darkMode={darkMode} />} /> */}
           <Route path="data-today" element={<UserTodayDataPage darkMode={darkMode} />} />
-          {/* <Route path="data-previous" element={<UserPreviousDataPage darkMode={darkMode} />} /> */}
-          {/* <Route path="data-closed" element={<UserClosedDataPage darkMode={darkMode} />} /> */}
-          {/* <Route path="data-analytics" element={<UserDataAnalytics darkMode={darkMode} />} /> */}
           
           {/* Legacy leads routes (for compatibility) */}
           <Route path="all-leads" element={<AllLeads darkMode={darkMode} />} />

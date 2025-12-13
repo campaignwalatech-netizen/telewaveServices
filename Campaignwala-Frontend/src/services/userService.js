@@ -29,6 +29,19 @@ class UserService {
     }
   }
 
+  async getPresentUsers(params = {}) {
+    try {
+      console.log('🌐 userService.getPresentUsers called with:', params);
+      const response = await api.get('/users/admin/present-users', { params });
+      console.log('✅ userService.getPresentUsers response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getPresentUsers error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+
   /**
    * Get users by status (for admin dashboard)
    * @param {string} status - User status (active, inactive, hold, blocked, pending, ex)
@@ -124,13 +137,36 @@ class UserService {
    * @returns {Promise<Object>} - Approval response
    */
   async approveUserRegistration(userId) {
+  try {
+    const response = await api.post(`/users/admin/users/${userId}/approve-registration`);
+    return response.data;
+  } catch (error) {
+    throw this.handleError(error);
+  }
+}
+
+async activateUser(userId, tlId) {
+  try {
+    const response = await api.post(`/users/admin/users/${userId}/activate`, { tlId });
+    return response.data;
+  } catch (error) {
+    throw this.handleError(error);
+  }
+}
+
+  /**
+   * Bulk approve users
+   * @param {Array} userIds - Array of user IDs
+   * @returns {Promise<Object>} - Bulk approval response
+   */
+  async bulkApproveUsers(userIds) {
     try {
-      console.log('🌐 userService.approveUserRegistration called with:', userId);
-      const response = await api.post(`/users/admin/users/${userId}/approve`);
-      console.log('✅ userService.approveUserRegistration response:', response.data);
+      console.log('🌐 userService.bulkApproveUsers called with:', userIds);
+      const response = await api.post('/users/admin/bulk-approve', { userIds });
+      console.log('✅ userService.bulkApproveUsers response:', response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.approveUserRegistration error:', error);
+      console.error('❌ userService.bulkApproveUsers error:', error);
       throw this.handleError(error);
     }
   }
@@ -254,6 +290,42 @@ class UserService {
       return response.data;
     } catch (error) {
       console.error('❌ userService.deleteUser error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Process withdrawal for user
+   * @param {string} userId - User ID
+   * @param {Object} data - Withdrawal data
+   * @returns {Promise<Object>} - Withdrawal response
+   */
+  async processWithdrawal(userId, data) {
+    try {
+      console.log('🌐 userService.processWithdrawal called with:', userId, data);
+      const response = await api.post(`/users/admin/users/${userId}/withdrawal`, data);
+      console.log('✅ userService.processWithdrawal response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.processWithdrawal error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Add rollback data to user
+   * @param {string} userId - User ID
+   * @param {Object} data - Rollback data
+   * @returns {Promise<Object>} - Rollback response
+   */
+  async addRollback(userId, data) {
+    try {
+      console.log('🌐 userService.addRollback called with:', userId, data);
+      const response = await api.post(`/users/admin/users/${userId}/rollback`, data);
+      console.log('✅ userService.addRollback response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.addRollback error:', error);
       throw this.handleError(error);
     }
   }
@@ -692,6 +764,24 @@ class UserService {
 
   // ==================== TL TEAM MANAGEMENT ====================
 
+
+  /**
+   * Get team leaders
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Object>} - Team leaders list
+   */
+  async getTeamLeaders(params = {}) {
+    try {
+      console.log('🌐 userService.getTeamLeaders called with:', params);
+      const response = await api.get('/users/admin/team-leaders', { params });
+      console.log('✅ userService.getTeamLeaders response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getTeamLeaders error:', error);
+      throw this.handleError(error);
+    }
+  }
+
   /**
    * Get team members (for TL)
    * @returns {Promise<Object>} - Team members
@@ -807,7 +897,97 @@ class UserService {
       error: error.toString()
     };
   }
+
+  // ==================== USER MANAGEMENT ====================
+
+  /**
+   * Get all approved users (not TL or admin)
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Object>} - Approved users list
+   */
+  async getApprovedUsers(params = {}) {
+    try {
+      console.log('🌐 userService.getApprovedUsers called with:', params);
+      const response = await api.get('/users/admin/approved-users', { 
+        params: {
+          ...params,
+          role: 'user' // Only get regular users
+        }
+      });
+      console.log('✅ userService.getApprovedUsers response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getApprovedUsers error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Get all not approved users (including TLs)
+   * @param {Object} params - Query parameters
+   * @returns {Promise<Object>} - Not approved users list
+   */
+  async getNotApprovedUsers(params = {}) {
+    try {
+      console.log('🌐 userService.getNotApprovedUsers called with:', params);
+      const response = await api.get('/users/admin/not-approved-users', { params });
+      console.log('✅ userService.getNotApprovedUsers response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ userService.getNotApprovedUsers error:', error);
+      throw this.handleError(error);
+    }
+  }
+
+
+  // Add these methods to your UserService class
+
+async approveUser(userId, data = {}) {
+  try {
+    const response = await api.post(`/users/admin/users/${userId}/approve`, data);
+    return response.data;
+  } catch (error) {
+    throw this.handleError(error);
+  }
 }
+
+async rejectUser(userId, data) {
+  try {
+    const response = await api.post(`/users/admin/users/${userId}/reject`, data);
+    return response.data;
+  } catch (error) {
+    throw this.handleError(error);
+  }
+}
+
+async assignUserToTL(userId, data) {
+  try {
+    const response = await api.post(`/users/admin/users/${userId}/assign-tl`, data);
+    return response.data;
+  } catch (error) {
+    throw this.handleError(error);
+  }
+}
+
+
+
+async exportNotApprovedUsers(params = {}) {
+  try {
+    const response = await api.get('/users/admin/export-pending-users', {
+      params,
+      responseType: 'blob'
+    });
+    return response.data;
+  } catch (error) {
+    throw this.handleError(error);
+  }
+}
+
+  
+
+
+}
+
 
 // Export singleton instance
 const userService = new UserService();

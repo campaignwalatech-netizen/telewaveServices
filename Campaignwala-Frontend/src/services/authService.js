@@ -85,7 +85,15 @@ class AuthService {
       console.log('🔑 [AuthService] Verifying registration OTP for:', otpData.email);
       const response = await api.post('/users/verify-registration', otpData);
       console.log('✅ [AuthService] Registration OTP verification response:', response.data);
-      return response.data;
+      if (response.data.requiresAdminApproval) {
+      // Don't store auth data for pending approval
+      return {
+        ...response.data,
+        requiresAdminApproval: true
+      };
+    }
+    
+    return response.data;
     } catch (error) {
       console.error('❌ [AuthService] Registration OTP verification error:', error.response?.data || error.message);
       throw this.handleError(error);

@@ -1,11 +1,11 @@
 // src/routes/ProtectedRoute.jsx
-
 import { Navigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
   selectIsAuthenticated,
   selectUserRole,
   selectIsLoading,
+  selectUser,
 } from "../redux/slices/authSlice";
 import Loader from "../components/Loader";
 
@@ -21,6 +21,7 @@ const ProtectedRoute = ({
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const userRole = useSelector(selectUserRole);
   const isLoading = useSelector(selectIsLoading);
+  const user = useSelector(selectUser); // Get user data
 
   if (isLoading) return fallback;
 
@@ -33,6 +34,20 @@ const ProtectedRoute = ({
         replace
       />
     );
+  }
+
+  // Check if non-admin user is approved
+  if (requireAuth && isAuthenticated && user) {
+    if (user.role !== 'admin' && user.status !== 'approved') {
+      // Redirect to pending approval page
+      return (
+        <Navigate
+          to="/pending-approval"
+          state={{ from: location.pathname }}
+          replace
+        />
+      );
+    }
   }
 
   // Role-based check

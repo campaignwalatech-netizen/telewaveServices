@@ -23,6 +23,7 @@ const Dashboard = ({ darkMode }) => {
     rejected: 0
   });
   const [userName, setUserName] = useState('#user');
+  const [userStatus, setUserStatus] = useState('approved');
 
   // Enhanced colors for categories with better gradients
   const categoryColors = [

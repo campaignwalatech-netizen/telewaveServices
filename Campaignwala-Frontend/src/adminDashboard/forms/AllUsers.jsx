@@ -295,7 +295,7 @@ const StatusChangeButton = ({ user, onChangeStatus, loading = false }) => {
       case 'active': return "success";
       case 'hold': return "warning";
       case 'dead': return "destructive";
-      case 'inactive': return "gray";
+      // case 'inactive': return "gray";
       default: return "secondary";
     }
   };
@@ -305,7 +305,7 @@ const StatusChangeButton = ({ user, onChangeStatus, loading = false }) => {
       case 'active': return 'Active';
       case 'hold': return 'Hold';
       case 'dead': return 'Dead';
-      case 'inactive': return 'Inactive';
+      // case 'inactive': return 'Inactive';
       default: return user.status || 'Unknown';
     }
   };
@@ -363,15 +363,7 @@ const StatusChangeButton = ({ user, onChangeStatus, loading = false }) => {
                 Dead
               </button>
             )}
-            {user.status !== 'inactive' && (
-              <button
-                onClick={() => handleStatusChange('inactive')}
-                disabled={loading}
-                className="flex items-center w-full px-3 py-2 text-sm text-left text-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-900/20 disabled:opacity-50"
-              >
-                Inactive
-              </button>
-            )}
+            
           </div>
         </div>
       )}

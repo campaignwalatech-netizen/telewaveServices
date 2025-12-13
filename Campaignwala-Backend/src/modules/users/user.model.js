@@ -45,13 +45,37 @@ const userSchema = new mongoose.Schema({
     // Status Management
     status: {
         type: String,
-        enum: ['active', 'inactive', 'hold', 'blocked', 'pending_approval'],
+        enum: ['active',  'hold', 'dead','pending_approval'],
         default: 'pending_approval'
     },
+    registrationStatus: {
+    type: String,
+    enum: ['email_verification_pending', 'admin_approval_pending', 'tl_assignment_pending', 'approved', 'rejected'],
+    default: 'email_verification_pending'
+  },
+  
+  rejectedAt: {
+    type: Date
+  },
+  
+  rejectedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  
+  rejectionReason: {
+    type: String,
+    trim: true
+  },
+  
+  assignedTL: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
     statusHistory: [{
         status: {
             type: String,
-            enum: ['active', 'inactive', 'hold', 'blocked', 'pending_approval']
+            enum: ['active',  'hold', 'dead', 'pending_approval']
         },
         changedBy: {
             type: mongoose.Schema.Types.ObjectId,
@@ -194,7 +218,7 @@ const userSchema = new mongoose.Schema({
     attendance: {
         todayStatus: {
             type: String,
-            enum: ['present', 'absent', 'late', 'half-day'],
+            enum: ['present', 'absent'],
             default: 'absent'
         },
         todayMarkedAt: {
@@ -246,7 +270,7 @@ const userSchema = new mongoose.Schema({
             },
             status: {
                 type: String,
-                enum: ['present', 'absent', 'late', 'half-day', 'holiday', 'leave'],
+                enum: ['present', 'absent'],
                 required: true
             },
             markedAt: {
@@ -298,6 +322,7 @@ const userSchema = new mongoose.Schema({
     },
     // ==================== END LEAD DISTRIBUTION ====================
     
+    // OTP and Verification of email
     isVerified: {
         type: Boolean,
         default: false

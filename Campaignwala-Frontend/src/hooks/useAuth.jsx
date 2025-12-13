@@ -70,7 +70,24 @@ export const useAuth = () => {
       
       const result = await authService.verifyRegistrationOTP({ email, otp });
       
-      // Store auth data and complete registration
+      console.log('✅ [useAuth] Registration OTP verification result:', result);
+      
+      // Check if admin approval is required
+      if (result?.requiresAdminApproval) {
+        console.log('⏳ [useAuth] User requires admin approval');
+        
+        // Clear any existing auth data
+        authService.clearAuthData();
+        
+        // Return the result to handle in RegisterPage
+        return {
+          ...result,
+          requiresAdminApproval: true
+        };
+      }
+      
+      // Normal flow - user is approved immediately
+      console.log('✅ [useAuth] User approved, logging in...');
       authService.storeAuthData(result.data);
       dispatch(registerSuccess(result.data));
       
@@ -135,6 +152,13 @@ export const useAuth = () => {
       // Store auth data and complete login
       authService.storeAuthData(result.data);
       dispatch(loginSuccess(result.data));
+      
+      // Check if user is approved (for non-admin users)
+      if (result.data.user.role !== 'admin' && result.data.user.status !== 'approved') {
+        // User not approved, redirect to pending approval
+        navigate('/pending-approval', { replace: true });
+        return result;
+      }
       
       // Redirect based on role
       if (result.data.user.role === 'admin') {

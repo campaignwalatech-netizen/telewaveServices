@@ -33,6 +33,512 @@ const sendOTP = async (req, res) => {
     }
 };
 
+
+//get present users for admin
+const getPresentUsers = async (req, res) => {
+    try {
+        const presentUsers = await User.find({ 'attendance.todayStatus': 'present', role: 'user'  }).select('name email phoneNumber role attendance');
+        res.status(200).json({
+            success: true,
+            data: presentUsers
+        });
+    } catch (error) {
+        console.error('Get present users error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get present users'
+        });
+    }
+};
+
+//get approved user(not tl) which is approved by admin
+const getApprovedUsers = async (req, res) => {
+    try {
+        const approvedUsers = await User.find({ isVerified: true, role: 'user', status:'approved'  }).select('name email phoneNumber role');
+        res.status(200).json({
+            success: true,
+            data: approvedUsers
+        });
+    } catch (error) {
+        console.error('Get approved users error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get approved users'
+        });
+    }
+};
+
+// Update your backend route to use the new registrationStatus system
+const getNotApprovedUsers = async (req, res) => {
+    try {
+        const {
+            page = 1,
+            limit = 20,
+            sort = 'createdAt',
+            order = 'desc',
+            search = '',
+            registrationStatus = ''
+        } = req.query;
+
+        // Build query for not approved users (NEW SYSTEM)
+        const query = {
+            registrationStatus: { 
+                $in: ['email_verification_pending', 'admin_approval_pending', 'tl_assignment_pending', 'rejected'] 
+            }
+        };
+
+        // Add search filter if provided
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+                { phoneNumber: { $regex: search, $options: 'i' } }
+            ];
+        }
+
+        // Filter by specific registration status if provided
+        if (registrationStatus && registrationStatus !== 'all') {
+            query.registrationStatus = registrationStatus;
+        }
+
+        // Calculate pagination
+        const skip = (page - 1) * limit;
+
+        // Get total count
+        const total = await User.countDocuments(query);
+
+        // Get users with pagination and sorting
+        const users = await User.find(query)
+            .sort({ [sort]: order === 'asc' ? 1 : -1 })
+            .skip(skip)
+            .limit(parseInt(limit))
+            .select('-password') // Exclude password
+            .populate('approvedBy', 'name email')
+            .populate('rejectedBy', 'name email')
+            .populate('assignedTL', 'name email')
+            .populate('reportingTo', 'name email');
+
+        res.status(200).json({
+            success: true,
+            data: {
+                users,
+                pagination: {
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    total,
+                    pages: Math.ceil(total / limit)
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Get not approved users error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get not approved users',
+            error: error.message
+        });
+    }
+};
+
+// Reject user registration
+const rejectUser = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const adminId = req.user._id;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rejection reason is required'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Reject user
+    user.registrationStatus = 'rejected';
+    user.rejectedAt = new Date();
+    user.rejectedBy = adminId;
+    user.rejectionReason = reason;
+    user.isActive = false;
+    
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'User registration rejected',
+      data: { user: user.toJSON() }
+    });
+
+  } catch (error) {
+    console.error('Reject user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reject user'
+    });
+  }
+};
+
+// Assign TL to user
+const assignUserToTL = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const adminId = req.user._id;
+    const { tlId, tlName, notes = '' } = req.body;
+
+    if (!tlId || !tlName) {
+      return res.status(400).json({
+        success: false,
+        message: 'TL ID and TL Name are required'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check if TL exists
+    const tl = await User.findById(tlId);
+    if (!tl || tl.role !== 'TL') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Team Leader'
+      });
+    }
+
+    // Assign TL to user
+    user.assignedTL = tlId;
+    user.reportingTo = tlId;
+    user.registrationStatus = 'approved';
+    user.approvedAt = new Date();
+    user.approvedBy = adminId;
+    user.isActive = true;
+    
+    // Add user to TL's team
+    if (!tl.teamMembers.includes(userId)) {
+      tl.teamMembers.push(userId);
+      tl.tlDetails.totalTeamMembers = tl.teamMembers.length;
+      await tl.save();
+    }
+
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `User assigned to TL ${tlName} successfully`,
+      data: { user: user.toJSON() }
+    });
+
+  } catch (error) {
+    console.error('Assign TL error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to assign TL'
+    });
+  }
+};
+
+// Approve user (move from admin_approval_pending to tl_assignment_pending)
+const approveUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const adminId = req.user._id;
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        if (user.registrationStatus !== 'admin_approval_pending') {
+            return res.status(400).json({
+                success: false,
+                message: `User is not pending admin approval. Current status: ${user.registrationStatus}`
+            });
+        }
+
+        // Move to TL assignment pending
+        user.registrationStatus = 'tl_assignment_pending';
+        user.approvedAt = new Date();
+        user.approvedBy = adminId;
+        
+        await user.save();
+
+        res.json({
+            success: true,
+            message: 'User approved. Now pending TL assignment.',
+            data: { 
+                user: user.toJSON(),
+                nextStep: 'assign_tl'
+            }
+        });
+
+    } catch (error) {
+        console.error('Approve user error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to approve user'
+        });
+    }
+};
+
+// Complete user activation (assign TL and make active)
+const activateUser = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const adminId = req.user._id;
+        const { tlId } = req.body;
+
+        if (!tlId) {
+            return res.status(400).json({
+                success: false,
+                message: 'TL ID is required'
+            });
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        if (user.registrationStatus !== 'tl_assignment_pending') {
+            return res.status(400).json({
+                success: false,
+                message: `User is not pending TL assignment. Current status: ${user.registrationStatus}`
+            });
+        }
+
+        // Check if TL exists
+        const tl = await User.findById(tlId);
+        if (!tl || tl.role !== 'TL') {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid Team Leader'
+            });
+        }
+
+        // Assign TL and activate user
+        user.registrationStatus = 'approved';
+        user.reportingTo = tlId;
+        user.assignedTL = tlId;
+        user.isActive = true;
+        user.status = 'active';
+        
+        // Add user to TL's team
+        if (!tl.teamMembers.includes(userId)) {
+            tl.teamMembers.push(userId);
+            tl.tlDetails.totalTeamMembers = tl.teamMembers.length;
+            await tl.save();
+        }
+
+        await user.save();
+
+        res.json({
+            success: true,
+            message: `User activated and assigned to TL ${tl.name}`,
+            data: { user: user.toJSON() }
+        });
+
+    } catch (error) {
+        console.error('Activate user error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to activate user'
+        });
+    }
+};
+
+// Bulk approve users
+const bulkApproveUsers = async (req, res) => {
+  try {
+    const { userIds, notes = '' } = req.body;
+    const adminId = req.user._id;
+
+    if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'User IDs are required'
+      });
+    }
+
+    const results = {
+      approved: [],
+      failed: []
+    };
+
+    for (const userId of userIds) {
+      try {
+        const user = await User.findById(userId);
+        if (!user) {
+          results.failed.push({
+            userId,
+            error: 'User not found'
+          });
+          continue;
+        }
+
+        if (user.registrationStatus === 'approved') {
+          results.failed.push({
+            userId,
+            error: 'User already approved'
+          });
+          continue;
+        }
+
+        // Approve user (move to TL assignment pending)
+        user.registrationStatus = 'tl_assignment_pending';
+        user.approvedAt = new Date();
+        user.approvedBy = adminId;
+        await user.save();
+
+        results.approved.push({
+          userId,
+          email: user.email,
+          name: user.name
+        });
+
+      } catch (error) {
+        results.failed.push({
+          userId,
+          error: error.message
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Bulk approval completed: ${results.approved.length} approved, ${results.failed.length} failed`,
+      data: results
+    });
+
+  } catch (error) {
+    console.error('Bulk approve error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to bulk approve users'
+    });
+  }
+};
+
+// Export pending users
+const exportPendingUsers = async (req, res) => {
+  try {
+    const { format = 'excel', registrationStatus } = req.query;
+
+    // Build query
+    const query = {
+      registrationStatus: { 
+        $in: ['email_verification_pending', 'admin_approval_pending', 'tl_assignment_pending', 'rejected'] 
+      }
+    };
+
+    if (registrationStatus && registrationStatus !== 'all') {
+      query.registrationStatus = registrationStatus;
+    }
+
+    const users = await User.find(query)
+      .select('name email phoneNumber role registrationStatus createdAt emailVerifiedAt')
+      .populate('approvedBy', 'name email')
+      .populate('rejectedBy', 'name email')
+      .populate('assignedTL', 'name email')
+      .sort({ createdAt: -1 });
+
+    // Format data for export
+    const exportData = users.map(user => ({
+      'User ID': user._id.toString(),
+      'Name': user.name || 'N/A',
+      'Email': user.email || 'N/A',
+      'Phone': user.phoneNumber || 'N/A',
+      'Role': user.role || 'user',
+      'Registration Status': user.registrationStatus || 'N/A',
+      'Email Verified': user.emailVerified ? 'Yes' : 'No',
+      'Email Verified At': user.emailVerifiedAt ? 
+        new Date(user.emailVerifiedAt).toLocaleDateString('en-IN') : 'N/A',
+      'Registered At': user.createdAt.toLocaleDateString('en-IN'),
+      'Assigned TL': user.assignedTL?.name || 'Not Assigned',
+      'TL Email': user.assignedTL?.email || 'N/A',
+      'Approved By': user.approvedBy?.name || 'N/A',
+      'Rejected By': user.rejectedBy?.name || 'N/A',
+      'Rejection Reason': user.rejectionReason || 'N/A'
+    }));
+
+    if (format === 'excel') {
+      // Create Excel workbook
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Pending Users');
+
+      // Add headers
+      const headers = Object.keys(exportData[0] || {});
+      worksheet.addRow(headers);
+
+      // Style headers
+      worksheet.getRow(1).font = { bold: true };
+      worksheet.getRow(1).fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FFFFE6B3' } // Light yellow
+      };
+
+      // Add data
+      exportData.forEach(user => {
+        worksheet.addRow(Object.values(user));
+      });
+
+      // Auto-fit columns
+      worksheet.columns.forEach(column => {
+        let maxLength = 0;
+        column.eachCell({ includeEmpty: true }, cell => {
+          const columnLength = cell.value ? cell.value.toString().length : 10;
+          if (columnLength > maxLength) {
+            maxLength = columnLength;
+          }
+        });
+        column.width = Math.min(Math.max(maxLength + 2, 10), 50);
+      });
+
+      // Set response headers
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename=pending-users-${new Date().toISOString().split('T')[0]}.xlsx`);
+
+      // Write to response
+      await workbook.xlsx.write(res);
+      res.end();
+    } else {
+      // JSON format
+      res.json({
+        success: true,
+        message: 'Pending users exported successfully',
+        data: exportData
+      });
+    }
+
+  } catch (error) {
+    console.error('Export pending users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to export pending users',
+      error: error.message
+    });
+  }
+};
+
+// Register user - Step 1: Send OTP to email
 // Register user - Step 1: Send OTP to email
 const register = async (req, res) => {
     try {
@@ -107,11 +613,20 @@ const register = async (req, res) => {
             });
         }
 
-        // Check if temporary user exists (for OTP verification)
-        let user = await User.findOne({ email, isVerified: false });
-        
-        if (user) {
+        // Check OTP rate limiting
+        const existingTempUser = await User.findOne({ email, isVerified: false });
+        if (existingTempUser && !existingTempUser.canSendOtp()) {
+            return res.status(429).json({
+                success: false,
+                message: 'Too many OTP attempts. Please try again later.'
+            });
+        }
+
+        // Create or update temporary user
+        let user;
+        if (existingTempUser) {
             // Update existing temporary user
+            user = existingTempUser;
             user.name = name;
             user.password = password;
             user.phoneNumber = phoneNumber;
@@ -124,15 +639,10 @@ const register = async (req, res) => {
                 password,
                 phoneNumber,
                 role: role || 'user',
-                isVerified: false
-            });
-        }
-
-        // Check OTP rate limiting
-        if (!user.canSendOtp()) {
-            return res.status(429).json({
-                success: false,
-                message: 'Too many OTP attempts. Please try again later.'
+                isVerified: false,
+                isActive: false, // Initially inactive
+                registrationStatus: 'email_verification_pending',
+                status: 'pending_approval' // For backward compatibility
             });
         }
 
@@ -157,8 +667,9 @@ const register = async (req, res) => {
                 email: email,
                 name: name,
                 role: role || 'user',
-                otp: otp, // Always include OTP
-                developmentMode: emailResult.developmentMode || false
+                otp: otp,
+                developmentMode: emailResult.developmentMode || false,
+                registrationStatus: user.registrationStatus
             }
         });
 
@@ -192,7 +703,7 @@ const register = async (req, res) => {
     }
 };
 
-// Verify Registration OTP - Step 2: Complete registration
+// Verify Registration OTP - Step 2: Complete registration (move to admin approval pending)
 const verifyRegistrationOTP = async (req, res) => {
     try {
         const { email, otp } = req.body;
@@ -221,11 +732,12 @@ const verifyRegistrationOTP = async (req, res) => {
             });
         }
 
-        // Mark user as verified and complete registration
+        // Mark user as verified and move to admin approval pending
         user.isVerified = true;
+        user.registrationStatus = 'admin_approval_pending';
         user.clearOtp('registration');
         
-        // If user is TL, initialize TL details
+        // Initialize TL details if TL
         if (user.role === 'TL') {
             user.tlDetails = {
                 assignedTeam: [],
@@ -257,7 +769,7 @@ const verifyRegistrationOTP = async (req, res) => {
             // Continue registration even if welcome email fails
         }
 
-        // Generate token
+        // Generate token (but user still needs admin approval)
         const token = generateToken(user._id);
 
         // Store session info
@@ -267,12 +779,13 @@ const verifyRegistrationOTP = async (req, res) => {
         user.lastActivity = new Date();
         await user.save();
 
-        console.log('✅ User registered successfully:', user.email);
+        console.log('✅ User registered and pending admin approval:', user.email);
         console.log('👤 Role:', user.role);
+        console.log('📋 Registration Status:', user.registrationStatus);
 
         res.status(201).json({
             success: true,
-            message: 'Registration successful! Welcome to our platform.',
+            message: 'Registration successful! Your account is pending admin approval.',
             data: {
                 user: {
                     _id: user._id,
@@ -281,9 +794,11 @@ const verifyRegistrationOTP = async (req, res) => {
                     phoneNumber: user.phoneNumber,
                     role: user.role,
                     isVerified: user.isVerified,
-                    isActive: user.isActive
+                    isActive: user.isActive,
+                    registrationStatus: user.registrationStatus
                 },
-                token
+                token,
+                requiresAdminApproval: true
             }
         });
 
@@ -296,6 +811,7 @@ const verifyRegistrationOTP = async (req, res) => {
     }
 };
 
+// Login user with email and password, then send OTP to email
 // Login user with email and password, then send OTP to email
 const login = async (req, res) => {
     try {
@@ -319,7 +835,18 @@ const login = async (req, res) => {
             });
         }
 
-        // Check if account is active
+        // Check if account is approved and active
+        if (user.registrationStatus !== 'approved') {
+            return res.status(401).json({
+                success: false,
+                message: 'Account is pending approval. Please wait for admin approval.',
+                registrationStatus: user.registrationStatus,
+                requiresAdminApproval: user.registrationStatus === 'admin_approval_pending',
+                requiresTLAssignment: user.registrationStatus === 'tl_assignment_pending'
+            });
+        }
+
+        // Check if account is active (admin can set isActive to false)
         if (!user.isActive) {
             return res.status(401).json({
                 success: false,
@@ -366,8 +893,9 @@ const login = async (req, res) => {
                 name: user.name,
                 role: user.role,
                 otpSent: !emailResult.developmentMode,
-                otp: otp, // Always include OTP
-                developmentMode: emailResult.developmentMode || false
+                otp: otp,
+                developmentMode: emailResult.developmentMode || false,
+                registrationStatus: user.registrationStatus
             }
         });
 
@@ -3831,6 +4359,8 @@ module.exports = {
     // Authentication
     register,
     verifyRegistrationOTP,
+    approveUser,
+    activateUser,
     login,
     verifyLoginOTP,
     adminLogin,
@@ -3914,6 +4444,13 @@ module.exports = {
     getUserStats,
     exportUsers,
     updateUser,
+    getApprovedUsers,
+    getPresentUsers,
+    getNotApprovedUsers,
+    rejectUser,
+    assignUserToTL,
+    bulkApproveUsers,
+    exportPendingUsers,
     
     // Legacy functions
     sendOTP

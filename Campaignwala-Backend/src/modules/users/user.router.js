@@ -5,6 +5,8 @@ const {
     // Authentication
     register,
     verifyRegistrationOTP,
+    approveUser,
+    activateUser,
     login,
     verifyLoginOTP,
     adminLogin,
@@ -43,6 +45,10 @@ const {
     blockUser,
     changeUserRole,
     getUsersByStatus,
+    rejectUser,
+    assignUserToTL,
+    bulkApproveUsers,
+    exportPendingUsers,
     
     // TL Functions
     getTeamMembers,
@@ -87,7 +93,10 @@ const {
     getAllUsersWithStats,
     getUserStats,
     exportUsers,
-    updateUser
+    updateUser,
+    getApprovedUsers,
+    getPresentUsers,
+    getNotApprovedUsers
 } = require('./user.controller');
 
 const {
@@ -101,6 +110,8 @@ const {
     canMarkAttendance,
     optionalAuth
 } = require('../../middleware/user.middleware');
+
+
 
 // Add this to your user.routes.js
 router.get('/test-email', async (req, res) => {
@@ -120,6 +131,7 @@ router.get('/test-email', async (req, res) => {
         });
     }
 });
+
 
 /**
  * @swagger
@@ -193,8 +205,187 @@ router.get('/', getAllUsers);
  *       200:
  *         description: OTP sent to email for verification
  */
-router.post('/register', register);
 
+
+/**
+ * @swagger
+ * /api/users/admin/users/{userId}/approve-registration:
+ *   post:
+ *     summary: Approve user registration (move to TL assignment)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: User approved, pending TL assignment
+ */
+router.post('/admin/users/:userId/approve-registration', authenticateToken, requireAdmin, approveUser);
+
+/**
+ * @swagger
+ * /api/users/admin/users/{userId}/activate:
+ *   post:
+ *     summary: Activate user with TL assignment
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tlId
+ *             properties:
+ *               tlId:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User activated and assigned to TL
+ */
+router.post('/admin/users/:userId/activate', authenticateToken, requireAdmin, activateUser);
+
+router.get('/admin/approved-users', getApprovedUsers);
+router.post('/register', register);
+router.get('/admin/present-users', getPresentUsers);
+router.get('/admin/not-approved-users', getNotApprovedUsers);
+
+// Add these routes after the existing admin routes
+
+/**
+ * @swagger
+ * /api/users/admin/users/{userId}/reject:
+ *   post:
+ *     summary: Reject user registration (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reason
+ *             properties:
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: User rejected successfully
+ */
+router.post('/admin/users/:userId/reject', authenticateToken, requireAdmin, rejectUser);
+
+/**
+ * @swagger
+ * /api/users/admin/users/{userId}/assign-tl:
+ *   post:
+ *     summary: Assign Team Leader to user (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tlId
+ *               - tlName
+ *             properties:
+ *               tlId:
+ *                 type: string
+ *               tlName:
+ *                 type: string
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: TL assigned successfully
+ */
+router.post('/admin/users/:userId/assign-tl', authenticateToken, requireAdmin, assignUserToTL);
+
+/**
+ * @swagger
+ * /api/users/admin/users/bulk-approve:
+ *   post:
+ *     summary: Bulk approve users (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userIds
+ *             properties:
+ *               userIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Users bulk approved successfully
+ */
+router.post('/admin/users/bulk-approve', authenticateToken, requireAdmin, bulkApproveUsers);
+
+/**
+ * @swagger
+ * /api/users/admin/export-pending-users:
+ *   get:
+ *     summary: Export pending users to Excel (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: format
+ *         schema:
+ *           type: string
+ *           enum: [excel, json]
+ *           default: "excel"
+ *       - in: query
+ *         name: registrationStatus
+ *         schema:
+ *           type: string
+ *           enum: [all, email_verification_pending, admin_approval_pending, tl_assignment_pending, rejected]
+ *     responses:
+ *       200:
+ *         description: Pending users exported successfully
+ */
+router.get('/admin/export-pending-users', authenticateToken, requireAdmin, exportPendingUsers);
 /**
  * @swagger
  * /api/users/verify-registration:

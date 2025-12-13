@@ -27,6 +27,7 @@ export default function LoginPage() {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
   const [developmentOTP, setDevelopmentOTP] = useState("");
+  const [formError, setFormError] = useState("");
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -49,7 +50,8 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, userRole, user, navigate]);
 
-  const handleSubmit = async (e) => {
+  // Inside handleSubmit function in LoginPage
+const handleSubmit = async (e) => {
     e.preventDefault();
 
     setSuccessMessage("");
@@ -58,39 +60,57 @@ export default function LoginPage() {
     clearAuthError();
 
     try {
-      console.log("🔐 Login attempt with:", { email });
+        console.log("🔐 Login attempt with:", { email });
 
-      const response = await login({ email, password });
-      console.log("✅ Login response:", response);
+        const response = await login({ email, password });
+        console.log("✅ Login response:", response);
 
-      if (response?.requireOTP) {
-        // OTP required - show modal
-        setUserEmail(response.data?.email || email);
-
-        // Show appropriate message based on development mode
-        if (response.data?.developmentMode) {
-          const devOtp = response.data.otp;
-          setDevelopmentOTP(devOtp);
-          setSuccessMessage(
-            `🔑 OTP Generated: ${devOtp} (Email service unavailable - use this OTP)`
-          );
-          console.log("🔑 Development OTP:", devOtp);
-        } else {
-          setSuccessMessage("📧 OTP sent to your email!");
+        // Check if user is pending approval
+        if (response?.registrationStatus && response.registrationStatus !== 'approved') {
+            setSendingOtp(false);
+            
+            if (response.registrationStatus === 'admin_approval_pending') {
+                setFormError("Your account is pending admin approval. Please wait for approval.");
+            } else if (response.registrationStatus === 'tl_assignment_pending') {
+                setFormError("Your account is pending TL assignment. Please wait for activation.");
+            } else if (response.registrationStatus === 'email_verification_pending') {
+                setFormError("Please complete email verification first.");
+            } else if (response.registrationStatus === 'rejected') {
+                setFormError("Your registration has been rejected. Please contact support.");
+            }
+            return;
         }
 
-        setSendingOtp(false);
-        setShowOtpModal(true);
-      } else {
-        // Login successful without OTP (the hook should have set auth state and navigation)
-        console.log("✅ Login successful without OTP");
-        setSendingOtp(false);
-      }
+        if (response?.requireOTP) {
+            // OTP required - show modal
+            setUserEmail(response.data?.email || email);
+
+            if (response.data?.developmentMode) {
+                const devOtp = response.data.otp;
+                setDevelopmentOTP(devOtp);
+                setSuccessMessage(
+                    `🔑 OTP Generated: ${devOtp} (Email service unavailable - use this OTP)`
+                );
+                console.log("🔑 Development OTP:", devOtp);
+            } else {
+                setSuccessMessage("📧 OTP sent to your email!");
+            }
+
+            setSendingOtp(false);
+            setShowOtpModal(true);
+        } else {
+            console.log("✅ Login successful without OTP");
+            setSendingOtp(false);
+        }
     } catch (err) {
-      console.error("❌ Login error:", err);
-      setSendingOtp(false);
+        console.error("❌ Login error:", err);
+        setSendingOtp(false);
+        // Check for pending approval error
+        if (err.message?.includes('pending approval')) {
+            setFormError(err.message);
+        }
     }
-  };
+};
 
   const handleVerifyOTP = async (otp) => {
     try {
