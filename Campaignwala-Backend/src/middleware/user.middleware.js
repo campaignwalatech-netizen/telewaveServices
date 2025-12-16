@@ -338,9 +338,22 @@ const optionalAuth = async (req, res, next) => {
     }
 };
 
+const debugAuth = (req, res, next) => {
+    console.log('🔐 [AUTH DEBUG] Route:', req.path);
+    console.log('🔐 [AUTH DEBUG] Method:', req.method);
+    console.log('🔐 [AUTH DEBUG] Headers:', req.headers.authorization ? 'Has Auth Header' : 'No Auth Header');
+    if (req.user) {
+        console.log('🔐 [AUTH DEBUG] User:', req.user._id, req.user.email, req.user.role);
+    } else {
+        console.log('🔐 [AUTH DEBUG] No user in request');
+    }
+    next();
+};
+
 // ==================== EXPORTS ====================
 
 module.exports = {
+    debugAuth,
     // Main authentication middleware
     protect,
     authenticateToken: protect, // Keep backward compatibility

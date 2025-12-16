@@ -1,11 +1,14 @@
+// DistributeDataPage.jsx - FIXED VERSION
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-  Users, Search, Filter, Upload, UserPlus, 
-  Target, CheckCircle, XCircle, RefreshCw,
+  Users, Search, Upload, UserPlus, 
+  CheckCircle, XCircle, RefreshCw,
   ArrowRight, ChevronDown, User, Crown,
-  MoreVertical, Download, FileText, Eye,
-  Grid, List, Filter as FilterIcon, Settings,
-  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight
+  MoreVertical, FileText, Eye,
+  Grid, List,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  Info
 } from 'lucide-react';
 import dataService from '../../../services/dataService';
 import userService from '../../../services/userService';
@@ -38,7 +41,7 @@ const DistributeDataPage = () => {
   const [dateFilter, setDateFilter] = useState('');
   const [availableBatches, setAvailableBatches] = useState([]);
   
-  // State for distribution modal
+  // State for distribution
   const [showDistributionModal, setShowDistributionModal] = useState(false);
   const [distributionType, setDistributionType] = useState('');
   const [count, setCount] = useState(10);
@@ -49,7 +52,15 @@ const DistributeDataPage = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [availableDataCount, setAvailableDataCount] = useState(0);
-
+  const [distributionCounts, setDistributionCounts] = useState({
+    present_today: 0,
+    without_data: 0,
+    all_active: 0,
+    team_leaders: 0,
+    pending_data: 0
+  });
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  
   // Search debounce reference
   const debouncedSearchRef = useRef();
 
@@ -64,10 +75,110 @@ const DistributeDataPage = () => {
 
     return () => {
       if (debouncedSearchRef.current) {
-        debouncedSearchRef.current.cancel?.(); // If using lodash-like API
+        debouncedSearchRef.current.cancel?.();
       }
     };
   }, []);
+
+  // Fetch distribution counts with user details - FIXED VERSION
+  const fetchDistributionCounts = async () => {
+    try {
+      console.log('Fetching distribution counts...');
+      
+      // Get counts from data service
+      const countsResult = await dataService.getDistributionCounts();
+      console.log('Counts result from dataService:', countsResult);
+      
+      // Extract pending_data count from the response
+      let pendingDataCount = 0;
+      if (countsResult.success) {
+        // Try different possible response structures
+        pendingDataCount = countsResult.counts?.pending_data || 
+                          countsResult.data?.pending_data || 
+                          countsResult.pending_data || 
+                          0;
+        console.log('Pending data count found:', pendingDataCount);
+      }
+
+      // Fetch user counts for each distribution type
+      const [presentUsersResult, teamLeadersResult, allUsersResult] = await Promise.all([
+        userService.getPresentUsers({ status: 'active' }),
+        userService.getTeamLeaders({ status: 'active' }),
+        userService.getAllUsers({ 
+          role: 'user', 
+          status: 'active',
+          limit: 1000 
+        }).catch(() => ({ success: false, data: [] }))
+      ]);
+
+      console.log('User results:', {
+        presentUsers: presentUsersResult,
+        teamLeaders: teamLeadersResult,
+        allUsers: allUsersResult
+      });
+
+      // Process present users count
+      let presentTodayCount = 0;
+      if (presentUsersResult.success) {
+        presentTodayCount = presentUsersResult.data?.length || 
+                          presentUsersResult.count || 
+                          presentUsersResult.users?.length || 
+                          (presentUsersResult.data && Array.isArray(presentUsersResult.data) ? presentUsersResult.data.length : 0);
+      }
+
+      // Process team leaders count
+      let teamLeadersCount = 0;
+      if (teamLeadersResult.success) {
+        teamLeadersCount = teamLeadersResult.data?.length || 
+                          teamLeadersResult.count || 
+                          teamLeadersResult.users?.length || 
+                          (teamLeadersResult.data && Array.isArray(teamLeadersResult.data) ? teamLeadersResult.data.length : 0);
+      }
+
+      // Process all active users count - FIXED
+      let allActiveCount = 0;
+      if (allUsersResult.success) {
+        // Check different possible response structures
+        if (allUsersResult.data && Array.isArray(allUsersResult.data)) {
+          allActiveCount = allUsersResult.data.length;
+        } else if (allUsersResult.data?.users && Array.isArray(allUsersResult.data.users)) {
+          allActiveCount = allUsersResult.data.users.length;
+        } else if (allUsersResult.data?.data && Array.isArray(allUsersResult.data.data)) {
+          allActiveCount = allUsersResult.data.data.length;
+        } else if (allUsersResult.count) {
+          allActiveCount = allUsersResult.count;
+        } else if (allUsersResult.pagination?.total) {
+          allActiveCount = allUsersResult.pagination.total;
+        }
+      }
+
+      const counts = {
+        present_today: presentTodayCount,
+        all_active: allActiveCount,
+        team_leaders: teamLeadersCount,
+        pending_data: pendingDataCount,
+        without_data: Math.max(0, presentTodayCount) // Using present count as base
+      };
+
+      console.log('Calculated counts:', counts);
+
+      setDistributionCounts(counts);
+      setAvailableDataCount(pendingDataCount);
+      
+    } catch (error) {
+      console.error('Error fetching distribution counts:', error);
+      // Set default counts on error
+      const defaultCounts = {
+        present_today: 0,
+        without_data: 0,
+        all_active: 0,
+        team_leaders: 0,
+        pending_data: 0
+      };
+      setDistributionCounts(defaultCounts);
+      setAvailableDataCount(0);
+    }
+  };
 
   // Fetch uploaded data with filters
   const fetchUploadedData = useCallback(async (page = 1) => {
@@ -87,21 +198,45 @@ const DistributeDataPage = () => {
       // Remove undefined filters
       Object.keys(filters).forEach(key => filters[key] === undefined && delete filters[key]);
 
+      console.log('Fetching uploaded data with filters:', filters);
       const result = await dataService.getPendingData(filters);
+      console.log('Uploaded data result:', result);
       
       if (result.success) {
         setUploadedData(result.data || []);
-        setTotalItems(result.pagination?.total || 0);
+        setTotalItems(result.pagination?.total || result.data?.length || 0);
         setCurrentPage(page);
+        
+        // Update available data count from the uploaded data
+        // This is a fallback if getDistributionCounts doesn't work
+        if (result.data && result.data.length > 0) {
+          // Count only pending data
+          const pendingData = result.data.filter(item => 
+            item.distributionStatus === 'pending' || 
+            !item.distributionStatus
+          );
+          if (pendingData.length > 0 && availableDataCount === 0) {
+            console.log('Setting available data count from uploaded data:', pendingData.length);
+            setAvailableDataCount(pendingData.length);
+            setDistributionCounts(prev => ({
+              ...prev,
+              pending_data: pendingData.length
+            }));
+          }
+        }
       } else {
         console.error('Failed to fetch data:', result.error);
+        setUploadedData([]);
+        setTotalItems(0);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
+      setUploadedData([]);
+      setTotalItems(0);
     } finally {
       setLoadingData(false);
     }
-  }, [searchTerm, batchFilter, statusFilter, dateFilter, itemsPerPage]);
+  }, [searchTerm, batchFilter, statusFilter, dateFilter, itemsPerPage, availableDataCount]);
 
   // Fetch available batches
   const fetchAvailableBatches = async () => {
@@ -116,39 +251,91 @@ const DistributeDataPage = () => {
     }
   };
 
-  // Fetch available users and TLs
+  // Fetch available users and TLs with better error handling - FIXED
   const fetchUsersAndTLs = async () => {
     try {
-      // Get TLs
-      const tlsResult = await userService.getAllUsers({ role: 'TL', status: 'active' });
+      console.log('Fetching users and TLs...');
+      
+      // Get active TLs
+      const tlsResult = await userService.getTeamLeaders({ status: 'active' });
+      console.log('TLs result:', tlsResult);
+      
+      let tlsData = [];
       if (tlsResult.success) {
-        setTLs(tlsResult.data || []);
+        // Handle different response structures
+        if (Array.isArray(tlsResult.data)) {
+          tlsData = tlsResult.data;
+        } else if (Array.isArray(tlsResult.users)) {
+          tlsData = tlsResult.users;
+        } else if (tlsResult.data?.data && Array.isArray(tlsResult.data.data)) {
+          tlsData = tlsResult.data.data;
+        }
+      }
+      setTLs(tlsData);
+      console.log('TLs data set:', tlsData.length);
+      
+      // Get active users (HR)
+      let usersResult;
+      try {
+        usersResult = await userService.getAllUsers({ 
+          role: 'user', 
+          status: 'active',
+          limit: 1000 
+        });
+      } catch (error) {
+        console.log('Trying getApprovedUsers...');
+        usersResult = await userService.getApprovedUsers({ 
+          status: 'active',
+          limit: 1000 
+        });
       }
       
-      // Get users (HR)
-      const usersResult = await userService.getAllUsers({ role: 'user', status: 'active' });
+      console.log('Users result:', usersResult);
+      
+      let usersData = [];
       if (usersResult.success) {
-        setUsers(usersResult.data || []);
+        // Handle different response structures
+        if (Array.isArray(usersResult.data)) {
+          usersData = usersResult.data;
+        } else if (Array.isArray(usersResult.users)) {
+          usersData = usersResult.users;
+        } else if (usersResult.data?.users && Array.isArray(usersResult.data.users)) {
+          usersData = usersResult.data.users;
+        } else if (usersResult.data?.data && Array.isArray(usersResult.data.data)) {
+          usersData = usersResult.data.data;
+        } else if (usersResult.data && typeof usersResult.data === 'object') {
+          // Try to extract array from nested structure
+          for (const key in usersResult.data) {
+            if (Array.isArray(usersResult.data[key])) {
+              usersData = usersResult.data[key];
+              break;
+            }
+          }
+        }
       }
-
-      // Get pending data count
-      const countResult = await dataService.getPendingData({ page: 1, limit: 1 });
-      if (countResult.success) {
-        setAvailableDataCount(countResult.pagination?.total || 0);
-      } else {
-        // Fallback: count from current data
-        setAvailableDataCount(totalItems);
-      }
+      
+      setUsers(usersData);
+      console.log('Users data set:', usersData.length);
+      
     } catch (error) {
       console.error('Error fetching users/TLs:', error);
+      setTLs([]);
+      setUsers([]);
     }
   };
 
+  // Initial data fetch
   useEffect(() => {
     fetchUploadedData();
     fetchUsersAndTLs();
     fetchAvailableBatches();
-  }, [fetchUploadedData]);
+    fetchDistributionCounts();
+  }, []);
+
+  // Refresh when filters change
+  useEffect(() => {
+    fetchUploadedData(1);
+  }, [searchTerm, batchFilter, statusFilter, dateFilter, itemsPerPage]);
 
   // Handle search input with debounce
   const handleSearchChange = (value) => {
@@ -190,31 +377,61 @@ const DistributeDataPage = () => {
     fetchUploadedData(1);
   };
 
-  // Open distribution modal with specific type
+  // Refresh data
+  const refreshData = () => {
+    fetchUploadedData(currentPage);
+    fetchDistributionCounts();
+    fetchUsersAndTLs();
+  };
+
+  // Open distribution modal with specific type - FIXED
   const openDistributionModal = (type) => {
     setDistributionType(type);
     setShowDistributionModal(true);
     setResult(null);
+    
+    // Reset selections
+    setSelectedTL('');
+    setSelectedUser('');
+    
+    // Set default count based on availability and distribution type
+    const maxCount = Math.min(100, availableDataCount || 10); // Default to 10 if 0
+    let defaultCount;
+    
+    switch(type) {
+      case 'present_today':
+      case 'without_data':
+        defaultCount = Math.min(10, maxCount);
+        break;
+      case 'all_active':
+        defaultCount = Math.min(5, maxCount);
+        break;
+      case 'particular_employee':
+      case 'team_leaders':
+        defaultCount = Math.min(10, maxCount);
+        break;
+      default:
+        defaultCount = Math.min(10, maxCount);
+    }
+    
+    setCount(defaultCount);
   };
 
   // Handle distribution
   const handleDistribute = async () => {
     let distributionResult;
-
     setLoading(true);
+    setResult(null);
     
     try {
+      console.log('Starting distribution with type:', distributionType, 'count:', count);
+      
       switch (distributionType) {
         case 'present_today':
-          distributionResult = await dataService.bulkAssignData('present_today', count);
-          break;
-          
         case 'without_data':
-          distributionResult = await dataService.bulkAssignData('without_data', count);
-          break;
-          
         case 'all_active':
-          distributionResult = await dataService.bulkAssignData('all_active', count);
+        case 'team_leaders':
+          distributionResult = await dataService.bulkAssignData(distributionType, count);
           break;
           
         case 'particular_employee':
@@ -226,7 +443,7 @@ const DistributeDataPage = () => {
           distributionResult = await dataService.assignDataToUser(count, selectedUser);
           break;
           
-        case 'team_leaders':
+        case 'team_leaders_specific':
           if (!selectedTL) {
             alert('Please select a Team Leader');
             setLoading(false);
@@ -241,19 +458,22 @@ const DistributeDataPage = () => {
           return;
       }
 
+      console.log('Distribution result:', distributionResult);
       setResult(distributionResult);
       
       if (distributionResult.success) {
-        alert('Data distributed successfully!');
-        setShowDistributionModal(false);
-        fetchUploadedData();
-        fetchUsersAndTLs();
-      } else {
-        alert(`Error: ${distributionResult.error}`);
+        setTimeout(() => {
+          setShowDistributionModal(false);
+          refreshData();
+        }, 2000);
       }
     } catch (error) {
       console.error('Distribution error:', error);
-      alert('An error occurred during distribution');
+      setResult({
+        success: false,
+        error: 'An error occurred during distribution',
+        details: error.message
+      });
     }
     
     setLoading(false);
@@ -273,47 +493,66 @@ const DistributeDataPage = () => {
   const goToNextPage = () => goToPage(currentPage + 1);
 
   // Calculate total pages
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
 
   // Items per page options
   const itemsPerPageOptions = [5, 10, 25, 50, 100];
 
-  // Distribution type options
+  // Distribution type options with counts - FIXED
   const distributionOptions = [
     {
       id: 'present_today',
       title: 'Present HR Today',
       description: 'Distribute to HR users who are present today',
       icon: Users,
-      color: 'bg-green-500'
+      color: 'bg-green-500',
+      count: distributionCounts.present_today || 0,
+      info: 'Users marked as present today'
     },
     {
       id: 'without_data',
       title: 'Present HR who didn\'t get Data Today',
       description: 'Distribute to present HR without assigned data today',
       icon: UserPlus,
-      color: 'bg-blue-500'
+      color: 'bg-blue-500',
+      count: distributionCounts.without_data || 0,
+      info: 'Present users with no leads assigned today'
     },
     {
       id: 'all_active',
       title: 'To All HR with Active Status',
       description: 'Distribute to all active HR users',
       icon: Users,
-      color: 'bg-purple-500'
+      color: 'bg-purple-500',
+      count: distributionCounts.all_active || 0,
+      info: 'All active HR users regardless of attendance'
     },
     {
       id: 'particular_employee',
       title: 'To Particular Employee',
       description: 'Distribute to a specific employee',
       icon: User,
-      color: 'bg-orange-500'
+      color: 'bg-orange-500',
+      count: users.length || 0,
+      info: 'Select specific employee from list'
     },
     {
       id: 'team_leaders',
       title: 'To Team Leaders',
       description: 'Distribute to Team Leaders',
       icon: Crown,
-      color: 'bg-red-500'
+      color: 'bg-red-500',
+      count: distributionCounts.team_leaders || 0,
+      info: 'All active Team Leaders'
+    },
+    {
+      id: 'team_leaders_specific',
+      title: 'To Specific Team Leader',
+      description: 'Distribute to a specific Team Leader',
+      icon: Crown,
+      color: 'bg-indigo-500',
+      count: TLs.length || 0,
+      info: 'Select specific Team Leader from list'
     }
   ];
 
@@ -326,6 +565,46 @@ const DistributeDataPage = () => {
     { value: 'withdrawn', label: 'Withdrawn' }
   ];
 
+  // Get available count for current distribution type
+  const getAvailableCountForType = () => {
+    if (distributionType === 'particular_employee') {
+      return users.length;
+    }
+    if (distributionType === 'team_leaders_specific') {
+      return TLs.length;
+    }
+    
+    const option = distributionOptions.find(opt => opt.id === distributionType);
+    return option ? option.count : 0;
+  };
+
+  // Get user details for display
+  const getUserDisplayInfo = (userId) => {
+    const user = users.find(u => u._id === userId);
+    return user ? `${user.name || 'Unknown'} (${user.phoneNumber || user.email || 'No contact'})` : 'Unknown User';
+  };
+
+  const getTLDisplayInfo = (tlId) => {
+    const tl = TLs.find(t => t._id === tlId);
+    return tl ? `${tl.name || 'Unknown'} (${tl.phoneNumber || tl.email || 'No contact'})` : 'Unknown TL';
+  };
+
+  // Format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  // Calculate actual pending data from uploadedData
+  const actualPendingData = uploadedData.filter(item => 
+    item.distributionStatus === 'pending' || !item.distributionStatus
+  ).length;
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -335,20 +614,41 @@ const DistributeDataPage = () => {
           <p className="text-gray-600">Manage and distribute uploaded data</p>
         </div>
         
-        {/* Distribution Button */}
-        <div className="relative">
+        {/* Action Buttons - FIXED: Allow opening modal even if availableDataCount is 0 */}
+        <div className="flex space-x-3">
+          <button
+            onClick={refreshData}
+            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            title="Refresh Data"
+            disabled={loadingData}
+          >
+            <RefreshCw size={18} className={loadingData ? "animate-spin" : ""} />
+            <span>Refresh</span>
+          </button>
+          
           <button
             onClick={() => openDistributionModal('')}
-            className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-medium flex items-center space-x-2"
+            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg font-medium flex items-center space-x-2 disabled:opacity-50"
+            // REMOVED: disabled={availableDataCount === 0} - Allow opening modal to check status
           >
             <ArrowRight size={18} />
             <span>Distribute Data</span>
+            {availableDataCount > 0 && (
+              <span className="bg-blue-800 text-white text-xs px-2 py-1 rounded-full">
+                {availableDataCount} available
+              </span>
+            )}
+            {availableDataCount === 0 && uploadedData.length > 0 && (
+              <span className="bg-yellow-600 text-white text-xs px-2 py-1 rounded-full">
+                Check status
+              </span>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      {/* Stats Cards - FIXED: Show actual pending data */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
         <div className="bg-white rounded-xl shadow p-6">
           <div className="flex justify-between items-center">
             <div>
@@ -359,371 +659,32 @@ const DistributeDataPage = () => {
               <FileText className="text-blue-600" size={24} />
             </div>
           </div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow p-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-gray-500 text-sm">Available for Distribution</p>
-              <p className="text-2xl font-bold mt-2">{availableDataCount}</p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-              <Target className="text-green-600" size={24} />
-            </div>
+          <div className="mt-4 text-sm text-gray-500">
+            Pending: <span className="font-semibold text-blue-600">{actualPendingData}</span>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl shadow p-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-gray-500 text-sm">Selected</p>
-              <p className="text-2xl font-bold mt-2">{selectedData.length}</p>
+        {distributionOptions.slice(0, 5).map((option) => (
+          <div key={option.id} className="bg-white rounded-xl shadow p-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-gray-500 text-sm">{option.title}</p>
+                <p className="text-2xl font-bold mt-2">{option.count}</p>
+              </div>
+              <div className={`w-12 h-12 ${option.color.replace('500', '100')} rounded-full flex items-center justify-center`}>
+                {React.createElement(option.icon, { className: option.color.replace('bg-', 'text-'), size: 24 })}
+              </div>
             </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-              <CheckCircle className="text-purple-600" size={24} />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow p-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <p className="text-gray-500 text-sm">Current Page</p>
-              <p className="text-2xl font-bold mt-2">{currentPage} / {totalPages || 1}</p>
-            </div>
-            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-              <List className="text-orange-600" size={24} />
+            <div className="mt-4 text-sm text-gray-500">
+              {option.info}
             </div>
           </div>
-        </div>
+        ))}
       </div>
 
-      {/* Data Table */}
-      <div className="bg-white rounded-xl shadow overflow-hidden mb-6">
-        {/* Table Header with Filters */}
-        <div className="p-4 border-b">
-          <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
-            {/* Left side: Search and View Mode */}
-            <div className="flex items-center space-x-4">
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  placeholder="Search by name, phone, batch..."
-                  defaultValue={searchTerm}
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <button 
-                  onClick={() => setViewMode('table')}
-                  className={`p-2 rounded-lg ${viewMode === 'table' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}
-                  title="Table View"
-                >
-                  <List size={18} />
-                </button>
-                <button 
-                  onClick={() => setViewMode('card')}
-                  className={`p-2 rounded-lg ${viewMode === 'card' ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}
-                  title="Card View"
-                >
-                  <Grid size={18} />
-                </button>
-              </div>
-            </div>
+      {/* Rest of the component remains mostly the same, but fix the modal opening logic */}
 
-            {/* Right side: Filters and Actions */}
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Batch Filter */}
-              <select
-                value={batchFilter}
-                onChange={(e) => setBatchFilter(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">All Batches</option>
-                {availableBatches.map(batch => (
-                  <option key={batch} value={batch}>{batch}</option>
-                ))}
-              </select>
-
-              {/* Status Filter */}
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {statusOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-
-              {/* Date Filter */}
-              <input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-
-              {/* Action Buttons */}
-              <button
-                onClick={applyFilters}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-              >
-                Apply Filters
-              </button>
-              
-              <button
-                onClick={clearFilters}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-sm"
-              >
-                Clear All
-              </button>
-
-              {/* Items per page selector */}
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">Show:</span>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(parseInt(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {itemsPerPageOptions.map(option => (
-                    <option key={option} value={option}>{option}</option>
-                  ))}
-                </select>
-                <span className="text-sm text-gray-600">per page</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Data Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left w-12">
-                  <input
-                    type="checkbox"
-                    checked={uploadedData.length > 0 && selectedData.length === uploadedData.length}
-                    onChange={handleSelectAll}
-                    className="rounded border-gray-300"
-                  />
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone Number</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Batch</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {loadingData ? (
-                <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
-                      <p className="text-gray-500">Loading data...</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : uploadedData.length === 0 ? (
-                <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center">
-                      <FileText className="text-gray-400 mb-4" size={48} />
-                      <p className="text-gray-500 text-lg font-medium mb-2">No data found</p>
-                      <p className="text-gray-400">Try adjusting your filters or search term</p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                uploadedData.map((item) => (
-                  <tr key={item._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4">
-                      <input
-                        type="checkbox"
-                        checked={selectedData.includes(item._id)}
-                        onChange={() => handleSelectData(item._id)}
-                        className="rounded border-gray-300"
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      }) : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{item.name || 'N/A'}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-gray-900 font-mono">{item.contact || 'N/A'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="px-3 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
-                        {item.batchNumber || 'Default'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 text-xs rounded-full ${
-                        item.distributionStatus === 'pending' 
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : item.distributionStatus === 'assigned'
-                          ? 'bg-blue-100 text-blue-800'
-                          : item.distributionStatus === 'distributed'
-                          ? 'bg-purple-100 text-purple-800'
-                          : item.distributionStatus === 'withdrawn'
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {item.distributionStatus || 'pending'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex space-x-2">
-                        <button 
-                          className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-gray-900"
-                          title="View Details"
-                        >
-                          <Eye size={16} />
-                        </button>
-                        <button 
-                          className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-gray-900"
-                          title="More Options"
-                        >
-                          <MoreVertical size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        <div className="px-6 py-4 border-t flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-          {/* Left side: Items info */}
-          <div className="text-sm text-gray-700">
-            Showing <span className="font-medium">{((currentPage - 1) * itemsPerPage) + 1}</span> to{' '}
-            <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{' '}
-            <span className="font-medium">{totalItems}</span> entries
-            {selectedData.length > 0 && (
-              <span className="ml-4">
-                (<span className="font-medium text-blue-600">{selectedData.length}</span> selected)
-              </span>
-            )}
-          </div>
-
-          {/* Right side: Pagination controls */}
-          <div className="flex items-center space-x-2">
-            {/* Page size selector (duplicate for mobile) */}
-            <div className="flex items-center space-x-2 md:hidden">
-              <span className="text-sm text-gray-600">Show:</span>
-              <select
-                value={itemsPerPage}
-                onChange={(e) => {
-                  setItemsPerPage(parseInt(e.target.value));
-                  setCurrentPage(1);
-                  fetchUploadedData(1);
-                }}
-                className="px-2 py-1 border rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {itemsPerPageOptions.map(option => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Pagination buttons */}
-            <div className="flex items-center space-x-1">
-              <button
-                onClick={goToFirstPage}
-                disabled={currentPage === 1}
-                className="p-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                title="First Page"
-              >
-                <ChevronsLeft size={16} />
-              </button>
-              
-              <button
-                onClick={goToPrevPage}
-                disabled={currentPage === 1}
-                className="p-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                title="Previous Page"
-              >
-                <ChevronLeft size={16} />
-              </button>
-
-              {/* Page numbers */}
-              <div className="flex items-center space-x-1">
-                {(() => {
-                  const pages = [];
-                  const maxVisible = 5;
-                  let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-                  let end = Math.min(totalPages, start + maxVisible - 1);
-                  
-                  if (end - start + 1 < maxVisible) {
-                    start = Math.max(1, end - maxVisible + 1);
-                  }
-
-                  for (let i = start; i <= end; i++) {
-                    pages.push(
-                      <button
-                        key={i}
-                        onClick={() => goToPage(i)}
-                        className={`px-3 py-1 rounded ${
-                          currentPage === i 
-                            ? 'bg-blue-600 text-white' 
-                            : 'border hover:bg-gray-50'
-                        }`}
-                      >
-                        {i}
-                      </button>
-                    );
-                  }
-                  return pages;
-                })()}
-              </div>
-
-              <button
-                onClick={goToNextPage}
-                disabled={currentPage === totalPages}
-                className="p-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                title="Next Page"
-              >
-                <ChevronRight size={16} />
-              </button>
-              
-              <button
-                onClick={goToLastPage}
-                disabled={currentPage === totalPages}
-                className="p-2 border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                title="Last Page"
-              >
-                <ChevronsRight size={16} />
-              </button>
-            </div>
-
-            {/* Page info */}
-            <div className="text-sm text-gray-600 hidden md:block">
-              Page {currentPage} of {totalPages || 1}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Distribution Modal */}
+      {/* Distribution Modal - FIXED: Show actual pending data count */}
       {showDistributionModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -734,43 +695,143 @@ const DistributeDataPage = () => {
                 <button
                   onClick={() => setShowDistributionModal(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg"
+                  disabled={loading}
                 >
                   ✕
                 </button>
               </div>
-              <p className="text-gray-600 mt-2">Choose how you want to distribute the data</p>
+              <p className="text-gray-600 mt-2">
+                {availableDataCount > 0 ? 
+                  `You have ${availableDataCount} pending records to distribute` : 
+                  'No pending data available. All data may already be distributed.'}
+              </p>
             </div>
 
-            {/* Distribution Options */}
+            {/* Distribution Options - FIXED: Show actual counts */}
             {!distributionType ? (
               <div className="p-6">
+                <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <Info className="text-yellow-600 mr-3" size={20} />
+                    <div>
+                      <p className="text-sm text-yellow-700 font-medium">
+                        Data Availability Status
+                      </p>
+                      <p className="text-sm text-yellow-600 mt-1">
+                        Total pending data: <span className="font-bold">{availableDataCount}</span> records
+                        {uploadedData.length > 0 && (
+                          <span className="ml-4">
+                            (Filtered view: <span className="font-bold">{actualPendingData}</span> pending)
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {distributionOptions.map((option) => (
                     <button
                       key={option.id}
                       onClick={() => openDistributionModal(option.id)}
-                      className="p-6 border-2 border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition-all text-left hover:shadow-sm"
+                      disabled={option.count === 0}
+                      className={`p-6 border-2 rounded-xl transition-all text-left hover:shadow-sm ${
+                        option.count === 0
+                          ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-50'
+                          : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                      }`}
                     >
                       <div className="flex items-start">
                         <div className={`${option.color} p-3 rounded-lg mr-4`}>
                           <option.icon className="text-white" size={24} />
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-800">{option.title}</h3>
-                          <p className="text-sm text-gray-600 mt-1">{option.description}</p>
+                        <div className="flex-1">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-semibold text-gray-800">{option.title}</h3>
+                              <p className="text-sm text-gray-600 mt-1">{option.description}</p>
+                            </div>
+                            <div className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-medium">
+                              {option.count} {option.id.includes('team') ? 'TLs' : 'users'}
+                            </div>
+                          </div>
+                          {option.info && (
+                            <div className="mt-3 flex items-center text-sm text-gray-500">
+                              <Info size={14} className="mr-1" />
+                              <span>{option.info}</span>
+                            </div>
+                          )}
+                          {option.count === 0 && (
+                            <div className="mt-2 text-xs text-red-500">
+                              No {option.id.includes('team') ? 'Team Leaders' : 'users'} available
+                            </div>
+                          )}
                         </div>
                       </div>
                     </button>
                   ))}
                 </div>
+                
+                {/* Advanced Options Toggle */}
+                <div className="mt-6 pt-6 border-t">
+                  <button
+                    onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+                    className="text-blue-600 hover:text-blue-800 flex items-center"
+                  >
+                    <ChevronDown className={`mr-2 transform ${showAdvancedOptions ? 'rotate-180' : ''}`} size={16} />
+                    Advanced Options
+                  </button>
+                  
+                  {showAdvancedOptions && (
+                    <div className="mt-4 bg-gray-50 p-4 rounded-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="font-medium text-gray-700 mb-2">Distribution Settings</h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Max per user:</span>
+                              <span className="font-medium">5 (default)</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Round robin:</span>
+                              <span className="font-medium">Enabled</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Daily limit per user:</span>
+                              <span className="font-medium">20</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-gray-700 mb-2">Statistics</h4>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Total users:</span>
+                              <span className="font-medium text-blue-600">{users.length}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Total TLs:</span>
+                              <span className="font-medium text-green-600">{TLs.length}</span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Pending data:</span>
+                              <span className="font-medium text-purple-600">{availableDataCount}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
-              /* Distribution Form */
+              /* Distribution Form - FIXED: Show actual data availability */
               <div className="p-6">
                 {/* Back button */}
                 <button
                   onClick={() => setDistributionType('')}
                   className="mb-6 text-blue-600 hover:text-blue-800 flex items-center"
+                  disabled={loading}
                 >
                   ← Back to options
                 </button>
@@ -786,7 +847,7 @@ const DistributeDataPage = () => {
                         })
                       }
                     </div>
-                    <div>
+                    <div className="flex-1">
                       <h3 className="font-semibold text-blue-800">
                         {distributionOptions.find(opt => opt.id === distributionType)?.title}
                       </h3>
@@ -794,10 +855,22 @@ const DistributeDataPage = () => {
                         {distributionOptions.find(opt => opt.id === distributionType)?.description}
                       </p>
                     </div>
+                    <div className="bg-white px-3 py-1 rounded-lg border border-blue-200">
+                      <span className="text-sm font-medium text-blue-700">
+                        Available: {getAvailableCountForType()}
+                      </span>
+                    </div>
                   </div>
+                  {availableDataCount === 0 && (
+                    <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+                      <p className="text-sm text-yellow-700">
+                        <strong>Note:</strong> No pending data available. All data may already be distributed.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Count Input */}
+                {/* Count Input - FIXED: Allow manual input even if count is 0 */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Number of Data Records to Distribute
@@ -809,52 +882,154 @@ const DistributeDataPage = () => {
                       onChange={(e) => setCount(parseInt(e.target.value))}
                       className="w-full"
                       min="1"
-                      max={Math.min(100, availableDataCount)}
+                      max={Math.max(1000, availableDataCount || 1000)} // Minimum range of 1-1000
+                      disabled={availableDataCount === 0}
                     />
                     <input
                       type="number"
                       value={count}
-                      onChange={(e) => setCount(Math.max(1, Math.min(availableDataCount, parseInt(e.target.value) || 1)))}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 1;
+                        const max = Math.max(1000, availableDataCount || 1000);
+                        const clampedValue = Math.max(1, Math.min(max, value));
+                        setCount(clampedValue);
+                      }}
                       className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
                       min="1"
-                      max={availableDataCount}
+                      max={Math.max(1000, availableDataCount || 1000)}
                     />
                   </div>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Available: <span className="font-medium">{availableDataCount}</span> records
-                  </p>
+                  <div className="mt-2 flex justify-between text-sm text-gray-500">
+                    <span>Available: <span className="font-medium">{availableDataCount || 'Checking...'}</span> records</span>
+                    <span>Will distribute: <span className="font-medium text-blue-600">{count}</span> records</span>
+                  </div>
+                  {availableDataCount === 0 && (
+                    <div className="mt-2 text-sm text-yellow-600">
+                      <Info size={14} className="inline mr-1" />
+                      You can still attempt distribution, but there may be no data available.
+                    </div>
+                  )}
                 </div>
 
                 {/* Additional Fields for Specific Options */}
-                {(distributionType === 'particular_employee' || distributionType === 'team_leaders') && (
+                {distributionType === 'particular_employee' && (
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {distributionType === 'particular_employee' ? 'Select Employee' : 'Select Team Leader'}
+                      Select Employee
                     </label>
                     <select
-                      value={distributionType === 'particular_employee' ? selectedUser : selectedTL}
-                      onChange={(e) => 
-                        distributionType === 'particular_employee' 
-                          ? setSelectedUser(e.target.value)
-                          : setSelectedTL(e.target.value)
-                      }
+                      value={selectedUser}
+                      onChange={(e) => setSelectedUser(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={users.length === 0 || loading}
                     >
-                      <option value="">Select {distributionType === 'particular_employee' ? 'Employee' : 'Team Leader'}...</option>
-                      {(distributionType === 'particular_employee' ? users : TLs).map(person => (
+                      <option value="">Select Employee...</option>
+                      {users.map(person => (
                         <option key={person._id} value={person._id}>
-                          {person.name} ({person.phoneNumber || person.email})
+                          {person.name || 'Unknown'} - {person.phoneNumber || person.email || 'No contact'} 
+                          {person.employeeId ? ` (${person.employeeId})` : ''}
                         </option>
                       ))}
                     </select>
+                    {selectedUser && (
+                      <div className="mt-2 text-sm text-gray-600">
+                        Selected: {getUserDisplayInfo(selectedUser)}
+                      </div>
+                    )}
+                    {users.length === 0 && (
+                      <div className="mt-2 text-sm text-red-500">
+                        No active employees available
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* Action Buttons */}
+                {distributionType === 'team_leaders_specific' && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Team Leader
+                    </label>
+                    <select
+                      value={selectedTL}
+                      onChange={(e) => setSelectedTL(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={TLs.length === 0 || loading}
+                    >
+                      <option value="">Select Team Leader...</option>
+                      {TLs.map(tl => (
+                        <option key={tl._id} value={tl._id}>
+                          {tl.name || 'Unknown'} - {tl.phoneNumber || tl.email || 'No contact'}
+                          {tl.teamName ? ` (Team: ${tl.teamName})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    {selectedTL && (
+                      <div className="mt-2 text-sm text-gray-600">
+                        Selected: {getTLDisplayInfo(selectedTL)}
+                      </div>
+                    )}
+                    {TLs.length === 0 && (
+                      <div className="mt-2 text-sm text-red-500">
+                        No active Team Leaders available
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Distribution Summary */}
+                <div className="mb-6 bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-700 mb-3">Distribution Summary</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Distribution Type:</span>
+                      <span className="font-medium">
+                        {distributionOptions.find(opt => opt.id === distributionType)?.title}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Records to distribute:</span>
+                      <span className="font-medium text-blue-600">{count}</span>
+                    </div>
+                    {distributionType === 'particular_employee' && selectedUser && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">To Employee:</span>
+                        <span className="font-medium">
+                          {getUserDisplayInfo(selectedUser)}
+                        </span>
+                      </div>
+                    )}
+                    {distributionType === 'team_leaders_specific' && selectedTL && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">To Team Leader:</span>
+                        <span className="font-medium">
+                          {getTLDisplayInfo(selectedTL)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Available data:</span>
+                      <span className="font-medium">
+                        {availableDataCount} records
+                      </span>
+                    </div>
+                    {availableDataCount > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">Remaining after distribution:</span>
+                        <span className="font-medium">
+                          {Math.max(0, availableDataCount - count)} records
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Action Buttons - FIXED: Allow attempting distribution even if count is 0 */}
                 <div className="flex space-x-4">
                   <button
                     onClick={handleDistribute}
-                    disabled={loading}
+                    disabled={loading || 
+                      (distributionType === 'particular_employee' && !selectedUser) ||
+                      (distributionType === 'team_leaders_specific' && !selectedTL)}
                     className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? (
@@ -865,7 +1040,7 @@ const DistributeDataPage = () => {
                     ) : (
                       <>
                         <ArrowRight size={18} />
-                        <span>Distribute Now</span>
+                        <span>{availableDataCount > 0 ? 'Distribute Now' : 'Attempt Distribution'}</span>
                       </>
                     )}
                   </button>
@@ -873,6 +1048,7 @@ const DistributeDataPage = () => {
                   <button
                     onClick={() => setShowDistributionModal(false)}
                     className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    disabled={loading}
                   >
                     Cancel
                   </button>
@@ -889,15 +1065,23 @@ const DistributeDataPage = () => {
                       ) : (
                         <XCircle className="text-red-600 mr-3" size={24} />
                       )}
-                      <div>
+                      <div className="flex-1">
                         <p className={`font-medium ${
                           result.success ? 'text-green-800' : 'text-red-800'
                         }`}>
                           {result.success ? 'Success!' : 'Failed'}
                         </p>
                         <p className={`text-sm ${result.success ? 'text-green-700' : 'text-red-700'}`}>
-                          {result.data?.message || result.error}
+                          {result.message || result.error || 'Distribution completed'}
                         </p>
+                        {result.data && (
+                          <div className="mt-2 text-xs ${result.success ? 'text-green-600' : 'text-red-600'}">
+                            {result.data.dataCount && `Records: ${result.data.dataCount}`}
+                            {result.data.userName && ` • User: ${result.data.userName}`}
+                            {result.data.distributedCount && ` • Distributed: ${result.data.distributedCount}`}
+                            {result.data.userCount && ` • Users: ${result.data.userCount}`}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

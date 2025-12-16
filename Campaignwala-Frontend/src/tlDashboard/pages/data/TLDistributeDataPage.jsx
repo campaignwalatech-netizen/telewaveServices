@@ -1,18 +1,22 @@
+// TLDistributeDataPage.jsx - SIMPLIFIED VERSION
+
 import React, { useState, useEffect } from 'react';
 import { 
   Users, Search, Filter, CheckCircle, XCircle,
   RefreshCw, ArrowRight, ChevronDown, User, Shield,
-  AlertCircle, BarChart3, Target
+  AlertCircle, BarChart3, Target, FileText, Hash
 } from 'lucide-react';
 import dataService from '../../../services/dataService';
+import userService from '../../../services/userService';
 
 const TLDistributeDataPage = () => {
   const [teamMembers, setTeamMembers] = useState([]);
   const [selectedMembers, setSelectedMembers] = useState([]);
-  const [availableData, setAvailableData] = useState([]);
-  const [selectedData, setSelectedData] = useState([]);
+  const [availableDataCount, setAvailableDataCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [distributionCount, setDistributionCount] = useState(1);
+  const [availableDataList, setAvailableDataList] = useState([]); // For reference only
   
   useEffect(() => {
     fetchData();
@@ -21,19 +25,67 @@ const TLDistributeDataPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
+      console.log('Fetching team members and available data count...');
+      
       // Get team members
-      const membersResult = await dataService.getTLTeamMembers();
+      const membersResult = await userService.getTeamMembers();
+      console.log('Team members result:', membersResult);
+      
       if (membersResult.success) {
-        setTeamMembers(membersResult.data || []);
+        // Extract array from nested structure
+        let membersArray = [];
+        if (Array.isArray(membersResult.data)) {
+          membersArray = membersResult.data;
+        } else if (membersResult.data && Array.isArray(membersResult.data.members)) {
+          membersArray = membersResult.data.members;
+        } else if (membersResult.data && Array.isArray(membersResult.data.data)) {
+          membersArray = membersResult.data.data;
+        } else if (membersResult.data && Array.isArray(membersResult.data.users)) {
+          membersArray = membersResult.data.users;
+        } else if (membersResult.data && typeof membersResult.data === 'object') {
+          // Try to extract array from object values
+          for (const key in membersResult.data) {
+            if (Array.isArray(membersResult.data[key])) {
+              membersArray = membersResult.data[key];
+              break;
+            }
+          }
+        }
+        console.log('Extracted team members array:', membersArray);
+        setTeamMembers(membersArray);
+      } else {
+        console.error('Failed to fetch team members:', membersResult.error);
+        setTeamMembers([]);
       }
       
-      // Get available data
-      const dataResult = await dataService.getAvailableDataForDistribution();
+      // Get available data count - Use TL data endpoint
+      const dataResult = await dataService.getTLData({ 
+        status: 'assigned',
+        limit: 1000 // Get all to count
+      });
+      console.log('Available data result:', dataResult);
+      
       if (dataResult.success) {
-        setAvailableData(dataResult.data || []);
+        const dataList = dataResult.data || [];
+        // Filter for data that's not yet distributed to team members
+        const availableData = dataList.filter(item => 
+          item.distributionStatus === 'assigned' || 
+          (item.assignedTo && !item.distributedTo)
+        );
+        
+        setAvailableDataCount(availableData.length);
+        setAvailableDataList(availableData); // Store for distribution
+        console.log('Available data count:', availableData.length);
+      } else {
+        console.error('Failed to fetch available data:', dataResult.error);
+        setAvailableDataCount(0);
+        setAvailableDataList([]);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
+      setTeamMembers([]);
+      setAvailableDataCount(0);
+      setAvailableDataList([]);
     }
     setLoading(false);
   };
@@ -46,12 +98,12 @@ const TLDistributeDataPage = () => {
     );
   };
   
-  const toggleDataItem = (dataId) => {
-    setSelectedData(prev =>
-      prev.includes(dataId)
-        ? prev.filter(id => id !== dataId)
-        : [...prev, dataId]
-    );
+  const selectAllTeamMembers = () => {
+    if (selectedMembers.length === teamMembers.length) {
+      setSelectedMembers([]);
+    } else {
+      setSelectedMembers(teamMembers.map(member => member._id).filter(id => id));
+    }
   };
   
   const handleDistribute = async () => {
@@ -60,45 +112,105 @@ const TLDistributeDataPage = () => {
       return;
     }
     
-    if (selectedData.length === 0) {
-      alert('Please select at least one data record');
+    if (distributionCount < 1) {
+      alert('Please enter a valid number of data records to distribute');
+      return;
+    }
+    
+    if (distributionCount > availableDataCount) {
+      alert(`Cannot distribute ${distributionCount} records. Only ${availableDataCount} available.`);
+      return;
+    }
+    
+    // Get the first N data IDs from available data
+    const dataIdsToDistribute = availableDataList
+      .slice(0, distributionCount)
+      .map(data => data._id)
+      .filter(id => id);
+    
+    if (dataIdsToDistribute.length === 0) {
+      alert('No valid data records to distribute');
       return;
     }
     
     setLoading(true);
+    setResult(null);
     
     try {
+      console.log('Distributing data:', {
+        dataIds: dataIdsToDistribute,
+        teamMemberIds: selectedMembers,
+        distributionCount,
+        availableDataCount
+      });
+      
+      // Use dataService for distribution
       const distributionResult = await dataService.distributeDataToTeam(
-        selectedData,
+        dataIdsToDistribute,
         selectedMembers,
-        'manual'
+        'equal' // Always use equal distribution for simplicity
       );
       
+      console.log('Distribution result:', distributionResult);
       setResult(distributionResult);
       
       if (distributionResult.success) {
-        alert(`Successfully distributed ${distributionResult.data?.distributedCount || 0} data records`);
-        // Reset selections
-        setSelectedMembers([]);
-        setSelectedData([]);
-        // Refresh data
-        fetchData();
+        // Show success message
+        setTimeout(() => {
+          // Reset selections and count
+          setSelectedMembers([]);
+          setDistributionCount(1);
+          // Refresh data
+          fetchData();
+        }, 2000);
       } else {
-        alert(`Error: ${distributionResult.error}`);
+        alert(`Error: ${distributionResult.error || distributionResult.message}`);
       }
     } catch (error) {
       console.error('Distribution error:', error);
-      alert('An error occurred during distribution');
+      setResult({
+        success: false,
+        error: 'An error occurred during distribution',
+        message: error.message
+      });
     }
     
     setLoading(false);
   };
   
+  // Get member name by ID
+  const getMemberName = (memberId) => {
+    const member = teamMembers.find(m => m && m._id === memberId);
+    return member ? (member.name || 'Unknown Member') : 'Unknown Member';
+  };
+  
+  // Calculate how many leads each member will get
+  const calculateLeadsPerMember = () => {
+    if (selectedMembers.length === 0 || distributionCount === 0) {
+      return 0;
+    }
+    
+    const baseLeads = Math.floor(distributionCount / selectedMembers.length);
+    const extraLeads = distributionCount % selectedMembers.length;
+    
+    return {
+      base: baseLeads,
+      extra: extraLeads,
+      totalMembers: selectedMembers.length,
+      distributionCount
+    };
+  };
+  
+  const leadsPerMember = calculateLeadsPerMember();
+  
+  // Filter valid team members (with IDs)
+  const validTeamMembers = teamMembers.filter(member => member && member._id);
+  
   return (
     <div className="p-6">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-800 mb-2">Distribute Data to Team</h1>
-        <p className="text-gray-600">Assign data to your team members</p>
+        <p className="text-gray-600">Select team members and enter how many data records to distribute</p>
       </div>
       
       {/* Stats Overview */}
@@ -110,7 +222,7 @@ const TLDistributeDataPage = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Team Members</p>
-              <p className="text-2xl font-bold">{teamMembers.length}</p>
+              <p className="text-2xl font-bold">{validTeamMembers.length}</p>
             </div>
           </div>
         </div>
@@ -122,203 +234,301 @@ const TLDistributeDataPage = () => {
             </div>
             <div>
               <p className="text-sm text-gray-600">Available Data</p>
-              <p className="text-2xl font-bold">{availableData.length}</p>
+              <p className="text-2xl font-bold">{availableDataCount}</p>
             </div>
           </div>
         </div>
         
         <div className="bg-white rounded-xl shadow p-4">
           <div className="flex items-center">
-            <div className="p-3 bg-purple-100 rounded-lg mr-4">
-              <BarChart3 className="text-purple-600" size={20} />
+            <div className="p-3 bg-orange-100 rounded-lg mr-4">
+              <Hash className="text-orange-600" size={20} />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Selected</p>
-              <p className="text-2xl font-bold">{selectedData.length}</p>
+              <p className="text-sm text-gray-600">To Distribute</p>
+              <p className="text-2xl font-bold">{distributionCount}</p>
             </div>
           </div>
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Team Members Section */}
-        <div className="bg-white rounded-xl shadow">
+        <div className="lg:col-span-2 bg-white rounded-xl shadow">
           <div className="p-6 border-b">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-lg font-semibold">Team Members</h2>
-                <p className="text-gray-600 text-sm">Select members to receive data</p>
+                <h2 className="text-lg font-semibold">Select Team Members</h2>
+                <p className="text-gray-600 text-sm">Choose who will receive data</p>
               </div>
-              <div className="text-sm text-gray-500">
-                {selectedMembers.length} selected
+              <div className="flex items-center space-x-4">
+                <div className="text-sm text-gray-500">
+                  {selectedMembers.length} of {validTeamMembers.length} selected
+                </div>
+                {validTeamMembers.length > 0 && (
+                  <button
+                    onClick={selectAllTeamMembers}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    {selectedMembers.length === validTeamMembers.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
           
           <div className="p-6">
-            {teamMembers.length === 0 ? (
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-500">Loading team members...</p>
+              </div>
+            ) : validTeamMembers.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <Users className="mx-auto mb-4 text-gray-400" size={32} />
                 <p>No team members found</p>
+                <p className="text-sm mt-2">Team members will appear here when they are assigned to your team.</p>
               </div>
             ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {teamMembers.map(member => (
-                  <div
-                    key={member._id}
-                    onClick={() => toggleTeamMember(member._id)}
-                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                      selectedMembers.includes(member._id)
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 ${
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+                {validTeamMembers.map(member => (
+                  member && member._id ? (
+                    <div
+                      key={member._id}
+                      onClick={() => toggleTeamMember(member._id)}
+                      className={`p-4 rounded-lg border cursor-pointer transition-all ${
                         selectedMembers.includes(member._id)
-                          ? 'bg-blue-100 text-blue-600'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        <User size={18} />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">{member.name}</div>
-                        <div className="text-sm text-gray-600">{member.phoneNumber}</div>
-                        <div className="flex items-center space-x-4 mt-2">
-                          <span className="text-xs px-2 py-1 bg-gray-100 rounded">
-                            Leads: {member.statistics?.totalLeads || 0}
-                          </span>
-                          <span className="text-xs px-2 py-1 bg-gray-100 rounded">
-                            Converted: {member.statistics?.completedLeads || 0}
-                          </span>
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 ${
+                          selectedMembers.includes(member._id)
+                            ? 'bg-blue-100 text-blue-600'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          <User size={18} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium">{member.name || 'Unknown Member'}</div>
+                          <div className="text-sm text-gray-600">
+                            {member.phoneNumber || member.email || 'No contact'}
+                          </div>
+                          <div className="flex items-center space-x-4 mt-2">
+                            {member.employeeId && (
+                              <span className="text-xs px-2 py-1 bg-gray-100 rounded">
+                                ID: {member.employeeId}
+                              </span>
+                            )}
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              member.status === 'active' ? 'bg-green-100 text-green-800' :
+                              member.status === 'inactive' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {member.status || 'unknown'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                          selectedMembers.includes(member._id)
+                            ? 'bg-blue-600 border-blue-600'
+                            : 'border-gray-300'
+                        }`}>
+                          {selectedMembers.includes(member._id) && (
+                            <CheckCircle size={12} className="text-white" />
+                          )}
                         </div>
                       </div>
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        selectedMembers.includes(member._id)
-                          ? 'bg-blue-600 border-blue-600'
-                          : 'border-gray-300'
-                      }`}>
-                        {selectedMembers.includes(member._id) && (
-                          <CheckCircle size={12} className="text-white" />
-                        )}
-                      </div>
                     </div>
-                  </div>
+                  ) : null
                 ))}
               </div>
             )}
           </div>
         </div>
         
-        {/* Available Data Section */}
+        {/* Distribution Control Section */}
         <div className="bg-white rounded-xl shadow">
           <div className="p-6 border-b">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-semibold">Available Data</h2>
-                <p className="text-gray-600 text-sm">Select data to distribute</p>
+            <div className="flex items-center">
+              <div className="p-3 bg-green-100 rounded-lg mr-4">
+                <Target className="text-green-600" size={20} />
               </div>
-              <div className="text-sm text-gray-500">
-                {selectedData.length} selected
+              <div>
+                <h2 className="text-lg font-semibold">Distribution Control</h2>
+                <p className="text-gray-600 text-sm">Set how many to distribute</p>
               </div>
             </div>
           </div>
           
           <div className="p-6">
-            {availableData.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <Target className="mx-auto mb-4 text-gray-400" size={32} />
-                <p>No available data for distribution</p>
+            <div className="space-y-6">
+              {/* Available Data Info */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-blue-800">Available Data</span>
+                  <span className="text-xl font-bold text-blue-600">{availableDataCount}</span>
+                </div>
+                <p className="text-sm text-blue-700">
+                  Total data records assigned to you that can be distributed
+                </p>
               </div>
-            ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {availableData.map(data => (
-                  <div
-                    key={data._id}
-                    onClick={() => toggleDataItem(data._id)}
-                    className={`p-4 rounded-lg border cursor-pointer transition-all ${
-                      selectedData.includes(data._id)
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 hover:border-green-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-4 ${
-                        selectedData.includes(data._id)
-                          ? 'bg-green-100 text-green-600'
-                          : 'bg-gray-100 text-gray-600'
-                      }`}>
-                        <FileText size={18} />
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-medium">{data.name}</div>
-                        <div className="text-sm text-gray-600">{data.contact}</div>
-                        <div className="flex items-center space-x-4 mt-2">
-                          <span className="text-xs px-2 py-1 bg-gray-100 rounded">
-                            Batch: {data.batchNumber}
-                          </span>
-                          <span className="text-xs px-2 py-1 bg-gray-100 rounded">
-                            {new Date(data.createdAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        selectedData.includes(data._id)
-                          ? 'bg-green-600 border-green-600'
-                          : 'border-gray-300'
-                      }`}>
-                        {selectedData.includes(data._id) && (
-                          <CheckCircle size={12} className="text-white" />
-                        )}
+              
+              {/* Distribution Count Input */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Number to Distribute
+                </label>
+                <div className="flex items-center space-x-4">
+                  <input
+                    type="range"
+                    value={distributionCount}
+                    onChange={(e) => setDistributionCount(parseInt(e.target.value))}
+                    className="w-full"
+                    min="1"
+                    max={Math.min(availableDataCount, 100)} // Limit max to 100 or available count
+                  />
+                  <input
+                    type="number"
+                    value={distributionCount}
+                    onChange={(e) => {
+                      const value = Math.max(1, Math.min(availableDataCount, parseInt(e.target.value) || 1));
+                      setDistributionCount(value);
+                    }}
+                    className="w-32 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center text-lg font-bold"
+                    min="1"
+                    max={availableDataCount}
+                  />
+                </div>
+                <p className="text-sm text-gray-500 mt-2">
+                  Enter how many data records to distribute ({availableDataCount} available)
+                </p>
+              </div>
+              
+              {/* Distribution Preview */}
+              {selectedMembers.length > 0 && distributionCount > 0 && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-700 mb-3">Distribution Preview</h3>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Total records:</span>
+                      <span className="font-bold">{distributionCount}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Team members:</span>
+                      <span className="font-bold">{selectedMembers.length}</span>
+                    </div>
+                    <div className="border-t pt-2">
+                      <div className="flex justify-between text-sm font-medium">
+                        <span className="text-gray-700">Each member will get:</span>
+                        <span className="text-blue-600">
+                          {leadsPerMember.base} record{leadsPerMember.base !== 1 ? 's' : ''}
+                          {leadsPerMember.extra > 0 && ` (+${leadsPerMember.extra} extra for some)`}
+                        </span>
                       </div>
                     </div>
                   </div>
-                ))}
+                </div>
+              )}
+              
+              {/* Quick Action Buttons */}
+              <div className="space-y-3">
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setDistributionCount(Math.min(10, availableDataCount))}
+                    className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+                  >
+                    Distribute 10
+                  </button>
+                  <button
+                    onClick={() => setDistributionCount(Math.min(20, availableDataCount))}
+                    className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+                  >
+                    Distribute 20
+                  </button>
+                  <button
+                    onClick={() => setDistributionCount(Math.min(50, availableDataCount))}
+                    className="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm"
+                  >
+                    Distribute 50
+                  </button>
+                </div>
+                <button
+                  onClick={() => setDistributionCount(availableDataCount)}
+                  className="w-full px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 font-medium rounded-lg text-sm"
+                >
+                  Distribute All ({availableDataCount})
+                </button>
               </div>
-            )}
+              
+              {/* Action Buttons */}
+              <div className="pt-4 border-t">
+                <div className="flex flex-col space-y-3">
+                  <button
+                    onClick={fetchData}
+                    disabled={loading}
+                    className="px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center space-x-2 disabled:opacity-50"
+                  >
+                    <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+                    <span>Refresh Data</span>
+                  </button>
+                  
+                  <button
+                    onClick={handleDistribute}
+                    disabled={loading || distributionCount === 0 || selectedMembers.length === 0}
+                    className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                        <span>Distributing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ArrowRight size={18} />
+                        <span>Distribute {distributionCount} Record{distributionCount !== 1 ? 's' : ''}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
       
-      {/* Action Section */}
-      <div className="mt-8 bg-white rounded-xl shadow p-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h3 className="font-semibold">Distribution Summary</h3>
-            <p className="text-gray-600 text-sm">
-              {selectedData.length} data records to {selectedMembers.length} team members
-            </p>
-          </div>
-          
-          <div className="flex space-x-4">
-            <button
-              onClick={fetchData}
-              className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2"
-            >
-              <RefreshCw size={18} />
-              <span>Refresh</span>
-            </button>
-            
-            <button
-              onClick={handleDistribute}
-              disabled={loading || selectedData.length === 0 || selectedMembers.length === 0}
-              className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-8 rounded-lg font-medium flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span>Distributing...</span>
-                </>
-              ) : (
-                <>
-                  <ArrowRight size={18} />
-                  <span>Distribute Selected</span>
-                </>
-              )}
-            </button>
+      {/* Selected Members Preview */}
+      {selectedMembers.length > 0 && (
+        <div className="mt-8 bg-white rounded-xl shadow p-6">
+          <h3 className="font-semibold mb-4">Selected Members ({selectedMembers.length})</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {selectedMembers.map(memberId => {
+              const member = teamMembers.find(m => m && m._id === memberId);
+              if (!member) return null;
+              
+              return (
+                <div key={memberId} className="p-3 border border-blue-200 bg-blue-50 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center mr-3">
+                      <User size={14} className="text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="font-medium text-sm">{member.name}</div>
+                      <div className="text-xs text-gray-600">
+                        {member.employeeId ? `ID: ${member.employeeId}` : 'No ID'}
+                      </div>
+                    </div>
+                    <div className="text-xs font-bold text-blue-600">
+                      ~{leadsPerMember.base} lead{leadsPerMember.base !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-      </div>
+      )}
       
       {/* Result Display */}
       {result && (
@@ -342,34 +552,54 @@ const TLDistributeDataPage = () => {
                 {result.success ? 'Distribution Complete!' : 'Distribution Failed'}
               </h3>
               <p className={`mt-1 ${result.success ? 'text-green-700' : 'text-red-700'}`}>
-                {result.data?.message || result.error}
+                {result.message || result.error || (result.success ? 'Data distributed successfully' : 'An error occurred')}
               </p>
               
               {result.success && result.data && (
                 <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white/50 p-3 rounded-lg">
-                    <div className="text-sm text-gray-600">Data Distributed</div>
-                    <div className="font-bold">{result.data.distributedCount}</div>
-                  </div>
-                  <div className="bg-white/50 p-3 rounded-lg">
-                    <div className="text-sm text-gray-600">To Members</div>
-                    <div className="font-bold">{result.data.userCount}</div>
-                  </div>
-                  <div className="bg-white/50 p-3 rounded-lg">
-                    <div className="text-sm text-gray-600">Total Assignments</div>
-                    <div className="font-bold">{result.data.totalDistributions}</div>
+                  {result.data.distributedCount !== undefined && (
+                    <div className="bg-white/50 p-3 rounded-lg">
+                      <div className="text-sm text-gray-600">Data Distributed</div>
+                      <div className="font-bold text-lg">{result.data.distributedCount}</div>
+                    </div>
+                  )}
+                  {result.data.userCount !== undefined && (
+                    <div className="bg-white/50 p-3 rounded-lg">
+                      <div className="text-sm text-gray-600">To Members</div>
+                      <div className="font-bold text-lg">{result.data.userCount}</div>
+                    </div>
+                  )}
+                  {result.data.remainingData !== undefined && (
+                    <div className="bg-white/50 p-3 rounded-lg">
+                      <div className="text-sm text-gray-600">Remaining Data</div>
+                      <div className="font-bold text-lg">{result.data.remainingData}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {result.data?.distributionDetails && (
+                <div className="mt-4 bg-white/50 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-700 mb-2">Distribution Details:</h4>
+                  <div className="space-y-2">
+                    {Object.entries(result.data.distributionDetails).map(([memberId, count]) => (
+                      <div key={memberId} className="flex justify-between text-sm">
+                        <span className="text-gray-600">{getMemberName(memberId)}:</span>
+                        <span className="font-medium">{count} leads</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
               
-              {result.data?.errors && (
+              {result.data?.errors && result.data.errors.length > 0 && (
                 <div className="mt-4">
                   <h4 className="font-medium text-gray-700 mb-2">Errors:</h4>
                   <div className="space-y-1">
                     {result.data.errors.map((error, index) => (
                       <div key={index} className="text-sm text-red-600 flex items-start">
                         <AlertCircle size={14} className="mr-2 mt-0.5 flex-shrink-0" />
-                        {error}
+                        <span>{error}</span>
                       </div>
                     ))}
                   </div>

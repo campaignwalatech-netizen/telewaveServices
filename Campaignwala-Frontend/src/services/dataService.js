@@ -144,24 +144,24 @@ async downloadExcelTemplate() {
    * @returns {Promise}
    */
   async assignDataToTL(count, tlId) {
-    try {
-      const response = await api.post('/data/admin/assign-to-tl', {
-        count,
-        tlId
-      });
-      
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?.error || 'Failed to assign data to TL',
-        details: error.response?.data
-      };
-    }
-  },
+  try {
+    const response = await api.post('/data/admin/assign-to-tl', {
+      count,
+      tlId
+    });
+    
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Failed to assign data to TL',
+      details: error.response?.data
+    };
+  }
+},
   
   /**
    * Assign data directly to user (Admin only)
@@ -170,24 +170,41 @@ async downloadExcelTemplate() {
    * @returns {Promise}
    */
   async assignDataToUser(count, userId) {
-    try {
-      const response = await api.post('/data/admin/assign-to-user', {
-        count,
-        userId
-      });
-      
-      return {
-        success: true,
-        data: response.data
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?.error || 'Failed to assign data to user',
-        details: error.response?.data
-      };
-    }
-  },
+  try {
+    const response = await api.post('/data/admin/assign-to-user', {
+      count,
+      userId
+    });
+    
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Failed to assign data to user',
+      details: error.response?.data
+    };
+  }
+},
+
+async getDistributionCounts() {
+  try {
+    const response = await api.get('/data/admin/distribution-counts');
+    
+    return {
+      success: true,
+      counts: response.data.counts
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Failed to get distribution counts',
+      details: error.response?.data
+    };
+  }
+},
   
   /**
    * Get pending data (Admin only)
@@ -571,7 +588,7 @@ async downloadExcelTemplate() {
    */
   async getUserTodayData() {
     try {
-      const response = await api.get('/data/user/today-data');
+      const response = await api.get('/data/user/data');
       
       return {
         success: true,
@@ -734,26 +751,25 @@ async importDataFromCSV(file, options = {}) {
 
 
 // Add this method for bulk assignment
-async bulkAssignData(assignmentType, dataPerUser = 5) {
-    try {
-        const response = await api.post('/data/admin/bulk-assign', {
-            assignmentType,
-            dataPerUser
-        });
-        
-        return {
-            success: true,
-            data: response.data
-        };
-    } catch (error) {
-        return {
-            success: false,
-            error: error.response?.data?.error || 'Failed to bulk assign data',
-            details: error.response?.data
-        };
-    }
+async bulkAssignData(assignmentType, dataPerUser = 10) {
+  try {
+    const response = await api.post('/data/admin/bulk-assign', {
+      assignmentType,
+      dataPerUser
+    });
+    
+    return {
+      success: true,
+      data: response.data
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Failed to bulk assign data',
+      details: error.response?.data
+    };
+  }
 },
-
 // Add this method for admin withdrawal
 async adminWithdrawData(dataIds, reason = '') {
     try {

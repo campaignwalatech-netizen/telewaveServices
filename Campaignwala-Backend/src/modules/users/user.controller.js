@@ -33,6 +33,24 @@ const sendOTP = async (req, res) => {
     }
 };
 
+// get all teamleaders with active status
+
+const getTeamLeadersWithActiveStatus = async (req, res) => {
+    try {
+        const teamLeaders = await User.find({ role: 'TL', isActive: true }).select('name email phoneNumber role isActive');
+        res.status(200).json({
+            success: true,
+            data: teamLeaders
+        });
+    } catch (error) {
+        console.error('Get active team leaders error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get active team leaders'
+        });
+    }
+};
+
 
 //get present users for admin
 const getPresentUsers = async (req, res) => {
@@ -4503,6 +4521,7 @@ module.exports = {
     bulkApproveUsers,
     exportPendingUsers,
     approveAndAssignTL,
+    getTeamLeadersWithActiveStatus,
     
     // Legacy functions
     sendOTP

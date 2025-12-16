@@ -644,24 +644,24 @@ export default function Dashboard() {
           }
           
           // Load wallet stats for admin
-          if (role === 'admin') {
-            try {
-              const walletResponse = await walletService.getAllWallets();
-              const withdrawalsResponse = await withdrawalService.getAllWithdrawals();
+          // if (role === 'admin') {
+          //   try {
+          //     const walletResponse = await walletService.getAllWallets();
+          //     const withdrawalsResponse = await withdrawalService.getAllWithdrawals();
               
-              const totalBalance = walletResponse.data?.reduce((sum, wallet) => sum + (wallet.balance || 0), 0) || 0;
-              const pendingWithdrawals = withdrawalsResponse.data?.filter(w => w.status === 'pending').length || 0;
-              const totalWithdrawals = withdrawalsResponse.data?.reduce((sum, w) => sum + (w.amount || 0), 0) || 0;
+          //     const totalBalance = walletResponse.data?.reduce((sum, wallet) => sum + (wallet.balance || 0), 0) || 0;
+          //     const pendingWithdrawals = withdrawalsResponse.data?.filter(w => w.status === 'pending').length || 0;
+          //     const totalWithdrawals = withdrawalsResponse.data?.reduce((sum, w) => sum + (w.amount || 0), 0) || 0;
               
-              walletStats = {
-                totalBalance,
-                pendingWithdrawals,
-                totalWithdrawals
-              };
-            } catch (walletError) {
-              console.warn('⚠️ Wallet stats failed:', walletError);
-            }
-          }
+          //     walletStats = {
+          //       totalBalance,
+          //       pendingWithdrawals,
+          //       totalWithdrawals
+          //     };
+          //   } catch (walletError) {
+          //     console.warn('⚠️ Wallet stats failed:', walletError);
+          //   }
+          // }
           
           // Load team member performance for TL
           if (role === 'TL') {

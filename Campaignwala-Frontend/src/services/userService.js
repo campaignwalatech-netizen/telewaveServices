@@ -780,16 +780,21 @@ async activateUser(userId, tlId) {
    * @returns {Promise<Object>} - Team leaders list
    */
   async getTeamLeaders(params = {}) {
-    try {
-      console.log('🌐 userService.getTeamLeaders called with:', params);
-      const response = await api.get('/users/admin/team-leaders', { params });
-      console.log('✅ userService.getTeamLeaders response:', response.data);
-      return response.data;
-    } catch (error) {
-      console.error('❌ userService.getTeamLeaders error:', error);
-      throw this.handleError(error);
-    }
+  try {
+    console.log('🌐 userService.getTeamLeaders called with:', params);
+    const response = await api.get('/users/admin/team-leaders', { 
+      params: {
+        ...params,
+        status: 'active'
+      }
+    });
+    console.log('✅ userService.getTeamLeaders response:', response.data);
+    return response.data;
+  } catch (error) {
+    console.error('❌ userService.getTeamLeaders error:', error);
+    throw this.handleError(error);
   }
+}
 
   /**
    * Get team members (for TL)

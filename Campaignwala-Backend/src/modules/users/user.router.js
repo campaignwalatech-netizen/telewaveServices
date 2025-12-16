@@ -97,10 +97,12 @@ const {
     getApprovedUsers,
     getPresentUsers,
     getNotApprovedUsers,
-    approveAndAssignTL
+    approveAndAssignTL,
+    getTeamLeadersWithActiveStatus,
 } = require('./user.controller');
 
 const {
+    debugAuth,
     protect,
     authorize,
     authenticateToken,
@@ -133,7 +135,11 @@ router.get('/test-email', async (req, res) => {
     }
 });
 
-router.post('/admin/users/:userId/approve-and-assign-tl', authenticateToken, requireAdmin, approveAndAssignTL);
+router.post('/admin/users/:userId/approve-and-assign-tl', protect, requireAdmin, approveAndAssignTL);
+
+//get teamleaders with active status
+router.get('/admin/team-leaders', protect, requireAdmin, getTeamLeadersWithActiveStatus);
+
 
 /**
  * @swagger
@@ -158,7 +164,7 @@ router.post('/admin/users/:userId/approve-and-assign-tl', authenticateToken, req
 
 // ==================== AUTHENTICATION ROUTES ====================
 
-router.get('/', getAllUsers);
+router.get('/', debugAuth, protect, requireAdmin, getAllUsers);
 
 /**
  * @swagger
@@ -227,7 +233,7 @@ router.get('/', getAllUsers);
  *       200:
  *         description: User approved, pending TL assignment
  */
-router.post('/admin/users/:userId/approve-registration', authenticateToken, requireAdmin, approveUser);
+router.post('/admin/users/:userId/approve-registration', protect, requireAdmin, approveUser);
 
 /**
  * @swagger
@@ -258,7 +264,7 @@ router.post('/admin/users/:userId/approve-registration', authenticateToken, requ
  *       200:
  *         description: User activated and assigned to TL
  */
-router.post('/admin/users/:userId/activate', authenticateToken, requireAdmin, activateUser);
+router.post('/admin/users/:userId/activate', protect, requireAdmin, activateUser);
 
 router.get('/admin/approved-users', getApprovedUsers);
 router.post('/register', register);
@@ -296,7 +302,7 @@ router.get('/admin/not-approved-users', getNotApprovedUsers);
  *       200:
  *         description: User rejected successfully
  */
-router.post('/admin/users/:userId/reject', authenticateToken, requireAdmin, rejectUser);
+router.post('/admin/users/:userId/reject', protect, requireAdmin, rejectUser);
 
 /**
  * @swagger
@@ -332,7 +338,7 @@ router.post('/admin/users/:userId/reject', authenticateToken, requireAdmin, reje
  *       200:
  *         description: TL assigned successfully
  */
-router.post('/admin/users/:userId/assign-tl', authenticateToken, requireAdmin, assignUserToTL);
+router.post('/admin/users/:userId/assign-tl', protect, requireAdmin, assignUserToTL);
 
 /**
  * @swagger
@@ -361,7 +367,7 @@ router.post('/admin/users/:userId/assign-tl', authenticateToken, requireAdmin, a
  *       200:
  *         description: Users bulk approved successfully
  */
-router.post('/admin/users/bulk-approve', authenticateToken, requireAdmin, bulkApproveUsers);
+router.post('/admin/users/bulk-approve', protect, requireAdmin, bulkApproveUsers);
 
 /**
  * @swagger
@@ -387,7 +393,7 @@ router.post('/admin/users/bulk-approve', authenticateToken, requireAdmin, bulkAp
  *       200:
  *         description: Pending users exported successfully
  */
-router.get('/admin/export-pending-users', authenticateToken, requireAdmin, exportPendingUsers);
+router.get('/admin/export-pending-users', protect, requireAdmin, exportPendingUsers);
 /**
  * @swagger
  * /api/users/verify-registration:

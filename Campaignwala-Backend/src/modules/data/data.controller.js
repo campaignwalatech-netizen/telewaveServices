@@ -789,6 +789,22 @@ static async bulkAssignData(req, res) {
     }
 }
 
+static async getDistributionCounts(req, res) {
+    try {
+        const counts = await BulkDataOperations.getDistributionCounts();
+        
+        res.status(200).json({
+            success: true,
+            counts
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+}
+
 /**
  * Admin withdraws data from anyone
  */

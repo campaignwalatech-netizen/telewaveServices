@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const router = express.Router();
 const DataController = require('./data.controller');
-const { authenticateToken, authorize, protect } = require('../../middleware/user.middleware');
-const { authenticate } = require('../../middleware/auth');
+const { protect, authorize, requireAdmin, requireTL } = require('../../middleware/user.middleware');
+// const { authenticate } = require('../../middleware/auth');
 
 
 // ==================== ADMIN ROUTES ====================
@@ -58,65 +58,76 @@ const upload = multer({
 
 // Add these routes:
 
+// Get distribution counts
+router.get('/admin/distribution-counts', 
+  protect, 
+  authorize('admin'), 
+  DataController.getDistributionCounts
+);
+
+router.get('/admin/batches', 
+  protect,
+  authorize('admin'), 
+  DataController.getAllBatches
+);
+
 // Export data to Excel
-router.get('/export/excel',
-    authenticate,
+router.get('/export/excel', 
+    protect,
     DataController.exportDataExcel
 );
 
 // Download Excel template
 router.get('/download-template',
-    authenticate,
+    protect,
     DataController.downloadTemplate
 );
 
 // Add this route after other admin routes
 router.post('/admin/bulk-assign', 
-    // authenticate,
+    // authenticateToken,
     protect, 
-    authorize(['admin']), 
+    requireAdmin,   
     DataController.bulkAssignData
 );
 
 // Admin withdraws data from anyone
 router.post('/admin/withdraw-data', 
-    authenticate, 
-    authorize(['admin']), 
+    protect, 
+    authorize('admin'), 
     DataController.adminWithdrawData
 );
 // Add bulk data
 router.post('/admin/bulk-add', 
-    authenticate, 
-    authorize(['admin']), 
+    protect, 
+    authorize('admin'), 
     DataController.addBulkData
 );
 
 // Assign data to TL
 router.post('/admin/assign-to-tl', 
-    authenticate, 
-    authorize(['admin']), 
+    protect, 
+    authorize('admin'), 
     DataController.assignToTL
 );
 
 // Assign data to user
 router.post('/admin/assign-to-user', 
-    authenticate, 
-    authorize(['admin']), 
+    protect, 
+    authorize('admin'), 
     DataController.assignToUser
 );
 
 // Get pending data
-router.get('/admin/pending-data', 
-    // authenticateToken,
-    protect, 
-    authorize('admin'), 
-    DataController.getPendingData
-);
+router.get('/admin/pending-data',
+    protect,
+    requireAdmin,
+    DataController.getPendingData);
 
 // Get batch statistics
 router.get('/admin/batch-stats/:batchNumber', 
-    authenticate, 
-    authorize(['admin']), 
+    protect, 
+    authorize('admin'), 
     DataController.getBatchStats
 );
 
@@ -124,36 +135,36 @@ router.get('/admin/batch-stats/:batchNumber',
 
 // Get TL's assigned data
 router.get('/tl/data', 
-    authenticate, 
-    authorize(['TL']), 
+    protect,
+    authorize('TL'), 
     DataController.getTLData
 );
 
 // TL distributes data to team
 router.post('/tl/distribute', 
-    authenticate, 
-    authorize(['TL']), 
+    protect, 
+    authorize('TL'), 
     DataController.tlDistributeData
 );
 
 // TL withdraws data from team
 router.post('/tl/withdraw', 
-    authenticate, 
-    authorize(['TL']), 
+    protect, 
+    authorize('TL'), 
     DataController.tlWithdrawData
 );
 
 // Get TL statistics
 router.get('/tl/statistics', 
-    authenticate, 
-    authorize(['TL']), 
+    protect,
+    authorize('TL'), 
     DataController.getTLStatistics
 );
 
 // Get TL's withdrawn data
 router.get('/tl/withdrawn-data', 
-    authenticate, 
-    authorize(['TL']), 
+    protect, 
+    authorize('TL'), 
     DataController.getWithdrawnData
 );
 
@@ -161,22 +172,22 @@ router.get('/tl/withdrawn-data',
 
 // Get user's assigned data
 router.get('/user/data', 
-    authenticate, 
-    authorize(['user']), 
+    protect, 
+    authorize('user'), 
     DataController.getUserData
 );
 
 // Update data status
 router.put('/user/update-status', 
-    authenticate, 
-    authorize(['user']), 
+    protect, 
+    authorize('user'), 
     DataController.updateDataStatus
 );
 
 // Get user statistics
 router.get('/user/statistics', 
-    authenticate, 
-    authorize(['user']), 
+    protect, 
+    authorize('user'), 
     DataController.getUserStats
 );
 
@@ -184,19 +195,19 @@ router.get('/user/statistics',
 
 // Get data by ID
 router.get('/:id', 
-    authenticate, 
+    protect,
     DataController.getDataById
 );
 
 // Search data
 router.get('/search', 
-    authenticate, 
+    protect, 
     DataController.searchData
 );
 
 // Export data
 router.get('/export/csv', 
-    authenticate, 
+    protect, 
     DataController.exportData
 );
 
@@ -210,7 +221,7 @@ router.get('/export/csv',
 
 // Import data
 router.post('/import/csv', 
-    authenticateToken, 
+    protect, 
     authorize('admin'),
     (req, res, next) => {
       console.log('📁 [DEBUG] Before multer middleware');
@@ -268,38 +279,38 @@ router.post('/test-upload',
 
 // Get analytics
 router.get('/analytics', 
-    authenticate, 
+    protect, 
     DataController.getAnalytics
 );
 
 // Batch operations
 router.get('/batches', 
-    authenticate, 
-    authorize(['admin']), 
+    protect, 
+    authorize('admin'), 
     DataController.getAllBatches
 );
 
 router.get('/batches/:id', 
-    authenticate, 
-    authorize(['admin']), 
+    protect, 
+    authorize('admin'), 
     DataController.getBatchDetails
 );
 
 router.post('/batches', 
-    authenticate, 
-    authorize(['admin']), 
+    protect, 
+    authorize('admin'), 
     DataController.createBatch
 );
 
 router.put('/batches/:id', 
-    authenticate, 
-    authorize(['admin']), 
+    protect, 
+    authorize('admin'), 
     DataController.updateBatch
 );
 
 router.delete('/batches/:id', 
-    authenticate, 
-    authorize(['admin']), 
+    protect, 
+    authorize('admin'), 
     DataController.deleteBatch
 );
 

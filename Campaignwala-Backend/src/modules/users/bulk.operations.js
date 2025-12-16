@@ -6,6 +6,37 @@ const path = require('path'); // Add this import
 
 class BulkDataOperations {
 
+
+    //get distributioncounts
+    static async getDistributionCounts() {
+        try {
+            const counts = await DataDistribution.aggregate([
+                {
+                    $group: {
+                        _id: '$distributionStatus',
+                        count: { $sum: 1 }
+                    }
+                }
+            ]);
+            
+            const result = {};
+            counts.forEach(item => {
+                result[item._id] = item.count;
+            });
+            
+            return {
+                success: true,
+                data: result
+            };
+        } catch (error) {
+            console.error('❌ [BulkOperations] Get distribution counts error:', error);
+            return {
+                success: false,
+                error: error.message || 'Failed to get distribution counts'
+            };
+        }
+    }
+
     /**
      * Import data from file (CSV/Excel)
      */
@@ -1205,6 +1236,66 @@ static async adminWithdrawData(dataIds, adminId, reason = '') {
             };
         }
     }
+
+    /**
+   * Get users who are present today
+   */
+  static async getPresentUsersToday() {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        return await User.find({
+            role: 'user',
+            status: 'active',
+            'attendance.todayStatus': 'present',
+            'attendance.todayMarkedAt': { $gte: today },
+            'attendance.todayStatus': 'present'
+        }).select('_id name email phoneNumber attendance statistics');
+    } catch (error) {
+        console.error('Error getting present users:', error);
+        return [];
+    }
+}
+
+    /**
+   * Get users who are present but didn't get data today
+   */
+  static async getUsersWithoutDataToday() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return await User.find({
+      role: 'user',
+      status: 'active',
+      'attendance.todayStatus': 'present',
+      'attendance.todayMarkedAt': { $gte: today },
+      $or: [
+        { 'leadDistribution.lastLeadDistributionDate': { $lt: today } },
+        { 'leadDistribution.lastLeadDistributionDate': { $exists: false } }
+      ]
+    }).select('_id name email phoneNumber attendance leadDistribution');
+  }
+
+  /**
+   * Get all team leaders
+   */
+  static async getAllTeamLeaders() {
+    return await User.find({
+      role: 'TL',
+      status: 'active'
+    }).select('_id name email phoneNumber');
+  }
+
+  /**
+   * Get all active HR users
+   */
+  static async getAllActiveUsers() {
+    return await User.find({
+      role: 'user',
+      status: 'active'
+    }).select('_id name email phoneNumber status');
+  }
     
     /**
      * Get all batches summary
