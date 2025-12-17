@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import userService from '../../services/userService';
 import { 
@@ -42,7 +42,22 @@ import {
   DollarSign,
   Bookmark,
   Target,
-  TrendingDown
+  TrendingDown,
+  Clock4,
+  CalendarCheck,
+  FileText,
+  AlertTriangle,
+  UserCircle,
+  Mail as MailIcon,
+  Phone as PhoneIcon,
+  Calendar as CalendarIcon,
+  PhoneForwarded,
+  PhoneOff,
+  PhoneMissed,
+  Clock as ClockIcon,
+  CalendarClock,
+  UserCheck as UserCheckIcon,
+  Shield as ShieldIcon
 } from 'lucide-react';
 
 // Basic UI Components
@@ -295,7 +310,6 @@ const StatusChangeButton = ({ user, onChangeStatus, loading = false }) => {
       case 'active': return "success";
       case 'hold': return "warning";
       case 'dead': return "destructive";
-      // case 'inactive': return "gray";
       default: return "secondary";
     }
   };
@@ -305,7 +319,6 @@ const StatusChangeButton = ({ user, onChangeStatus, loading = false }) => {
       case 'active': return 'Active';
       case 'hold': return 'Hold';
       case 'dead': return 'Dead';
-      // case 'inactive': return 'Inactive';
       default: return user.status || 'Unknown';
     }
   };
@@ -423,7 +436,7 @@ const TLChangeButton = ({ user, teamLeaders, onChangeTL, loading = false }) => {
     }
   };
 
-  const currentTLName = user.reportingTo?.name || 'Not Assigned';
+  const currentTLName = user.reportingTo?.name || user.tlName || 'Not Assigned';
 
   return (
     <div className="relative" ref={menuRef}>
@@ -569,7 +582,6 @@ export default function AllUsers() {
   const [filters, setFilters] = useState({
     search: '',
     status: 'all',
-    // 🔹 Default role filter set to "user"
     role: 'user',
     page: 1,
     limit: 20
@@ -580,20 +592,34 @@ export default function AllUsers() {
     direction: 'desc'
   });
 
-  // Enhance user data with calculated fields
+  // Search debounce
+  const [searchTimeout, setSearchTimeout] = useState(null);
+
+  // Enhance user data with calculated fields - UPDATED
   const enhanceUserData = (user) => {
     // Calculate lead statistics
     const totalLeads = user.statistics?.totalLeads || 0;
     const completedLeads = user.statistics?.completedLeads || 0;
     const pendingLeads = user.statistics?.pendingLeads || 0;
     const rejectedLeads = user.statistics?.rejectedLeads || 0;
+    
+    // Get CALLED data from user statistics - Updated to check correct fields
+    const calledLeads = user.statistics?.calledLeads || 
+                       user.statistics?.contactedLeads || 
+                       user.dailyStats?.called || 0;
+    
+    // Get CLOSED data from user statistics - Updated to check correct fields
+    const closedLeads = user.statistics?.closedLeads || 
+                       user.statistics?.completedLeads || 
+                       user.dailyStats?.closed || 0;
+    
     const conversionRate = totalLeads > 0 ? (completedLeads / totalLeads * 100) : 0;
     
     // Attendance
     const totalPresent = user.attendance?.totalPresent || 0;
     const attendanceStatus = user.attendance?.todayStatus || 'not_marked';
     
-    // Rollback data
+    // Rollback data (withdrawal data)
     const rollbackData = user.rollback?.total || 0;
     const rollbackDate = user.rollback?.lastDate ? 
       new Date(user.rollback.lastDate).toLocaleDateString('en-IN') : '-';
@@ -604,9 +630,22 @@ export default function AllUsers() {
     const dateAssigned = user.leadDistribution?.lastAssignedDate ? 
       new Date(user.leadDistribution.lastAssignedDate).toLocaleDateString('en-IN') : '-';
     
-    // TL info
-    const tlName = user.reportingTo?.name || '-';
+    // TL info - Get from reportingTo or tlDetails
+    const tlName = user.reportingTo?.name || 
+                   user.tlDetails?.managedBy?.name || 
+                   user.tlName || 
+                   '-';
+    
     const manageTL = user.tlDetails?.managedBy?.name || '-';
+
+    // Calculate today's stats
+    const today = new Date().toISOString().split('T')[0];
+    const todayCalled = user.dailyStats?.[today]?.called || 0;
+    const todayClosed = user.dailyStats?.[today]?.closed || 0;
+    
+    // Get total called and closed counts from statistics
+    const totalCalled = calledLeads;
+    const totalClosed = closedLeads;
 
     return {
       ...user,
@@ -626,14 +665,24 @@ export default function AllUsers() {
       openLeads: pendingLeads + rejectedLeads,
       salary: user.financials?.salary || '-',
       joinDate: new Date(user.createdAt).toLocaleDateString('en-IN'),
-      calledLeads: user.statistics?.calledLeads || 0,
-      closedLeads: user.statistics?.closedLeads || 0,
-      canReceiveLeads: user.status === 'active' && attendanceStatus === 'present'
+      calledLeads: totalCalled, // Total number of calls clicked (contacted)
+      closedLeads: totalClosed, // Total number of all closed calls (converted, rejected, not interested)
+      canReceiveLeads: user.status === 'active' && attendanceStatus === 'present',
+      todayCalled,
+      todayClosed,
+      // Add performance metrics
+      performance: {
+        calledToday: todayCalled,
+        closedToday: todayClosed,
+        totalCalled: totalCalled,
+        totalClosed: totalClosed,
+        conversionRate: conversionRate
+      }
     };
   };
 
   // Fetch all users
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -664,7 +713,7 @@ export default function AllUsers() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.page, filters.limit, filters.status, filters.role, filters.search, sort]);
 
   // Fetch Team Leaders for TL change dropdown
   const fetchTeamLeaders = async () => {
@@ -676,6 +725,17 @@ export default function AllUsers() {
     } catch (err) {
       console.error('Error fetching team leaders:', err);
     }
+  };
+
+  // Handle search with debounce
+  const handleSearch = (value) => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    setSearchTimeout(setTimeout(() => {
+      setFilters(prev => ({ ...prev, search: value, page: 1 }));
+    }, 300));
   };
 
   // Change user role
@@ -710,8 +770,6 @@ export default function AllUsers() {
         response = await userService.markUserHold(userId, { reason: 'Manual status change' });
       } else if (newStatus === 'dead') {
         response = await userService.blockUser(userId, { reason: 'Marked as dead' });
-      } else if (newStatus === 'inactive') {
-        response = await userService.toggleUserStatus(userId);
       }
       
       if (response?.success) {
@@ -849,19 +907,7 @@ export default function AllUsers() {
   useEffect(() => {
     fetchUsers();
     fetchTeamLeaders();
-  }, [filters.page, filters.limit, filters.status, filters.role, sort]);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (filters.page !== 1) {
-        setFilters(prev => ({ ...prev, page: 1 }));
-      } else {
-        fetchUsers();
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [filters.search]);
+  }, [filters.page, filters.limit, filters.status, filters.role, sort, fetchUsers]);
 
   useEffect(() => {
     if (error || success) {
@@ -872,6 +918,15 @@ export default function AllUsers() {
       return () => clearTimeout(timer);
     }
   }, [error, success]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [searchTimeout]);
 
   // Handlers
   const handleFilterChange = (key, value) => {
@@ -896,14 +951,43 @@ export default function AllUsers() {
     }
   };
 
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString || dateString === '-') return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Invalid Date';
+    }
+  };
+
+  // Get performance color
+  const getPerformanceColor = (value, type) => {
+    if (type === 'conversion') {
+      if (value >= 70) return 'text-green-600';
+      if (value >= 50) return 'text-yellow-600';
+      return 'text-red-600';
+    }
+    if (value > 0) return 'text-green-600';
+    return 'text-gray-600';
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">All Users</h1>
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <UserCheck className="w-8 h-8 text-green-600" />
+            Approved Users
+          </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Manage all users with detailed information and actions
+            Manage all approved users with detailed information and actions
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -976,23 +1060,35 @@ export default function AllUsers() {
               <Input
                 placeholder="Search by name, email, phone..."
                 value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 className="pl-9"
                 disabled={loading}
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
-              
+              <Select 
+                value={filters.status} 
+                onValueChange={(value) => handleFilterChange('status', value)}
+                placeholder="Status"
+                className="w-full sm:w-[150px]"
+                disabled={loading}
+              >
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="hold">Hold</SelectItem>
+                <SelectItem value="dead">Dead</SelectItem>
+                <SelectItem value="ex">Ex Users</SelectItem>
+              </Select>
 
               <Select 
-                value={filters.role== 'user' ? 'all' : filters.role} 
+                value={filters.role === 'user' ? 'all' : filters.role} 
                 onValueChange={(value) => handleFilterChange('role', value)}
-                placeholder="User"
+                placeholder="Role"
                 className="w-full sm:w-[150px]"
                 disabled={loading}
               >
                 {/* <SelectItem value="all">All Roles</SelectItem> */}
-                {/* <SelectItem value="user">User</SelectItem> */}
+                <SelectItem value="user">User</SelectItem>
                 {/* <SelectItem value="TL">Team Lead</SelectItem> */}
                 {/* <SelectItem value="admin">Admin</SelectItem> */}
               </Select>
@@ -1006,7 +1102,7 @@ export default function AllUsers() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Users className="w-5 h-5" />
-            Users List
+            Approved Users List
             {users.length > 0 && (
               <Badge variant="secondary" className="ml-2">
                 {users.length} users
@@ -1021,60 +1117,87 @@ export default function AllUsers() {
                 <TableHeader>
                   <TableRow>
                     <TableHead sortable onSort={handleSort} sortKey="createdAt" currentSort={sort}>
+                      <CalendarClock className="w-4 h-4 inline mr-1" />
                       Joined On
                     </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="role" currentSort={sort}>
+                      <ShieldIcon className="w-4 h-4 inline mr-1" />
                       Role
                     </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="name" currentSort={sort}>
+                      <UserCircle className="w-4 h-4 inline mr-1" />
                       Name
                     </TableHead>
                     <TableHead>
+                      <PhoneIcon className="w-4 h-4 inline mr-1" />
                       Phone Number
                     </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="status" currentSort={sort}>
+                      <UserCheckIcon className="w-4 h-4 inline mr-1" />
                       Status
                     </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="attendance.todayStatus" currentSort={sort}>
+                      <CalendarCheck className="w-4 h-4 inline mr-1" />
                       Attendance
                     </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="rollbackData" currentSort={sort}>
+                      <DollarSign className="w-4 h-4 inline mr-1" />
                       RollBack Data
                     </TableHead>
                     <TableHead>
+                      <CalendarDays className="w-4 h-4 inline mr-1" />
                       RollBack Date
                     </TableHead>
                     <TableHead>
+                      <UserCheck className="w-4 h-4 inline mr-1" />
                       TL Name
                     </TableHead>
                     <TableHead>
+                      <User className="w-4 h-4 inline mr-1" />
                       Manage TL
                     </TableHead>
                     <TableHead>
+                      <Calendar className="w-4 h-4 inline mr-1" />
                       Last Data
                     </TableHead>
-                    <TableHead>
-                      Called
+                    <TableHead sortable onSort={handleSort} sortKey="calledLeads" currentSort={sort}>
+                      <PhoneCall className="w-4 h-4 inline mr-1" />
+                      Total Called
+                    </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="closedLeads" currentSort={sort}>
+                      <CheckCircle className="w-4 h-4 inline mr-1" />
+                      Total Closed
                     </TableHead>
                     <TableHead>
-                      Closed
+                      <PhoneCall className="w-4 h-4 inline mr-1" />
+                      Today Called
                     </TableHead>
                     <TableHead>
+                      <CheckCircle className="w-4 h-4 inline mr-1" />
+                      Today Closed
+                    </TableHead>
+                    <TableHead>
+                      <CalendarIcon className="w-4 h-4 inline mr-1" />
                       Date Assigned
                     </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="totalPresent" currentSort={sort}>
+                      <Clock4 className="w-4 h-4 inline mr-1" />
                       Total Present
                     </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="salary" currentSort={sort}>
+                      <DollarSign className="w-4 h-4 inline mr-1" />
                       Salary
                     </TableHead>
                     <TableHead>
+                      <MailIcon className="w-4 h-4 inline mr-1" />
                       Email Id
                     </TableHead>
                     <TableHead>
+                      <FileText className="w-4 h-4 inline mr-1" />
                       Open Leads
                     </TableHead>
                     <TableHead>
+                      <Settings className="w-4 h-4 inline mr-1" />
                       Action
                     </TableHead>
                   </TableRow>
@@ -1082,7 +1205,7 @@ export default function AllUsers() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={19} className="text-center py-12">
+                      <TableCell colSpan={21} className="text-center py-12">
                         <div className="flex flex-col items-center justify-center">
                           <RefreshCw className="w-10 h-10 animate-spin text-blue-600 mb-4" />
                           <span className="text-lg">Loading users...</span>
@@ -1092,7 +1215,7 @@ export default function AllUsers() {
                     </TableRow>
                   ) : users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={19} className="text-center py-12 text-gray-500">
+                      <TableCell colSpan={21} className="text-center py-12 text-gray-500">
                         <Users className="w-16 h-16 mx-auto mb-4 opacity-30" />
                         <p className="text-xl font-medium">No users found</p>
                         <p className="text-sm mt-2">
@@ -1105,6 +1228,7 @@ export default function AllUsers() {
                   ) : (
                     users.map((user) => (
                       <TableRow key={user._id} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        {/* Joined On */}
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-gray-500" />
@@ -1112,6 +1236,7 @@ export default function AllUsers() {
                           </div>
                         </TableCell>
                         
+                        {/* Role */}
                         <TableCell>
                           <RoleChangeButton 
                             user={user}
@@ -1120,6 +1245,7 @@ export default function AllUsers() {
                           />
                         </TableCell>
                         
+                        {/* Name */}
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
@@ -1132,6 +1258,7 @@ export default function AllUsers() {
                           </div>
                         </TableCell>
                         
+                        {/* Phone Number */}
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Phone className="w-4 h-4 text-gray-500" />
@@ -1139,6 +1266,7 @@ export default function AllUsers() {
                           </div>
                         </TableCell>
                         
+                        {/* Status */}
                         <TableCell>
                           <StatusChangeButton 
                             user={user}
@@ -1147,10 +1275,12 @@ export default function AllUsers() {
                           />
                         </TableCell>
                         
+                        {/* Attendance */}
                         <TableCell>
                           <AttendanceBadge user={user} />
                         </TableCell>
                         
+                        {/* RollBack Data (Withdrawal Data) */}
                         <TableCell>
                           <div className="text-center">
                             {user.rollbackData > 0 ? (
@@ -1161,14 +1291,17 @@ export default function AllUsers() {
                           </div>
                         </TableCell>
                         
+                        {/* RollBack Date */}
                         <TableCell>
-                          <span className="text-sm">{user.rollbackDate}</span>
+                          <span className="text-sm">{formatDate(user.rollbackDate)}</span>
                         </TableCell>
                         
+                        {/* TL Name - FIXED */}
                         <TableCell>
-                          <span className="text-sm font-medium">{user.tlName}</span>
+                          <span className="text-sm font-medium">{user.tlName || '-'}</span>
                         </TableCell>
                         
+                        {/* Manage TL */}
                         <TableCell>
                           <TLChangeButton 
                             user={user}
@@ -1178,38 +1311,80 @@ export default function AllUsers() {
                           />
                         </TableCell>
                         
+                        {/* Last Data */}
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm">{user.lastData}</span>
+                            <span className="text-sm">{formatDate(user.lastData)}</span>
                           </div>
                         </TableCell>
                         
+                        {/* Total Called (All time) */}
                         <TableCell>
                           <div className="text-center">
-                            <span className="font-medium">{user.calledLeads}</span>
+                            <div className="flex flex-col items-center">
+                              <span className={`font-medium ${getPerformanceColor(user.calledLeads, 'count')}`}>
+                                {user.calledLeads}
+                              </span>
+                            </div>
                           </div>
                         </TableCell>
                         
+                        {/* Total Closed (All time) */}
                         <TableCell>
                           <div className="text-center">
-                            <span className="font-medium text-green-600">{user.closedLeads}</span>
+                            <div className="flex flex-col items-center">
+                              <span className={`font-medium ${getPerformanceColor(user.closedLeads, 'count')}`}>
+                                {user.closedLeads}
+                              </span>
+                              {user.conversionRate > 0 && (
+                                <span className={`text-xs ${getPerformanceColor(parseFloat(user.conversionRate), 'conversion')}`}>
+                                  {user.conversionRate}% rate
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </TableCell>
                         
+                        {/* Today Called */}
                         <TableCell>
-                          <span className="text-sm">{user.dateAssigned}</span>
+                          <div className="text-center">
+                            <div className="flex flex-col items-center">
+                              <span className={`font-medium ${getPerformanceColor(user.todayCalled, 'count')}`}>
+                                {user.todayCalled}
+                              </span>
+                            </div>
+                          </div>
                         </TableCell>
                         
+                        {/* Today Closed */}
+                        <TableCell>
+                          <div className="text-center">
+                            <div className="flex flex-col items-center">
+                              <span className={`font-medium ${getPerformanceColor(user.todayClosed, 'count')}`}>
+                                {user.todayClosed}
+                              </span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        
+                        {/* Date Assigned */}
+                        <TableCell>
+                          <span className="text-sm">{formatDate(user.dateAssigned)}</span>
+                        </TableCell>
+                        
+                        {/* Total Present (till now from attendance history) */}
                         <TableCell>
                           <div className="text-center">
                             <span className="font-bold">{user.totalPresent}</span>
-                            {user.conversionRate > 0 && (
-                              <p className="text-xs text-gray-500">{user.conversionRate}% conversion</p>
-                            )}
+                            <div className="text-xs text-gray-500">
+                              <Clock className="w-3 h-3 inline mr-1" />
+                              Days
+                            </div>
                           </div>
                         </TableCell>
                         
+                        {/* Salary */}
                         <TableCell>
                           <div className="text-right">
                             {user.salary && user.salary !== '-' ? (
@@ -1222,6 +1397,7 @@ export default function AllUsers() {
                           </div>
                         </TableCell>
                         
+                        {/* Email Id */}
                         <TableCell>
                           <div className="flex items-center gap-2 min-w-[200px]">
                             <Mail className="w-4 h-4 text-gray-500" />
@@ -1229,6 +1405,7 @@ export default function AllUsers() {
                           </div>
                         </TableCell>
                         
+                        {/* Open Leads */}
                         <TableCell>
                           <OpenLeadsWithrow 
                             openLeads={user.openLeads}
@@ -1236,6 +1413,7 @@ export default function AllUsers() {
                           />
                         </TableCell>
                         
+                        {/* Action */}
                         <TableCell>
                           <ActionMenu
                             user={user}
@@ -1258,7 +1436,7 @@ export default function AllUsers() {
       {users.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-500">
-            Showing {users.length} users
+            Showing {users.length} approved users
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -1283,6 +1461,67 @@ export default function AllUsers() {
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* Quick Stats Card */}
+      {users.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Total Active Users</p>
+                  <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">
+                    {users.filter(u => u.status === 'active').length}
+                  </p>
+                </div>
+                <UserCheck className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-700 dark:text-green-300">Total Called Today</p>
+                  <p className="text-2xl font-bold text-green-800 dark:text-green-200">
+                    {users.reduce((sum, user) => sum + (user.todayCalled || 0), 0)}
+                  </p>
+                </div>
+                <PhoneCall className="w-8 h-8 text-green-600 dark:text-green-400" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Total Closed Today</p>
+                  <p className="text-2xl font-bold text-purple-800 dark:text-purple-200">
+                    {users.reduce((sum, user) => sum + (user.todayClosed || 0), 0)}
+                  </p>
+                </div>
+                <CheckCircle className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-orange-700 dark:text-orange-300">Open Leads</p>
+                  <p className="text-2xl font-bold text-orange-800 dark:text-orange-200">
+                    {users.reduce((sum, user) => sum + (user.openLeads || 0), 0)}
+                  </p>
+                </div>
+                <FileText className="w-8 h-8 text-orange-600 dark:text-orange-400" />
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
     </div>

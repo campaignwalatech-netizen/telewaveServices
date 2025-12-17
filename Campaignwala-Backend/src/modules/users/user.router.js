@@ -140,6 +140,9 @@ router.post('/admin/users/:userId/approve-and-assign-tl', protect, requireAdmin,
 //get teamleaders with active status
 router.get('/admin/team-leaders', protect, requireAdmin, getTeamLeadersWithActiveStatus);
 
+// admin bulk approve and assign tl
+// router.post('/admin/bulk-approve-and-assign-tl', protect, requireAdmin, bulkApproveUsers);
+
 
 /**
  * @swagger
@@ -367,7 +370,7 @@ router.post('/admin/users/:userId/assign-tl', protect, requireAdmin, assignUserT
  *       200:
  *         description: Users bulk approved successfully
  */
-router.post('/admin/users/bulk-approve', protect, requireAdmin, bulkApproveUsers);
+router.post('/admin/bulk-approve', protect, requireAdmin, bulkApproveUsers);
 
 /**
  * @swagger
@@ -1122,7 +1125,7 @@ router.get('/admin/users/status/:status', authenticateToken, requireAdmin, getUs
  *       200:
  *         description: User retrieved successfully
  */
-router.get('/admin/users/:userId', authenticateToken, requireAdmin, getUserById);
+router.get('/admin/users/:userId', authenticateToken, authorize('admin','TL'), getUserById);
 
 /**
  * @swagger
@@ -1647,7 +1650,7 @@ router.get('/tl/dashboard-stats', authenticateToken, requireTL, getDashboardStat
  *       200:
  *         description: Team members retrieved successfully
  */
-router.get('/tl/team-members', authenticateToken, requireTL, getTeamMembers);
+router.get('/tl/team-members', protect, requireTL, getTeamMembers);
 
 /**
  * @swagger

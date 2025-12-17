@@ -18,13 +18,24 @@ const RoleBasedRoute = ({
   const userRole = useSelector(selectUserRole);
   const isLoading = useSelector(selectIsLoading);
 
+  // Debug logs
+  console.log('RoleBasedRoute Debug:', {
+    path: location.pathname,
+    isAuthenticated,
+    userRole,
+    expectedRole: role,
+    isLoading
+  });
+
   // Show loading fallback while auth state is being determined
   if (isLoading) {
+    console.log('Showing loader...');
     return fallback;
   }
 
   // Check authentication
   if (!isAuthenticated) {
+    console.log('Not authenticated, redirecting to:', redirectTo);
     return (
       <Navigate 
         to={redirectTo} 
@@ -36,6 +47,8 @@ const RoleBasedRoute = ({
 
   // Check role-based access
   if (userRole !== role) {
+    console.log(`Role mismatch: User has role "${userRole}", expected "${role}"`);
+    
     // Redirect to appropriate dashboard based on user role
     let dashboardRoute = '/';
     switch (userRole) {
@@ -52,6 +65,7 @@ const RoleBasedRoute = ({
         dashboardRoute = '/';
     }
     
+    console.log('Redirecting to dashboard:', dashboardRoute);
     return (
       <Navigate 
         to={dashboardRoute} 
@@ -61,6 +75,7 @@ const RoleBasedRoute = ({
     );
   }
 
+  console.log('All checks passed, rendering children');
   // All checks passed, render the protected content
   return children;
 };

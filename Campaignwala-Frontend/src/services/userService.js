@@ -1,4 +1,4 @@
-import api from './api';
+import api from "./api";
 
 /**
  * Enhanced User Service
@@ -19,28 +19,27 @@ class UserService {
    */
   async getAllUsers(params = {}) {
     try {
-      console.log('🌐 userService.getAllUsers called with:', params);
-      const response = await api.get('/users/admin/users', { params });
-      console.log('✅ userService.getAllUsers response:', response.data);
+      console.log("🌐 userService.getAllUsers called with:", params);
+      const response = await api.get("/users/admin/users", { params });
+      console.log("✅ userService.getAllUsers response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getAllUsers error:', error);
+      console.error("❌ userService.getAllUsers error:", error);
       throw this.handleError(error);
     }
   }
 
   async getPresentUsers(params = {}) {
     try {
-      console.log('🌐 userService.getPresentUsers called with:', params);
-      const response = await api.get('/users/admin/present-users', { params });
-      console.log('✅ userService.getPresentUsers response:', response.data);
+      console.log("🌐 userService.getPresentUsers called with:", params);
+      const response = await api.get("/users/admin/present-users", { params });
+      console.log("✅ userService.getPresentUsers response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getPresentUsers error:', error);
+      console.error("❌ userService.getPresentUsers error:", error);
       throw this.handleError(error);
     }
   }
-
 
   /**
    * Get users by status (for admin dashboard)
@@ -50,12 +49,18 @@ class UserService {
    */
   async getUsersByStatus(status, params = {}) {
     try {
-      console.log('🌐 userService.getUsersByStatus called with:', status, params);
-      const response = await api.get(`/users/admin/users/status/${status}`, { params });
-      console.log('✅ userService.getUsersByStatus response:', response.data);
+      console.log(
+        "🌐 userService.getUsersByStatus called with:",
+        status,
+        params
+      );
+      const response = await api.get(`/users/admin/users/status/${status}`, {
+        params,
+      });
+      console.log("✅ userService.getUsersByStatus response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getUsersByStatus error:', error);
+      console.error("❌ userService.getUsersByStatus error:", error);
       throw this.handleError(error);
     }
   }
@@ -67,12 +72,12 @@ class UserService {
    */
   async getUserById(userId) {
     try {
-      console.log('🌐 userService.getUserById called with:', userId);
+      console.log("🌐 userService.getUserById called with:", userId);
       const response = await api.get(`/users/admin/users/${userId}`);
-      console.log('✅ userService.getUserById response:', response.data);
+      console.log("✅ userService.getUserById response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getUserById error:', error);
+      console.error("❌ userService.getUserById error:", error);
       throw this.handleError(error);
     }
   }
@@ -85,12 +90,12 @@ class UserService {
    */
   async updateUser(userId, data) {
     try {
-      console.log('🌐 userService.updateUser called with:', userId, data);
+      console.log("🌐 userService.updateUser called with:", userId, data);
       const response = await api.put(`/users/admin/users/${userId}`, data);
-      console.log('✅ userService.updateUser response:', response.data);
+      console.log("✅ userService.updateUser response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.updateUser error:', error);
+      console.error("❌ userService.updateUser error:", error);
       throw this.handleError(error);
     }
   }
@@ -103,24 +108,29 @@ class UserService {
    */
   async updateUserRole(userId, role) {
     try {
-      console.log('🌐 userService.updateUserRole called with:', userId, role);
-      const response = await api.put(`/users/admin/users/${userId}/role`, { role });
-      console.log('✅ userService.updateUserRole response:', response.data);
+      console.log("🌐 userService.updateUserRole called with:", userId, role);
+      const response = await api.put(`/users/admin/users/${userId}/role`, {
+        role,
+      });
+      console.log("✅ userService.updateUserRole response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.updateUserRole error:', error);
+      console.error("❌ userService.updateUserRole error:", error);
       throw this.handleError(error);
     }
   }
 
   async approveAndAssignTL(userId, data) {
-  try {
-    const response = await api.post(`/users/admin/users/${userId}/approve-and-assign-tl`, data);
-    return response.data;
-  } catch (error) {
-    throw this.handleError(error);
+    try {
+      const response = await api.post(
+        `/users/admin/users/${userId}/approve-and-assign-tl`,
+        data
+      );
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
   }
-}
 
   /**
    * Update TL permissions
@@ -130,12 +140,22 @@ class UserService {
    */
   async updateTLPermissions(userId, permissions) {
     try {
-      console.log('🌐 userService.updateTLPermissions called with:', userId, permissions);
-      const response = await api.put(`/users/admin/users/${userId}/tl-permissions`, { permissions });
-      console.log('✅ userService.updateTLPermissions response:', response.data);
+      console.log(
+        "🌐 userService.updateTLPermissions called with:",
+        userId,
+        permissions
+      );
+      const response = await api.put(
+        `/users/admin/users/${userId}/tl-permissions`,
+        { permissions }
+      );
+      console.log(
+        "✅ userService.updateTLPermissions response:",
+        response.data
+      );
       return response.data;
     } catch (error) {
-      console.error('❌ userService.updateTLPermissions error:', error);
+      console.error("❌ userService.updateTLPermissions error:", error);
       throw this.handleError(error);
     }
   }
@@ -146,22 +166,26 @@ class UserService {
    * @returns {Promise<Object>} - Approval response
    */
   async approveUserRegistration(userId) {
-  try {
-    const response = await api.post(`/users/admin/users/${userId}/approve-registration`);
-    return response.data;
-  } catch (error) {
-    throw this.handleError(error);
+    try {
+      const response = await api.post(
+        `/users/admin/users/${userId}/approve-registration`
+      );
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
   }
-}
 
-async activateUser(userId, tlId) {
-  try {
-    const response = await api.post(`/users/admin/users/${userId}/activate`, { tlId });
-    return response.data;
-  } catch (error) {
-    throw this.handleError(error);
+  async activateUser(userId, tlId) {
+    try {
+      const response = await api.post(`/users/admin/users/${userId}/activate`, {
+        tlId,
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
   }
-}
 
   /**
    * Bulk approve users
@@ -170,12 +194,12 @@ async activateUser(userId, tlId) {
    */
   async bulkApproveUsers(userIds) {
     try {
-      console.log('🌐 userService.bulkApproveUsers called with:', userIds);
-      const response = await api.post('/users/admin/bulk-approve', { userIds });
-      console.log('✅ userService.bulkApproveUsers response:', response.data);
+      console.log("🌐 userService.bulkApproveUsers called with:", userIds);
+      const response = await api.post("/users/admin/bulk-approve", { userIds });
+      console.log("✅ userService.bulkApproveUsers response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.bulkApproveUsers error:', error);
+      console.error("❌ userService.bulkApproveUsers error:", error);
       throw this.handleError(error);
     }
   }
@@ -188,12 +212,15 @@ async activateUser(userId, tlId) {
    */
   async markUserHold(userId, data) {
     try {
-      console.log('🌐 userService.markUserHold called with:', userId, data);
-      const response = await api.post(`/users/admin/users/${userId}/hold`, data);
-      console.log('✅ userService.markUserHold response:', response.data);
+      console.log("🌐 userService.markUserHold called with:", userId, data);
+      const response = await api.post(
+        `/users/admin/users/${userId}/hold`,
+        data
+      );
+      console.log("✅ userService.markUserHold response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.markUserHold error:', error);
+      console.error("❌ userService.markUserHold error:", error);
       throw this.handleError(error);
     }
   }
@@ -206,12 +233,15 @@ async activateUser(userId, tlId) {
    */
   async markUserActive(userId, data = {}) {
     try {
-      console.log('🌐 userService.markUserActive called with:', userId, data);
-      const response = await api.post(`/users/admin/users/${userId}/active`, data);
-      console.log('✅ userService.markUserActive response:', response.data);
+      console.log("🌐 userService.markUserActive called with:", userId, data);
+      const response = await api.post(
+        `/users/admin/users/${userId}/active`,
+        data
+      );
+      console.log("✅ userService.markUserActive response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.markUserActive error:', error);
+      console.error("❌ userService.markUserActive error:", error);
       throw this.handleError(error);
     }
   }
@@ -224,12 +254,15 @@ async activateUser(userId, tlId) {
    */
   async blockUser(userId, data) {
     try {
-      console.log('🌐 userService.blockUser called with:', userId, data);
-      const response = await api.post(`/users/admin/users/${userId}/block`, data);
-      console.log('✅ userService.blockUser response:', response.data);
+      console.log("🌐 userService.blockUser called with:", userId, data);
+      const response = await api.post(
+        `/users/admin/users/${userId}/block`,
+        data
+      );
+      console.log("✅ userService.blockUser response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.blockUser error:', error);
+      console.error("❌ userService.blockUser error:", error);
       throw this.handleError(error);
     }
   }
@@ -242,12 +275,15 @@ async activateUser(userId, tlId) {
    */
   async changeUserRole(userId, data) {
     try {
-      console.log('🌐 userService.changeUserRole called with:', userId, data);
-      const response = await api.post(`/users/admin/users/${userId}/change-role`, data);
-      console.log('✅ userService.changeUserRole response:', response.data);
+      console.log("🌐 userService.changeUserRole called with:", userId, data);
+      const response = await api.post(
+        `/users/admin/users/${userId}/change-role`,
+        data
+      );
+      console.log("✅ userService.changeUserRole response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.changeUserRole error:', error);
+      console.error("❌ userService.changeUserRole error:", error);
       throw this.handleError(error);
     }
   }
@@ -259,12 +295,14 @@ async activateUser(userId, tlId) {
    */
   async toggleUserStatus(userId) {
     try {
-      console.log('🌐 userService.toggleUserStatus called with:', userId);
-      const response = await api.put(`/users/admin/users/${userId}/toggle-status`);
-      console.log('✅ userService.toggleUserStatus response:', response.data);
+      console.log("🌐 userService.toggleUserStatus called with:", userId);
+      const response = await api.put(
+        `/users/admin/users/${userId}/toggle-status`
+      );
+      console.log("✅ userService.toggleUserStatus response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.toggleUserStatus error:', error);
+      console.error("❌ userService.toggleUserStatus error:", error);
       throw this.handleError(error);
     }
   }
@@ -276,12 +314,12 @@ async activateUser(userId, tlId) {
    */
   async markUserAsEx(userId) {
     try {
-      console.log('🌐 userService.markUserAsEx called with:', userId);
+      console.log("🌐 userService.markUserAsEx called with:", userId);
       const response = await api.put(`/users/admin/users/${userId}/mark-ex`);
-      console.log('✅ userService.markUserAsEx response:', response.data);
+      console.log("✅ userService.markUserAsEx response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.markUserAsEx error:', error);
+      console.error("❌ userService.markUserAsEx error:", error);
       throw this.handleError(error);
     }
   }
@@ -293,12 +331,12 @@ async activateUser(userId, tlId) {
    */
   async deleteUser(userId) {
     try {
-      console.log('🌐 userService.deleteUser called with:', userId);
+      console.log("🌐 userService.deleteUser called with:", userId);
       const response = await api.delete(`/users/admin/users/${userId}`);
-      console.log('✅ userService.deleteUser response:', response.data);
+      console.log("✅ userService.deleteUser response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.deleteUser error:', error);
+      console.error("❌ userService.deleteUser error:", error);
       throw this.handleError(error);
     }
   }
@@ -311,12 +349,19 @@ async activateUser(userId, tlId) {
    */
   async processWithdrawal(userId, data) {
     try {
-      console.log('🌐 userService.processWithdrawal called with:', userId, data);
-      const response = await api.post(`/users/admin/users/${userId}/withdrawal`, data);
-      console.log('✅ userService.processWithdrawal response:', response.data);
+      console.log(
+        "🌐 userService.processWithdrawal called with:",
+        userId,
+        data
+      );
+      const response = await api.post(
+        `/users/admin/users/${userId}/withdrawal`,
+        data
+      );
+      console.log("✅ userService.processWithdrawal response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.processWithdrawal error:', error);
+      console.error("❌ userService.processWithdrawal error:", error);
       throw this.handleError(error);
     }
   }
@@ -329,12 +374,15 @@ async activateUser(userId, tlId) {
    */
   async addRollback(userId, data) {
     try {
-      console.log('🌐 userService.addRollback called with:', userId, data);
-      const response = await api.post(`/users/admin/users/${userId}/rollback`, data);
-      console.log('✅ userService.addRollback response:', response.data);
+      console.log("🌐 userService.addRollback called with:", userId, data);
+      const response = await api.post(
+        `/users/admin/users/${userId}/rollback`,
+        data
+      );
+      console.log("✅ userService.addRollback response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.addRollback error:', error);
+      console.error("❌ userService.addRollback error:", error);
       throw this.handleError(error);
     }
   }
@@ -348,12 +396,12 @@ async activateUser(userId, tlId) {
    */
   async getUserStats(userId) {
     try {
-      console.log('🌐 userService.getUserStats called with:', userId);
+      console.log("🌐 userService.getUserStats called with:", userId);
       const response = await api.get(`/users/admin/users/${userId}/stats`);
-      console.log('✅ userService.getUserStats response:', response.data);
+      console.log("✅ userService.getUserStats response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getUserStats error:', error);
+      console.error("❌ userService.getUserStats error:", error);
       throw this.handleError(error);
     }
   }
@@ -365,12 +413,17 @@ async activateUser(userId, tlId) {
    */
   async getAllUsersWithStats(params = {}) {
     try {
-      console.log('🌐 userService.getAllUsersWithStats called with:', params);
-      const response = await api.get('/users/admin/users-with-stats', { params });
-      console.log('✅ userService.getAllUsersWithStats response:', response.data);
+      console.log("🌐 userService.getAllUsersWithStats called with:", params);
+      const response = await api.get("/users/admin/users-with-stats", {
+        params,
+      });
+      console.log(
+        "✅ userService.getAllUsersWithStats response:",
+        response.data
+      );
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getAllUsersWithStats error:', error);
+      console.error("❌ userService.getAllUsersWithStats error:", error);
       throw this.handleError(error);
     }
   }
@@ -384,12 +437,12 @@ async activateUser(userId, tlId) {
    */
   async markAttendance(data = {}) {
     try {
-      console.log('🌐 userService.markAttendance called with:', data);
-      const response = await api.post('/users/mark-attendance', data);
-      console.log('✅ userService.markAttendance response:', response.data);
+      console.log("🌐 userService.markAttendance called with:", data);
+      const response = await api.post("/users/mark-attendance", data);
+      console.log("✅ userService.markAttendance response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.markAttendance error:', error);
+      console.error("❌ userService.markAttendance error:", error);
       throw this.handleError(error);
     }
   }
@@ -400,12 +453,12 @@ async activateUser(userId, tlId) {
    */
   async getTodayAttendance() {
     try {
-      console.log('🌐 userService.getTodayAttendance called');
-      const response = await api.get('/users/today-attendance');
-      console.log('✅ userService.getTodayAttendance response:', response.data);
+      console.log("🌐 userService.getTodayAttendance called");
+      const response = await api.get("/users/today-attendance");
+      console.log("✅ userService.getTodayAttendance response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getTodayAttendance error:', error);
+      console.error("❌ userService.getTodayAttendance error:", error);
       throw this.handleError(error);
     }
   }
@@ -417,12 +470,15 @@ async activateUser(userId, tlId) {
    */
   async getAttendanceHistory(params = {}) {
     try {
-      console.log('🌐 userService.getAttendanceHistory called with:', params);
-      const response = await api.get('/users/attendance-history', { params });
-      console.log('✅ userService.getAttendanceHistory response:', response.data);
+      console.log("🌐 userService.getAttendanceHistory called with:", params);
+      const response = await api.get("/users/attendance-history", { params });
+      console.log(
+        "✅ userService.getAttendanceHistory response:",
+        response.data
+      );
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getAttendanceHistory error:', error);
+      console.error("❌ userService.getAttendanceHistory error:", error);
       throw this.handleError(error);
     }
   }
@@ -434,12 +490,17 @@ async activateUser(userId, tlId) {
    */
   async getAttendanceReport(params = {}) {
     try {
-      console.log('🌐 userService.getAttendanceReport called with:', params);
-      const response = await api.get('/users/admin/attendance/report', { params });
-      console.log('✅ userService.getAttendanceReport response:', response.data);
+      console.log("🌐 userService.getAttendanceReport called with:", params);
+      const response = await api.get("/users/admin/attendance/report", {
+        params,
+      });
+      console.log(
+        "✅ userService.getAttendanceReport response:",
+        response.data
+      );
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getAttendanceReport error:', error);
+      console.error("❌ userService.getAttendanceReport error:", error);
       throw this.handleError(error);
     }
   }
@@ -453,12 +514,12 @@ async activateUser(userId, tlId) {
    */
   async distributeLeads(data) {
     try {
-      console.log('🌐 userService.distributeLeads called with:', data);
-      const response = await api.post('/users/admin/leads/distribute', data);
-      console.log('✅ userService.distributeLeads response:', response.data);
+      console.log("🌐 userService.distributeLeads called with:", data);
+      const response = await api.post("/users/admin/leads/distribute", data);
+      console.log("✅ userService.distributeLeads response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.distributeLeads error:', error);
+      console.error("❌ userService.distributeLeads error:", error);
       throw this.handleError(error);
     }
   }
@@ -471,12 +532,15 @@ async activateUser(userId, tlId) {
    */
   async withdrawLeads(userId, data) {
     try {
-      console.log('🌐 userService.withdrawLeads called with:', userId, data);
-      const response = await api.post(`/users/admin/users/${userId}/withdraw-leads`, data);
-      console.log('✅ userService.withdrawLeads response:', response.data);
+      console.log("🌐 userService.withdrawLeads called with:", userId, data);
+      const response = await api.post(
+        `/users/admin/users/${userId}/withdraw-leads`,
+        data
+      );
+      console.log("✅ userService.withdrawLeads response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.withdrawLeads error:', error);
+      console.error("❌ userService.withdrawLeads error:", error);
       throw this.handleError(error);
     }
   }
@@ -487,12 +551,12 @@ async activateUser(userId, tlId) {
    */
   async getUserTodaysLeads() {
     try {
-      console.log('🌐 userService.getUserTodaysLeads called');
-      const response = await api.get('/users/my-leads/today');
-      console.log('✅ userService.getUserTodaysLeads response:', response.data);
+      console.log("🌐 userService.getUserTodaysLeads called");
+      const response = await api.get("/users/my-leads/today");
+      console.log("✅ userService.getUserTodaysLeads response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getUserTodaysLeads error:', error);
+      console.error("❌ userService.getUserTodaysLeads error:", error);
       throw this.handleError(error);
     }
   }
@@ -504,12 +568,12 @@ async activateUser(userId, tlId) {
    */
   async startLead(leadId) {
     try {
-      console.log('🌐 userService.startLead called with:', leadId);
+      console.log("🌐 userService.startLead called with:", leadId);
       const response = await api.post(`/users/my-leads/${leadId}/start`);
-      console.log('✅ userService.startLead response:', response.data);
+      console.log("✅ userService.startLead response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.startLead error:', error);
+      console.error("❌ userService.startLead error:", error);
       throw this.handleError(error);
     }
   }
@@ -522,12 +586,15 @@ async activateUser(userId, tlId) {
    */
   async completeLead(leadId, data = {}) {
     try {
-      console.log('🌐 userService.completeLead called with:', leadId, data);
-      const response = await api.post(`/users/my-leads/${leadId}/complete`, data);
-      console.log('✅ userService.completeLead response:', response.data);
+      console.log("🌐 userService.completeLead called with:", leadId, data);
+      const response = await api.post(
+        `/users/my-leads/${leadId}/complete`,
+        data
+      );
+      console.log("✅ userService.completeLead response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.completeLead error:', error);
+      console.error("❌ userService.completeLead error:", error);
       throw this.handleError(error);
     }
   }
@@ -540,12 +607,12 @@ async activateUser(userId, tlId) {
    */
   async getKYCDetails() {
     try {
-      console.log('🌐 userService.getKYCDetails called');
-      const response = await api.get('/users/kyc');
-      console.log('✅ userService.getKYCDetails response:', response.data);
+      console.log("🌐 userService.getKYCDetails called");
+      const response = await api.get("/users/kyc");
+      console.log("✅ userService.getKYCDetails response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getKYCDetails error:', error);
+      console.error("❌ userService.getKYCDetails error:", error);
       throw this.handleError(error);
     }
   }
@@ -557,12 +624,12 @@ async activateUser(userId, tlId) {
    */
   async updateKYCDetails(data) {
     try {
-      console.log('🌐 userService.updateKYCDetails called with:', data);
-      const response = await api.put('/users/kyc', data);
-      console.log('✅ userService.updateKYCDetails response:', response.data);
+      console.log("🌐 userService.updateKYCDetails called with:", data);
+      const response = await api.put("/users/kyc", data);
+      console.log("✅ userService.updateKYCDetails response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.updateKYCDetails error:', error);
+      console.error("❌ userService.updateKYCDetails error:", error);
       throw this.handleError(error);
     }
   }
@@ -574,12 +641,12 @@ async activateUser(userId, tlId) {
    */
   async submitKYC(data) {
     try {
-      console.log('🌐 userService.submitKYC called with:', data);
-      const response = await api.post('/users/kyc/submit', data);
-      console.log('✅ userService.submitKYC response:', response.data);
+      console.log("🌐 userService.submitKYC called with:", data);
+      const response = await api.post("/users/kyc/submit", data);
+      console.log("✅ userService.submitKYC response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.submitKYC error:', error);
+      console.error("❌ userService.submitKYC error:", error);
       throw this.handleError(error);
     }
   }
@@ -590,12 +657,12 @@ async activateUser(userId, tlId) {
    */
   async requestKYCApproval() {
     try {
-      console.log('🌐 userService.requestKYCApproval called');
-      const response = await api.post('/users/kyc/request-approval');
-      console.log('✅ userService.requestKYCApproval response:', response.data);
+      console.log("🌐 userService.requestKYCApproval called");
+      const response = await api.post("/users/kyc/request-approval");
+      console.log("✅ userService.requestKYCApproval response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.requestKYCApproval error:', error);
+      console.error("❌ userService.requestKYCApproval error:", error);
       throw this.handleError(error);
     }
   }
@@ -607,12 +674,15 @@ async activateUser(userId, tlId) {
    */
   async getPendingKYCRequests(params = {}) {
     try {
-      console.log('🌐 userService.getPendingKYCRequests called with:', params);
-      const response = await api.get('/users/admin/kyc/pending', { params });
-      console.log('✅ userService.getPendingKYCRequests response:', response.data);
+      console.log("🌐 userService.getPendingKYCRequests called with:", params);
+      const response = await api.get("/users/admin/kyc/pending", { params });
+      console.log(
+        "✅ userService.getPendingKYCRequests response:",
+        response.data
+      );
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getPendingKYCRequests error:', error);
+      console.error("❌ userService.getPendingKYCRequests error:", error);
       throw this.handleError(error);
     }
   }
@@ -624,12 +694,15 @@ async activateUser(userId, tlId) {
    */
   async getKYCDetailsByUserId(userId) {
     try {
-      console.log('🌐 userService.getKYCDetailsByUserId called with:', userId);
+      console.log("🌐 userService.getKYCDetailsByUserId called with:", userId);
       const response = await api.get(`/users/admin/kyc/${userId}`);
-      console.log('✅ userService.getKYCDetailsByUserId response:', response.data);
+      console.log(
+        "✅ userService.getKYCDetailsByUserId response:",
+        response.data
+      );
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getKYCDetailsByUserId error:', error);
+      console.error("❌ userService.getKYCDetailsByUserId error:", error);
       throw this.handleError(error);
     }
   }
@@ -642,12 +715,15 @@ async activateUser(userId, tlId) {
    */
   async approveKYC(userId, data = {}) {
     try {
-      console.log('🌐 userService.approveKYC called with:', userId, data);
-      const response = await api.put(`/users/admin/kyc/${userId}/approve`, data);
-      console.log('✅ userService.approveKYC response:', response.data);
+      console.log("🌐 userService.approveKYC called with:", userId, data);
+      const response = await api.put(
+        `/users/admin/kyc/${userId}/approve`,
+        data
+      );
+      console.log("✅ userService.approveKYC response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.approveKYC error:', error);
+      console.error("❌ userService.approveKYC error:", error);
       throw this.handleError(error);
     }
   }
@@ -660,12 +736,12 @@ async activateUser(userId, tlId) {
    */
   async rejectKYC(userId, data) {
     try {
-      console.log('🌐 userService.rejectKYC called with:', userId, data);
+      console.log("🌐 userService.rejectKYC called with:", userId, data);
       const response = await api.put(`/users/admin/kyc/${userId}/reject`, data);
-      console.log('✅ userService.rejectKYC response:', response.data);
+      console.log("✅ userService.rejectKYC response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.rejectKYC error:', error);
+      console.error("❌ userService.rejectKYC error:", error);
       throw this.handleError(error);
     }
   }
@@ -678,12 +754,12 @@ async activateUser(userId, tlId) {
    */
   async getWalletBalance() {
     try {
-      console.log('🌐 userService.getWalletBalance called');
-      const response = await api.get('/users/wallet');
-      console.log('✅ userService.getWalletBalance response:', response.data);
+      console.log("🌐 userService.getWalletBalance called");
+      const response = await api.get("/users/wallet");
+      console.log("✅ userService.getWalletBalance response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getWalletBalance error:', error);
+      console.error("❌ userService.getWalletBalance error:", error);
       throw this.handleError(error);
     }
   }
@@ -697,12 +773,12 @@ async activateUser(userId, tlId) {
    */
   async riseQuery(data) {
     try {
-      console.log('🌐 userService.riseQuery called with:', data);
-      const response = await api.post('/users/queries', data);
-      console.log('✅ userService.riseQuery response:', response.data);
+      console.log("🌐 userService.riseQuery called with:", data);
+      const response = await api.post("/users/queries", data);
+      console.log("✅ userService.riseQuery response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.riseQuery error:', error);
+      console.error("❌ userService.riseQuery error:", error);
       throw this.handleError(error);
     }
   }
@@ -715,12 +791,12 @@ async activateUser(userId, tlId) {
    */
   async getDashboardStats() {
     try {
-      console.log('🌐 userService.getDashboardStats called');
-      const response = await api.get('/users/admin/dashboard-stats');
-      console.log('✅ userService.getDashboardStats response:', response.data);
+      console.log("🌐 userService.getDashboardStats called");
+      const response = await api.get("/users/admin/dashboard-stats");
+      console.log("✅ userService.getDashboardStats response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getDashboardStats error:', error);
+      console.error("❌ userService.getDashboardStats error:", error);
       throw this.handleError(error);
     }
   }
@@ -732,15 +808,15 @@ async activateUser(userId, tlId) {
    */
   async exportUsers(params = {}) {
     try {
-      console.log('🌐 userService.exportUsers called with:', params);
-      const response = await api.get('/users/admin/export-users', {
+      console.log("🌐 userService.exportUsers called with:", params);
+      const response = await api.get("/users/admin/export-users", {
         params,
-        responseType: 'blob'
+        responseType: "blob",
       });
-      console.log('✅ userService.exportUsers response received');
+      console.log("✅ userService.exportUsers response received");
       return response.data;
     } catch (error) {
-      console.error('❌ userService.exportUsers error:', error);
+      console.error("❌ userService.exportUsers error:", error);
       throw this.handleError(error);
     }
   }
@@ -754,25 +830,26 @@ async activateUser(userId, tlId) {
    */
   async bulkUploadUsers(file) {
     try {
-      console.log('🌐 userService.bulkUploadUsers called');
+      console.log("🌐 userService.bulkUploadUsers called");
       const formData = new FormData();
-      formData.append('file', file);
-      
-      const response = await api.post('/users/admin/bulk-upload', formData, {
+      formData.append("file", file);
+
+      const response = await api.post("/users/admin/bulk-upload", formData, {
         headers: {
-          'Content-Type': 'multipart/form-data'
-        }
+          "Content-Type": "multipart/form-data",
+        },
       });
-      console.log('✅ userService.bulkUploadUsers response:', response.data);
+      console.log("✅ userService.bulkUploadUsers response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.bulkUploadUsers error:', error);
+      console.error("❌ userService.bulkUploadUsers error:", error);
       throw this.handleError(error);
     }
   }
 
   // ==================== TL TEAM MANAGEMENT ====================
 
+  //tl-login
 
   /**
    * Get team leaders
@@ -780,21 +857,21 @@ async activateUser(userId, tlId) {
    * @returns {Promise<Object>} - Team leaders list
    */
   async getTeamLeaders(params = {}) {
-  try {
-    console.log('🌐 userService.getTeamLeaders called with:', params);
-    const response = await api.get('/users/admin/team-leaders', { 
-      params: {
-        ...params,
-        status: 'active'
-      }
-    });
-    console.log('✅ userService.getTeamLeaders response:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('❌ userService.getTeamLeaders error:', error);
-    throw this.handleError(error);
+    try {
+      console.log("🌐 userService.getTeamLeaders called with:", params);
+      const response = await api.get("/users/admin/team-leaders", {
+        params: {
+          ...params,
+          status: "active",
+        },
+      });
+      console.log("✅ userService.getTeamLeaders response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ userService.getTeamLeaders error:", error);
+      throw this.handleError(error);
+    }
   }
-}
 
   /**
    * Get team members (for TL)
@@ -802,12 +879,12 @@ async activateUser(userId, tlId) {
    */
   async getTeamMembers() {
     try {
-      console.log('🌐 userService.getTeamMembers called');
-      const response = await api.get('/users/tl/team-members');
-      console.log('✅ userService.getTeamMembers response:', response.data);
+      console.log("🌐 userService.getTeamMembers called");
+      const response = await api.get("/users/tl/team-members");
+      console.log("✅ userService.getTeamMembers response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getTeamMembers error:', error);
+      console.error("❌ userService.getTeamMembers error:", error);
       throw this.handleError(error);
     }
   }
@@ -819,12 +896,12 @@ async activateUser(userId, tlId) {
    */
   async addTeamMember(data) {
     try {
-      console.log('🌐 userService.addTeamMember called with:', data);
-      const response = await api.post('/users/tl/team-members', data);
-      console.log('✅ userService.addTeamMember response:', response.data);
+      console.log("🌐 userService.addTeamMember called with:", data);
+      const response = await api.post("/users/tl/team-members", data);
+      console.log("✅ userService.addTeamMember response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.addTeamMember error:', error);
+      console.error("❌ userService.addTeamMember error:", error);
       throw this.handleError(error);
     }
   }
@@ -836,12 +913,12 @@ async activateUser(userId, tlId) {
    */
   async removeTeamMember(memberId) {
     try {
-      console.log('🌐 userService.removeTeamMember called with:', memberId);
+      console.log("🌐 userService.removeTeamMember called with:", memberId);
       const response = await api.delete(`/users/tl/team-members/${memberId}`);
-      console.log('✅ userService.removeTeamMember response:', response.data);
+      console.log("✅ userService.removeTeamMember response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.removeTeamMember error:', error);
+      console.error("❌ userService.removeTeamMember error:", error);
       throw this.handleError(error);
     }
   }
@@ -852,12 +929,12 @@ async activateUser(userId, tlId) {
    */
   async getTeamPerformance() {
     try {
-      console.log('🌐 userService.getTeamPerformance called');
-      const response = await api.get('/users/tl/team-performance');
-      console.log('✅ userService.getTeamPerformance response:', response.data);
+      console.log("🌐 userService.getTeamPerformance called");
+      const response = await api.get("/users/tl/team-performance");
+      console.log("✅ userService.getTeamPerformance response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getTeamPerformance error:', error);
+      console.error("❌ userService.getTeamPerformance error:", error);
       throw this.handleError(error);
     }
   }
@@ -868,12 +945,12 @@ async activateUser(userId, tlId) {
    */
   async getTeamAttendance() {
     try {
-      console.log('🌐 userService.getTeamAttendance called');
-      const response = await api.get('/users/tl/team-attendance');
-      console.log('✅ userService.getTeamAttendance response:', response.data);
+      console.log("🌐 userService.getTeamAttendance called");
+      const response = await api.get("/users/tl/team-attendance");
+      console.log("✅ userService.getTeamAttendance response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getTeamAttendance error:', error);
+      console.error("❌ userService.getTeamAttendance error:", error);
       throw this.handleError(error);
     }
   }
@@ -885,12 +962,15 @@ async activateUser(userId, tlId) {
    */
   async distributeLeadsToTeam(data) {
     try {
-      console.log('🌐 userService.distributeLeadsToTeam called with:', data);
-      const response = await api.post('/users/tl/leads/distribute', data);
-      console.log('✅ userService.distributeLeadsToTeam response:', response.data);
+      console.log("🌐 userService.distributeLeadsToTeam called with:", data);
+      const response = await api.post("/users/tl/leads/distribute", data);
+      console.log(
+        "✅ userService.distributeLeadsToTeam response:",
+        response.data
+      );
       return response.data;
     } catch (error) {
-      console.error('❌ userService.distributeLeadsToTeam error:', error);
+      console.error("❌ userService.distributeLeadsToTeam error:", error);
       throw this.handleError(error);
     }
   }
@@ -907,8 +987,8 @@ async activateUser(userId, tlId) {
     }
     return {
       success: false,
-      message: error.message || 'An error occurred',
-      error: error.toString()
+      message: error.message || "An error occurred",
+      error: error.toString(),
     };
   }
 
@@ -921,17 +1001,17 @@ async activateUser(userId, tlId) {
    */
   async getApprovedUsers(params = {}) {
     try {
-      console.log('🌐 userService.getApprovedUsers called with:', params);
-      const response = await api.get('/users/admin/approved-users', { 
+      console.log("🌐 userService.getApprovedUsers called with:", params);
+      const response = await api.get("/users/admin/approved-users", {
         params: {
           ...params,
-          role: 'user' // Only get regular users
-        }
+          role: "user", // Only get regular users
+        },
       });
-      console.log('✅ userService.getApprovedUsers response:', response.data);
+      console.log("✅ userService.getApprovedUsers response:", response.data);
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getApprovedUsers error:', error);
+      console.error("❌ userService.getApprovedUsers error:", error);
       throw this.handleError(error);
     }
   }
@@ -943,65 +1023,90 @@ async activateUser(userId, tlId) {
    */
   async getNotApprovedUsers(params = {}) {
     try {
-      console.log('🌐 userService.getNotApprovedUsers called with:', params);
-      const response = await api.get('/users/admin/not-approved-users', { params });
-      console.log('✅ userService.getNotApprovedUsers response:', response.data);
+      console.log("🌐 userService.getNotApprovedUsers called with:", params);
+      const response = await api.get("/users/admin/not-approved-users", {
+        params,
+      });
+      console.log(
+        "✅ userService.getNotApprovedUsers response:",
+        response.data
+      );
       return response.data;
     } catch (error) {
-      console.error('❌ userService.getNotApprovedUsers error:', error);
+      console.error("❌ userService.getNotApprovedUsers error:", error);
       throw this.handleError(error);
     }
   }
 
-
   // Add these methods to your UserService class
 
-async approveUser(userId, data = {}) {
-  try {
-    const response = await api.post(`/users/admin/users/${userId}/approve`, data);
-    return response.data;
-  } catch (error) {
-    throw this.handleError(error);
+  async approveUser(userId, data = {}) {
+    try {
+      const response = await api.post(
+        `/users/admin/users/${userId}/approve`,
+        data
+      );
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
   }
-}
 
-async rejectUser(userId, data) {
-  try {
-    const response = await api.post(`/users/admin/users/${userId}/reject`, data);
-    return response.data;
-  } catch (error) {
-    throw this.handleError(error);
+  async rejectUser(userId, data) {
+    try {
+      const response = await api.post(
+        `/users/admin/users/${userId}/reject`,
+        data
+      );
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
   }
-}
 
-async assignUserToTL(userId, data) {
-  try {
-    const response = await api.post(`/users/admin/users/${userId}/assign-tl`, data);
-    return response.data;
-  } catch (error) {
-    throw this.handleError(error);
+  async assignUserToTL(userId, data) {
+    try {
+      const response = await api.post(
+        `/users/admin/users/${userId}/assign-tl`,
+        data
+      );
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
   }
-}
 
-
-
-async exportNotApprovedUsers(params = {}) {
-  try {
-    const response = await api.get('/users/admin/export-pending-users', {
-      params,
-      responseType: 'blob'
-    });
-    return response.data;
-  } catch (error) {
-    throw this.handleError(error);
+  async exportNotApprovedUsers(params = {}) {
+    try {
+      const response = await api.get("/users/admin/export-pending-users", {
+        params,
+        responseType: "blob",
+      });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
   }
-}
+
+  /**
+   * Get user details by user ID
+   * @param {string} userId - User ID
+   * @returns {Promise<Object>} - User details with comprehensive information
+   */
+  async getUserDetailsById(userId) {
+    try {
+      console.log("🌐 userService.getUserDetailsById called with:", userId);
+      const response = await api.get(`/users/users/${userId}/details`);
+      console.log("✅ userService.getUserDetailsById response:", response.data);
+      return response.data;
+    } catch (error) {
+      console.error("❌ userService.getUserDetailsById error:", error);
+      throw this.handleError(error);
+    }
+  }
 
   
-
-
 }
-
 
 // Export singleton instance
 const userService = new UserService();

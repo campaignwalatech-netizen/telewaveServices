@@ -110,7 +110,7 @@ Content-Type: application/json
 // ============================================
 
 /**
- * Collection: Campaignwala - Login with OTP
+ * Collection: Freelancerwala - Login with OTP
  * 
  * Request 1: Login Step 1 - Get OTP
  * - Method: POST

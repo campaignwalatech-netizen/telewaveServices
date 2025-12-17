@@ -31,7 +31,7 @@ export default function TLSidebar() {
 
   const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: Home, path: "/tl/dashboard" },
-  { id: "team", label: "HR List", icon: Users, path: "/tl/team" },
+  { id: "teamList", label: "HR List", icon: Users, path: "/tl/teamList" },
   // { id: "data", label: "Data Management", icon: Briefcase, path: "/tl/data" },
   { id: "distribute-data", label: "Distribute Data", icon: Share2, path: "/tl/data/distribute" },
   { id: "performance", label: "Check HR Performance", icon: TrendingUp, path: "/tl/performance" },

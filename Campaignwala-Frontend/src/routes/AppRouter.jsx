@@ -217,11 +217,10 @@ export default function AppRouter() {
         >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<TLDashboard />} />
-          <Route path="team" element={<TeamManagement />} />
           
           {/* ==================== TL DATA MANAGEMENT ROUTES ==================== */}
           <Route path="data/distribute" element={<TLDistributeDataPage />} />
-          
+          <Route path="teamList" element={<TeamManagement />} />
           <Route path="performance" element={<TLPerformance />} />
           <Route path="reports" element={<TLReports />} />
           <Route path="assignments" element={<TLAssignments />} />

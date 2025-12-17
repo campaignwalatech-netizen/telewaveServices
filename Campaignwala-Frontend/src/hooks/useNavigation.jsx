@@ -177,7 +177,7 @@ export const usePageMeta = (title, description = '') => {
   useEffect(() => {
     // Update document title
     const originalTitle = document.title;
-    document.title = title ? `${title} | Campaignwala` : 'Campaignwala';
+    document.title = title ? `${title} | Freelancerwala` : 'Freelancerwala';
     
     // Update meta description
     let metaDescription = document.querySelector('meta[name="description"]');

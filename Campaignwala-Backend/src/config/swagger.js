@@ -5,12 +5,12 @@ const options = {
     definition: {
         openapi: '3.0.0',
         info: {
-            title: 'Campaignwala Panels Backend API',
+            title: 'Freelancerwala Panels Backend API',
             version: '1.0.0',
-            description: 'API documentation for Campaignwala Panels Backend with user authentication and role management',
+            description: 'API documentation for Freelancerwala Panels Backend with user authentication and role management',
             contact: {
                 name: 'API Support',
-                email: 'support@campaignwala.com'
+                email: 'support@freelancerwala.com'
             }
         },
         servers: [
@@ -107,7 +107,7 @@ const swaggerSetup = (app) => {
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
         explorer: true,
         customCss: '.swagger-ui .topbar { display: none }',
-        customSiteTitle: 'Campaignwala API Docs'
+        customSiteTitle: 'Freelancerwala API Docs'
     }));
 };
 

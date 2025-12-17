@@ -86,8 +86,7 @@ export default function AdminSidebar({
     { id: "today-assigned", label: "Today Assigned", icon: Calendar, path: "/admin/data/today-assigned", badge: dashboardStats.todayLeads },
     { id: "called", label: "Called", icon: Bell, path: "/admin/data/called" },
     { id: "closed", label: "Closed", icon: CheckCircle, path: "/admin/data/closed" },
-    { id: "feedback-analytics", label: "Data Feedback Analytics", icon: MessageSquare, path: "/admin/data/analytics/feedback" },
-    { id: "new", label: "New", icon: RefreshCw, path: "/admin/data/new" }, 
+    { id: "feedback-analytics", label: "Data Feedback Analytics", icon: MessageSquare, path: "/admin/data/analytics/feedback" }, 
   ]
 },
     {
@@ -177,7 +176,7 @@ export default function AdminSidebar({
         { id: "add-team-leader", label: "Admin Activity Logs", icon: MoreVertical, path: "/admin/admin-logs" },
         { id: "salary-distributed", label: "Salary Distributed", icon: DollarSign, path: "/admin/misc/salary" },
         { id: "activity-logs", label: "Activity Logs", icon: Activity, path: "/admin/misc/activity-logs" },
-        { id: "tw-database", label: "TW Database", icon: Database, path: "/admin/misc/tw-database" },
+        { id: "cw-database", label: "CW Database", icon: Database, path: "/admin/misc/cw-database" },
       ]
     },
     {

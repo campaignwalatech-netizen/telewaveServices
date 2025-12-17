@@ -234,7 +234,8 @@ router.get('/:id',
 
 // Search data
 router.get('/search', 
-    protect, 
+    protect,
+    authorize('admin', 'TL'),
     DataController.searchData
 );
 

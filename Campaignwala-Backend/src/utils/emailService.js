@@ -63,15 +63,15 @@ const sendOTPEmail = async (email, userName, otp, purpose = 'verification') => {
         const transporter = createTransporter();
         
         const purposeSubjects = {
-            'registration': 'Complete Your Registration - Campaignwala',
-            'login': 'Your Login OTP - Campaignwala'
+            'registration': 'Complete Your Registration - Freelancerwala',
+            'login': 'Your Login OTP - Freelancerwala'
         };
 
         const subject = purposeSubjects[purpose] || 'Your OTP Code';
 
         const mailOptions = {
             from: {
-                name: 'Campaignwala',
+                name: 'Freelancerwala',
                 address: process.env.EMAIL_USER
             },
             to: email,
@@ -156,11 +156,11 @@ const sendWelcomeEmail = async (email, userName) => {
         
         const mailOptions = {
             from: {
-                name: 'Campaignwala Team',
+                name: 'Freelancerwala Team',
                 address: process.env.EMAIL_USER
             },
             to: email,
-            subject: 'Welcome to Campaignwala! 🎉',
+            subject: 'Welcome to Freelancerwala! 🎉',
             html: `
             <!DOCTYPE html>
             <html>
@@ -171,7 +171,7 @@ const sendWelcomeEmail = async (email, userName) => {
                         <h2>Welcome Aboard!</h2>
                     </div>
                     <p>Hello <strong>${userName}</strong>,</p>
-                    <p>Welcome to Campaignwala! Your account has been successfully created and verified.</p>
+                    <p>Welcome to Freelancerwala! Your account has been successfully created and verified.</p>
                     <p>We're excited to have you join our community!</p>
                     <br>
                     <p>Best regards,<br>Campaign Waala Team</p>

@@ -1,11 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import userService from '../../services/userService';
 import { 
   Search, 
   Users, 
-  Eye, 
-  Edit, 
+  CheckCircle, 
   RefreshCw, 
   Mail, 
   Phone,
@@ -15,47 +13,43 @@ import {
   ChevronDown,
   Calendar,
   User,
-  CheckCircle,
   XCircle,
-  MoreVertical,
   Settings,
-  Key,
   Shield,
-  FileSpreadsheet,
-  Upload,
-  TrendingUp,
-  Clock,
   Download,
-  Check,
-  X,
-  Pause,
-  Play,
-  Ban,
-  UserX,
   Filter,
   CalendarDays,
   PhoneCall,
   UserCheck,
-  AlertCircle,
   ArrowUpDown,
   Trash2,
   DollarSign,
-  Bookmark,
-  Target,
-  TrendingDown,
-  CheckSquare,
-  UserCog,
-  CalendarCheck,
   Clock4,
+  CalendarCheck,
+  FileText,
   UserCircle,
-  EyeOff,
+  Mail as MailIcon,
+  Phone as PhoneIcon,
+  Calendar as CalendarIcon,
+  Clock as ClockIcon,
   CalendarClock,
-  TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
-  UserCheck as UserCheckIcon
+  Shield as ShieldIcon,
+  TrendingUp,
+  TrendingDown,
+  Target,
+  BarChart3,
+  Activity,
+  Clock,
+  Users as UsersIcon,
+  Percent,
+  Zap,
+  Award,
+  Star,
+  ThumbsUp,
+  Target as TargetIcon
 } from 'lucide-react';
 
-// Basic UI Components
+// Basic UI Components (same as before)
 const TableContainer = ({ children, className = '' }) => (
   <div className={`relative overflow-hidden ${className}`}>
     {children}
@@ -216,386 +210,141 @@ const CardContent = ({ children, className = '' }) => (
   </div>
 );
 
-// Role Change Component
-const RoleChangeButton = ({ user, onChangeRole, loading = false }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleRoleChange = async (newRole) => {
-    if (newRole !== user.role) {
-      await onChangeRole(user._id, newRole);
-      setIsOpen(false);
-    }
-  };
-
-  return (
-    <div className="relative" ref={menuRef}>
-      <Button
-        variant={user.role === 'TL' ? 'default' : user.role === 'admin' ? 'destructive' : 'default'}
-        size="sm"
-        onClick={() => setIsOpen(!isOpen)}
-        disabled={loading}
-        className="min-w-[80px]"
-      >
-        {loading ? (
-          <RefreshCw className="w-3 h-3 animate-spin mr-1" />
-        ) : null}
-        {user.role}
-        <ChevronDown className="w-3 h-3 ml-1" />
-      </Button>
-
-      {isOpen && (
-        <div className="absolute left-0 top-10 z-50 w-32 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
-          <div className="p-1 space-y-1">
-            {user.role !== 'user' && (
-              <button
-                onClick={() => handleRoleChange('user')}
-                disabled={loading}
-                className="flex items-center w-full px-3 py-2 text-sm text-left rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50"
-              >
-                User
-              </button>
-            )}
-            {user.role !== 'TL' && (
-              <button
-                onClick={() => handleRoleChange('TL')}
-                disabled={loading}
-                className="flex items-center w-full px-3 py-2 text-sm text-left text-purple-600 rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/20 disabled:opacity-50"
-              >
-                TL
-              </button>
-            )}
-            
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Status Change Component
-const StatusChangeButton = ({ user, onChangeStatus, loading = false }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
+// Attendance Badge Component
+const AttendanceBadge = ({ user }) => {
   const getVariant = () => {
-    switch(user.status) {
-      case 'active': return "success";
-      case 'hold': return "warning";
-      case 'dead': return "destructive";
+    switch(user.attendance?.todayStatus) {
+      case 'present': return "success";
+      case 'absent': return "destructive";
+      case 'late': return "warning";
+      case 'half-day': return "orange";
       default: return "secondary";
     }
   };
 
   const getLabel = () => {
-    switch(user.status) {
-      case 'active': return 'Active';
-      case 'hold': return 'Hold';
-      case 'dead': return 'Dead';
-      default: return user.status || 'Unknown';
+    switch(user.attendance?.todayStatus) {
+      case 'present': return 'Present';
+      case 'absent': return 'Absent';
+      case 'late': return 'Late';
+      case 'half-day': return 'Half Day';
+      default: return 'Not Marked';
     }
   };
 
-  const handleStatusChange = async (newStatus) => {
-    if (newStatus !== user.status) {
-      await onChangeStatus(user._id, newStatus);
-      setIsOpen(false);
+  const getIcon = () => {
+    switch(user.attendance?.todayStatus) {
+      case 'present': return <CheckCircle className="w-3 h-3 mr-1" />;
+      case 'absent': return <XCircle className="w-3 h-3 mr-1" />;
+      case 'late': return <Clock className="w-3 h-3 mr-1" />;
+      case 'half-day': return <Activity className="w-3 h-3 mr-1" />;
+      default: return <Calendar className="w-3 h-3 mr-1" />;
     }
   };
 
   return (
-    <div className="relative" ref={menuRef}>
-      <Button
-        variant={getVariant()}
-        size="sm"
-        onClick={() => setIsOpen(!isOpen)}
-        disabled={loading}
-        className="min-w-[80px]"
-      >
-        {loading ? (
-          <RefreshCw className="w-3 h-3 animate-spin mr-1" />
-        ) : null}
+    <Badge variant={getVariant()} className="min-w-[80px] justify-center">
+      <div className="flex items-center">
+        {getIcon()}
         {getLabel()}
-        <ChevronDown className="w-3 h-3 ml-1" />
-      </Button>
-
-      {isOpen && (
-        <div className="absolute left-0 top-10 z-50 w-32 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
-          <div className="p-1 space-y-1">
-            {user.status !== 'active' && (
-              <button
-                onClick={() => handleStatusChange('active')}
-                disabled={loading}
-                className="flex items-center w-full px-3 py-2 text-sm text-left text-green-600 rounded-md hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50"
-              >
-                Active
-              </button>
-            )}
-            {user.status !== 'hold' && (
-              <button
-                onClick={() => handleStatusChange('hold')}
-                disabled={loading}
-                className="flex items-center w-full px-3 py-2 text-sm text-left text-yellow-600 rounded-md hover:bg-yellow-50 dark:hover:bg-yellow-900/20 disabled:opacity-50"
-              >
-                Hold
-              </button>
-            )}
-            {user.status !== 'dead' && (
-              <button
-                onClick={() => handleStatusChange('dead')}
-                disabled={loading}
-                className="flex items-center w-full px-3 py-2 text-sm text-left text-red-600 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50"
-              >
-                Dead
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Attendance Component - Special for present users
-const PresentBadge = ({ user }) => {
-  return (
-    <Badge variant="success" className="min-w-[80px] justify-center">
-      <div className="flex items-center gap-1">
-        <CheckSquare className="w-3 h-3" />
-        Present
       </div>
     </Badge>
   );
 };
 
-// TL Change Component
-const TLChangeButton = ({ user, teamLeaders, onChangeTL, loading = false }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const handleTLChange = async (tlId, tlName) => {
-    if (tlId !== user.reportingTo?._id) {
-      await onChangeTL(user._id, tlId, tlName);
-      setIsOpen(false);
-    }
+// Performance Score Component
+const PerformanceScore = ({ score }) => {
+  const getColor = () => {
+    if (score >= 80) return 'text-green-600 bg-green-100 dark:bg-green-900/20';
+    if (score >= 60) return 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/20';
+    if (score >= 40) return 'text-orange-600 bg-orange-100 dark:bg-orange-900/20';
+    return 'text-red-600 bg-red-100 dark:bg-red-900/20';
   };
 
-  const currentTLName = user.reportingTo?.name || 'Not Assigned';
-
-  return (
-    <div className="relative" ref={menuRef}>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setIsOpen(!isOpen)}
-        disabled={loading || teamLeaders.length === 0}
-        className="min-w-[120px]"
-      >
-        {currentTLName}
-        <ChevronDown className="w-3 h-3 ml-1" />
-      </Button>
-
-      {isOpen && (
-        <div className="absolute left-0 top-10 z-50 w-48 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg max-h-60 overflow-y-auto">
-          <div className="p-1 space-y-1">
-            <button
-              onClick={() => handleTLChange('', 'Not Assigned')}
-              className="flex items-center w-full px-3 py-2 text-sm text-left rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Not Assigned
-            </button>
-            {teamLeaders.map((tl) => (
-              <button
-                key={tl._id}
-                onClick={() => handleTLChange(tl._id, tl.name)}
-                className={`flex items-center w-full px-3 py-2 text-sm text-left rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 ${
-                  user.reportingTo?._id === tl._id ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                }`}
-              >
-                {tl.name} ({tl.teamMembers?.length || 0})
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Open Leads Withrow Component
-const OpenLeadsWithrow = ({ openLeads, onWithrow }) => {
-  const [showWithrow, setShowWithrow] = useState(false);
-  const [amount, setAmount] = useState('');
-
-  const handleWithrow = () => {
-    if (amount && !isNaN(amount) && parseFloat(amount) > 0) {
-      onWithrow(parseFloat(amount));
-      setAmount('');
-      setShowWithrow(false);
-    }
+  const getIcon = () => {
+    if (score >= 80) return <Award className="w-3 h-3" />;
+    if (score >= 60) return <TrendingUp className="w-3 h-3" />;
+    if (score >= 40) return <Target className="w-3 h-3" />;
+    return <TrendingDown className="w-3 h-3" />;
   };
 
   return (
-    <div className="relative">
-      <div className="flex items-center gap-2">
-        <Badge variant={openLeads > 0 ? 'warning' : 'success'}>
-          {openLeads}
-        </Badge>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setShowWithrow(!showWithrow)}
-          title="Withrow"
-          className="h-6 w-6"
-        >
-          <DollarSign className="w-3 h-3" />
-        </Button>
-      </div>
-
-      {showWithrow && (
-        <div className="absolute right-0 top-10 z-50 w-48 p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
-          <div className="space-y-2">
-            <label className="text-xs font-medium">Withrow Amount</label>
-            <Input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter amount"
-              className="h-8 text-sm"
-            />
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={handleWithrow}
-                className="flex-1 h-8"
-              >
-                Withrow
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowWithrow(false)}
-                className="h-8"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Action Menu Component
-const ActionMenu = ({ user, onEdit, onDelete, loading = false }) => {
-  return (
-    <div className="flex items-center gap-2">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onEdit}
-        disabled={loading}
-        title="Edit User"
-      >
-        <Edit className="w-4 h-4" />
-      </Button>
-      
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onDelete}
-        disabled={loading}
-        title="Delete User"
-        className="text-red-600 hover:text-red-700 hover:bg-red-50"
-      >
-        <Trash2 className="w-4 h-4" />
-      </Button>
+    <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full ${getColor()}`}>
+      {getIcon()}
+      <span className="text-xs font-bold">{score}%</span>
     </div>
   );
 };
 
 export default function PresentUsers() {
   const [users, setUsers] = useState([]);
-  const [teamLeaders, setTeamLeaders] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   
   const [filters, setFilters] = useState({
     search: '',
-    status: 'all',
-    role: 'user',
+    status: 'active',
+    role: 'all',
     page: 1,
     limit: 20
   });
 
   const [sort, setSort] = useState({
-    key: 'createdAt',
+    key: 'attendance.checkInTime',
     direction: 'desc'
   });
 
+  // Search debounce
+  const [searchTimeout, setSearchTimeout] = useState(null);
+
+  // Get today's date in YYYY-MM-DD format
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  };
+
   // Enhance user data with calculated fields
   const enhanceUserData = (user) => {
+    const today = getTodayDate();
+    
     // Calculate lead statistics
     const totalLeads = user.statistics?.totalLeads || 0;
     const completedLeads = user.statistics?.completedLeads || 0;
     const pendingLeads = user.statistics?.pendingLeads || 0;
     const rejectedLeads = user.statistics?.rejectedLeads || 0;
+    
+    // Get CALLED data
+    const calledLeads = user.statistics?.calledLeads || 
+                       user.statistics?.contactedLeads || 
+                       user.dailyStats?.called || 0;
+    
+    // Get CLOSED data
+    const closedLeads = user.statistics?.closedLeads || 
+                       user.statistics?.completedLeads || 
+                       user.dailyStats?.closed || 0;
+    
     const conversionRate = totalLeads > 0 ? (completedLeads / totalLeads * 100) : 0;
     
-    // Attendance
-    const totalPresent = user.attendance?.totalPresent || 0;
+    // Attendance data for today
+    const attendanceToday = user.attendance?.history?.find(a => a.date === today) || {};
+    const checkInTime = attendanceToday.checkInTime || '-';
+    const checkOutTime = attendanceToday.checkOutTime || '-';
     const attendanceStatus = user.attendance?.todayStatus || 'not_marked';
+    const isPresent = attendanceStatus === 'present';
     
-    // Rollback data
-    const rollbackData = user.rollback?.total || 0;
-    const rollbackDate = user.rollback?.lastDate ? 
-      new Date(user.rollback.lastDate).toLocaleDateString('en-IN') : '-';
+    // Today's stats
+    const todayCalled = user.dailyStats?.[today]?.called || 0;
+    const todayClosed = user.dailyStats?.[today]?.closed || 0;
     
-    // Lead data
-    const lastData = user.leadDistribution?.lastLeadDate ? 
-      new Date(user.leadDistribution.lastLeadDate).toLocaleDateString('en-IN') : '-';
-    const dateAssigned = user.leadDistribution?.lastAssignedDate ? 
-      new Date(user.leadDistribution.lastAssignedDate).toLocaleDateString('en-IN') : '-';
+    // Performance score (based on today's activity)
+    const performanceScore = calculatePerformanceScore(user, today);
     
     // TL info
-    const tlName = user.reportingTo?.name || '-';
-    const manageTL = user.tlDetails?.managedBy?.name || '-';
+    const tlName = user.reportingTo?.name || 
+                   user.tlDetails?.managedBy?.name || 
+                   user.tlName || 
+                   '-';
 
     return {
       ...user,
@@ -604,25 +353,53 @@ export default function PresentUsers() {
       pendingLeads,
       rejectedLeads,
       conversionRate: conversionRate.toFixed(2),
-      totalPresent,
       attendanceStatus,
-      rollbackData,
-      rollbackDate,
-      lastData,
-      dateAssigned,
+      attendanceToday,
+      checkInTime,
+      checkOutTime,
+      isPresent,
       tlName,
-      manageTL,
       openLeads: pendingLeads + rejectedLeads,
       salary: user.financials?.salary || '-',
       joinDate: new Date(user.createdAt).toLocaleDateString('en-IN'),
-      calledLeads: user.statistics?.calledLeads || 0,
-      closedLeads: user.statistics?.closedLeads || 0,
-      canReceiveLeads: user.status === 'active' && attendanceStatus === 'present'
+      calledLeads,
+      closedLeads,
+      todayCalled,
+      todayClosed,
+      performanceScore,
+      // Additional metrics
+      attendanceStreak: user.attendance?.currentStreak || 0,
+      totalPresent: user.attendance?.totalPresent || 0,
+      lastActive: user.lastActive ? new Date(user.lastActive).toLocaleString('en-IN') : '-',
+      canReceiveLeads: user.status === 'active' && isPresent
     };
   };
 
-  // Fetch present users only
-  const fetchPresentUsers = async () => {
+  // Calculate performance score (0-100)
+  const calculatePerformanceScore = (user, today) => {
+    let score = 50; // Base score
+    
+    // Attendance weight: 30%
+    if (user.attendance?.todayStatus === 'present') score += 30;
+    else if (user.attendance?.todayStatus === 'late') score += 20;
+    else if (user.attendance?.todayStatus === 'half-day') score += 10;
+    
+    // Today's activity weight: 40%
+    const todayCalled = user.dailyStats?.[today]?.called || 0;
+    const todayClosed = user.dailyStats?.[today]?.closed || 0;
+    
+    if (todayCalled > 0) score += Math.min(todayCalled * 2, 20); // Max 20 points
+    if (todayClosed > 0) score += Math.min(todayClosed * 5, 20); // Max 20 points
+    
+    // Conversion rate weight: 30%
+    const conversionRate = parseFloat(user.statistics?.conversionRate) || 0;
+    score += Math.min(conversionRate * 0.3, 30);
+    
+    return Math.min(Math.round(score), 100);
+  };
+
+  // Fetch present users - FIXED API CALL
+  const fetchPresentUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -632,175 +409,153 @@ export default function PresentUsers() {
         limit: filters.limit,
         sort: sort.key,
         order: sort.direction,
-        attendance: 'present', // Only fetch present users
         ...(filters.search && { search: filters.search }),
-        ...(filters.status !== 'all' && { 
-          ...(filters.status === 'ex' ? { isEx: true } : { status: filters.status })
-        }),
-        ...(filters.role !== 'all' && { role: filters.role })
+        ...(filters.status && { status: filters.status }),
+        ...(filters.role !== 'all' && { role: filters.role }),
+        attendanceStatus: 'present', // Only fetch present users
+        date: getTodayDate()
       };
 
-      const response = await userService.getPresentUsers(params);
+      // First, try the specific present users endpoint
+      let response;
+      try {
+        response = await userService.getPresentUsers(params);
+      } catch (apiError) {
+        console.log('Specific present users API failed, trying getAllUsersWithStats:', apiError);
+        // Fallback to getAllUsersWithStats and filter for present users
+        const allUsersResponse = await userService.getAllUsersWithStats(params);
+        
+        if (allUsersResponse.success && allUsersResponse.data) {
+          // Filter users who are present today
+          const today = getTodayDate();
+          const allUsers = allUsersResponse.data.users || allUsersResponse.data || [];
+          const presentUsers = allUsers.filter(user => 
+            user.attendance?.todayStatus === 'present' || 
+            user.attendance?.status === 'present' ||
+            (user.attendance?.history && 
+             user.attendance.history.some(a => a.date === today && a.status === 'present'))
+          );
+          
+          response = {
+            success: true,
+            data: {
+              users: presentUsers,
+              total: presentUsers.length,
+              page: filters.page,
+              limit: filters.limit,
+              totalPages: Math.ceil(presentUsers.length / filters.limit)
+            }
+          };
+        } else {
+          response = allUsersResponse;
+        }
+      }
       
-      if (response.success) {
-        const enhancedUsers = response.data.users.map(enhanceUserData);
+      console.log('API Response:', response); // Debug log
+      
+      if (response && response.success) {
+        // Handle different response structures
+        let usersData = [];
+        
+        if (response.data && Array.isArray(response.data.users)) {
+          usersData = response.data.users;
+        } else if (response.data && Array.isArray(response.data)) {
+          usersData = response.data;
+        } else if (Array.isArray(response.users)) {
+          usersData = response.users;
+        } else if (response.data) {
+          // If data is not an array, try to extract users
+          usersData = Object.values(response.data).find(val => Array.isArray(val)) || [];
+        }
+        
+        console.log('Processed users data:', usersData.length, 'users'); // Debug log
+        
+        // Filter for present users (in case the API didn't filter)
+        const today = getTodayDate();
+        const filteredUsers = usersData.filter(user => {
+          const isPresent = 
+            user.attendance?.todayStatus === 'present' || 
+            user.attendance?.status === 'present' ||
+            (user.attendance?.history && 
+             user.attendance.history.some(a => a.date === today && a.status === 'present'));
+          
+          return isPresent;
+        });
+        
+        const enhancedUsers = filteredUsers.map(enhanceUserData);
         setUsers(enhancedUsers);
       } else {
-        setError(response.message || 'Failed to fetch present users');
+        setError(response?.message || 'Failed to fetch present users');
+        setUsers([]);
       }
     } catch (err) {
       console.error('Error fetching present users:', err);
       setError(err.message || 'Failed to fetch present users');
+      setUsers([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters.page, filters.limit, filters.status, filters.role, filters.search, sort]);
 
-  // Fetch Team Leaders for TL change dropdown
-  const fetchTeamLeaders = async () => {
-    try {
-      const response = await userService.getAllUsersWithStats({ role: 'TL' });
-      if (response.success) {
-        setTeamLeaders(response.data.users);
-      }
-    } catch (err) {
-      console.error('Error fetching team leaders:', err);
+  // Handle search with debounce
+  const handleSearch = (value) => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
     }
-  };
-
-  // Change user role
-  const changeUserRole = async (userId, newRole) => {
-    try {
-      setActionLoading(prev => ({ ...prev, [userId]: true }));
-      const response = await userService.changeUserRole(userId, { newRole });
-      
-      if (response.success) {
-        setSuccess(`User role changed to ${newRole} successfully`);
-        await fetchPresentUsers();
-      } else {
-        setError(response.message || 'Failed to change user role');
-      }
-    } catch (err) {
-      console.error('Error changing user role:', err);
-      setError(err.message || 'Failed to change user role');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [userId]: false }));
-    }
-  };
-
-  // Change user status
-  const changeUserStatus = async (userId, newStatus) => {
-    try {
-      setActionLoading(prev => ({ ...prev, [userId]: true }));
-      
-      let response;
-      if (newStatus === 'active') {
-        response = await userService.markUserActive(userId);
-      } else if (newStatus === 'hold') {
-        response = await userService.markUserHold(userId, { reason: 'Manual status change' });
-      } else if (newStatus === 'dead') {
-        response = await userService.blockUser(userId, { reason: 'Marked as dead' });
-      } else if (newStatus === 'inactive') {
-        response = await userService.toggleUserStatus(userId);
-      }
-      
-      if (response?.success) {
-        setSuccess(`User status changed to ${newStatus} successfully`);
-        await fetchPresentUsers();
-      } else {
-        setError(response?.message || 'Failed to change user status');
-      }
-    } catch (err) {
-      console.error('Error changing user status:', err);
-      setError(err.message || 'Failed to change user status');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [userId]: false }));
-    }
-  };
-
-  // Change TL assignment
-  const changeUserTL = async (userId, tlId, tlName) => {
-    try {
-      setActionLoading(prev => ({ ...prev, [userId]: true }));
-      const response = await userService.updateUser(userId, {
-        reportingTo: tlId ? { _id: tlId, name: tlName } : null
-      });
-      
-      if (response.success) {
-        setSuccess(`TL assigned successfully`);
-        await fetchPresentUsers();
-      } else {
-        setError(response.message || 'Failed to assign TL');
-      }
-    } catch (err) {
-      console.error('Error assigning TL:', err);
-      setError(err.message || 'Failed to assign TL');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [userId]: false }));
-    }
-  };
-
-  // Handle withrow
-  const handleWithrow = async (userId, amount) => {
-    try {
-      setActionLoading(prev => ({ ...prev, [userId]: true }));
-      const response = await userService.processWithdrawal(userId, { amount });
-      
-      if (response.success) {
-        setSuccess(`Withrow of ₹${amount} processed successfully`);
-        await fetchPresentUsers();
-      } else {
-        setError(response.message || 'Failed to process withrow');
-      }
-    } catch (err) {
-      console.error('Error processing withrow:', err);
-      setError(err.message || 'Failed to process withrow');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [userId]: false }));
-    }
-  };
-
-  // Delete user
-  const deleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
     
-    try {
-      setActionLoading(prev => ({ ...prev, [userId]: true }));
-      const response = await userService.deleteUser(userId);
-      
-      if (response.success) {
-        setSuccess('User deleted successfully');
-        await fetchPresentUsers();
-      } else {
-        setError(response.message || 'Failed to delete user');
-      }
-    } catch (err) {
-      console.error('Error deleting user:', err);
-      setError(err.message || 'Failed to delete user');
-    } finally {
-      setActionLoading(prev => ({ ...prev, [userId]: false }));
-    }
-  };
-
-  // Edit user
-  const editUser = (user) => {
-    console.log('Edit user:', user);
-    // You can implement edit functionality here
+    setSearchTimeout(setTimeout(() => {
+      setFilters(prev => ({ ...prev, search: value, page: 1 }));
+    }, 300));
   };
 
   // Export present users
   const exportPresentUsers = async () => {
     try {
       setLoading(true);
-      const blob = await userService.exportPresentUsers({
-        format: 'excel',
-        ...filters
-      });
+      // First try the specific export endpoint, then fallback
+      let blob;
+      try {
+        blob = await userService.exportPresentUsers({
+          format: 'excel',
+          ...filters
+        });
+      } catch (exportError) {
+        console.log('Specific export failed, using getAllUsersWithStats:', exportError);
+        // Fallback: get all users and filter present ones
+        const response = await userService.getAllUsersWithStats({
+          ...filters,
+          attendanceStatus: 'present'
+        });
+        
+        if (response.success) {
+          // Create a simple CSV export
+          const today = getTodayDate();
+          const csvContent = "data:text/csv;charset=utf-8,";
+          const headers = ["Name", "Email", "Phone", "Role", "TL Name", "Check-in Time", "Calls Today", "Closed Today", "Performance Score"];
+          
+          const rows = users.map(user => [
+            user.name,
+            user.email,
+            user.phoneNumber,
+            user.role,
+            user.tlName,
+            user.checkInTime,
+            user.todayCalled,
+            user.todayClosed,
+            user.performanceScore
+          ].map(cell => `"${cell}"`).join(','));
+          
+          const csv = [headers.join(','), ...rows].join('\n');
+          blob = new Blob([csv], { type: 'text/csv' });
+        } else {
+          throw new Error('Failed to fetch data for export');
+        }
+      }
       
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `present_users_export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.download = `present-users-${getTodayDate()}.csv`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -815,23 +570,31 @@ export default function PresentUsers() {
     }
   };
 
+  // Mark attendance
+  const markAttendance = async (userId, status) => {
+    try {
+      const response = await userService.markAttendance(userId, {
+        status,
+        date: getTodayDate(),
+        notes: 'Marked from Present Users page'
+      });
+      
+      if (response.success) {
+        setSuccess(`Attendance marked as ${status} successfully`);
+        await fetchPresentUsers();
+      } else {
+        setError(response.message || 'Failed to mark attendance');
+      }
+    } catch (err) {
+      console.error('Error marking attendance:', err);
+      setError(err.message || 'Failed to mark attendance');
+    }
+  };
+
   // Effects
   useEffect(() => {
     fetchPresentUsers();
-    fetchTeamLeaders();
-  }, [filters.page, filters.limit, filters.status, filters.role, sort]);
-
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (filters.page !== 1) {
-        setFilters(prev => ({ ...prev, page: 1 }));
-      } else {
-        fetchPresentUsers();
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [filters.search]);
+  }, [filters.page, filters.limit, filters.status, filters.role, filters.search, sort]);
 
   useEffect(() => {
     if (error || success) {
@@ -842,6 +605,15 @@ export default function PresentUsers() {
       return () => clearTimeout(timer);
     }
   }, [error, success]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [searchTimeout]);
 
   // Handlers
   const handleFilterChange = (key, value) => {
@@ -855,34 +627,72 @@ export default function PresentUsers() {
     }));
   };
 
+  const formatTime = (timeString) => {
+    if (!timeString || timeString === '-') return 'N/A';
+    try {
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return 'Invalid Time';
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString || dateString === '-') return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Invalid Date';
+    }
+  };
+
+  // Get today's stats
+  const getTodayStats = () => {
+    const totalPresent = users.length;
+    const totalCalledToday = users.reduce((sum, user) => sum + (user.todayCalled || 0), 0);
+    const totalClosedToday = users.reduce((sum, user) => sum + (user.todayClosed || 0), 0);
+    const avgPerformance = users.length > 0 
+      ? Math.round(users.reduce((sum, user) => sum + (user.performanceScore || 0), 0) / users.length)
+      : 0;
+    
+    return {
+      totalPresent,
+      totalCalledToday,
+      totalClosedToday,
+      avgPerformance
+    };
+  };
+
+  const todayStats = getTodayStats();
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <UserCheckIcon className="w-8 h-8 text-green-600" />
-            Present Users
+            <Users className="w-8 h-8 text-green-600" />
+            Today's Present Users
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            View and manage users who are present today
+            View and manage users who are present today ({getTodayDate()})
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Present Users Count Badge */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/30 rounded-lg border border-green-200 dark:border-green-800">
-            <UserCheck className="w-4 h-4 text-green-600 dark:text-green-400" />
-            <span className="text-sm font-medium text-green-700 dark:text-green-300">
-              {users.length} Present Today
-            </span>
-          </div>
-          
           {/* Export */}
           <Button
             variant="outline"
             size="sm"
             onClick={exportPresentUsers}
-            disabled={loading}
+            disabled={loading || users.length === 0}
           >
             <Download className="w-4 h-4 mr-2" />
             Export
@@ -890,7 +700,7 @@ export default function PresentUsers() {
           
           {/* Refresh */}
           <Button 
-            onClick={() => { fetchPresentUsers(); fetchTeamLeaders(); }} 
+            onClick={fetchPresentUsers} 
             disabled={loading}
             size="sm"
           >
@@ -913,6 +723,89 @@ export default function PresentUsers() {
         </div>
       )}
 
+      {/* Today's Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200 dark:from-green-900/20 dark:to-emerald-900/20 dark:border-green-800">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-700 dark:text-green-300">Total Present Today</p>
+                <p className="text-2xl font-bold text-green-800 dark:text-green-200">
+                  {todayStats.totalPresent}
+                </p>
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  <UsersIcon className="w-3 h-3 inline mr-1" />
+                  Active workforce
+                </p>
+              </div>
+              <div className="p-3 rounded-full bg-green-100 dark:bg-green-900/30">
+                <UserCheck className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200 dark:from-blue-900/20 dark:to-cyan-900/20 dark:border-blue-800">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Calls Today</p>
+                <p className="text-2xl font-bold text-blue-800 dark:text-blue-200">
+                  {todayStats.totalCalledToday}
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  <PhoneCall className="w-3 h-3 inline mr-1" />
+                  Total calls made
+                </p>
+              </div>
+              <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30">
+                <PhoneCall className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-r from-purple-50 to-violet-50 border-purple-200 dark:from-purple-900/20 dark:to-violet-900/20 dark:border-purple-800">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Closed Today</p>
+                <p className="text-2xl font-bold text-purple-800 dark:text-purple-200">
+                  {todayStats.totalClosedToday}
+                </p>
+                <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                  <CheckCircle className="w-3 h-3 inline mr-1" />
+                  Deals completed
+                </p>
+              </div>
+              <div className="p-3 rounded-full bg-purple-100 dark:bg-purple-900/30">
+                <CheckCircle className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-r from-orange-50 to-amber-50 border-orange-200 dark:from-orange-900/20 dark:to-amber-900/20 dark:border-orange-800">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-orange-700 dark:text-orange-300">Avg Performance</p>
+                <p className="text-2xl font-bold text-orange-800 dark:text-orange-200">
+                  {todayStats.avgPerformance}%
+                </p>
+                <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                  <BarChart3 className="w-3 h-3 inline mr-1" />
+                  Team average
+                </p>
+              </div>
+              <div className="p-3 rounded-full bg-orange-100 dark:bg-orange-900/30">
+                <TrendingUp className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -922,12 +815,25 @@ export default function PresentUsers() {
               <Input
                 placeholder="Search present users by name, email, phone..."
                 value={filters.search}
-                onChange={(e) => handleFilterChange('search', e.target.value)}
+                onChange={(e) => handleSearch(e.target.value)}
                 className="pl-9"
                 disabled={loading}
               />
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
+              <Select 
+                value={filters.role} 
+                onValueChange={(value) => handleFilterChange('role', value)}
+                placeholder="Role"
+                className="w-full sm:w-[150px]"
+                disabled={loading}
+              >
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="user">User</SelectItem>
+                <SelectItem value="TL">Team Lead</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </Select>
+
               <Select 
                 value={filters.status} 
                 onValueChange={(value) => handleFilterChange('status', value)}
@@ -935,25 +841,24 @@ export default function PresentUsers() {
                 className="w-full sm:w-[150px]"
                 disabled={loading}
               >
-                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="hold">Hold</SelectItem>
-                <SelectItem value="dead">Dead</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
               </Select>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Present Users Table with Horizontal Scroll */}
+      {/* Present Users Table */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <CalendarCheck className="w-5 h-5 text-green-600" />
+            <Users className="w-5 h-5" />
             Present Users List
             {users.length > 0 && (
-              <Badge variant="success" className="ml-2">
-                {users.length} present users
+              <Badge variant="secondary" className="ml-2">
+                {users.length} present today
               </Badge>
             )}
           </CardTitle>
@@ -964,126 +869,110 @@ export default function PresentUsers() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead sortable onSort={handleSort} sortKey="createdAt" currentSort={sort}>
-                      <CalendarClock className="w-4 h-4 inline mr-1" />
-                      Joined On
-                    </TableHead>
-                    <TableHead sortable onSort={handleSort} sortKey="role" currentSort={sort}>
-                      <UserCog className="w-4 h-4 inline mr-1" />
-                      Role
-                    </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="name" currentSort={sort}>
                       <UserCircle className="w-4 h-4 inline mr-1" />
                       Name
                     </TableHead>
-                    <TableHead>
-                      <PhoneCall className="w-4 h-4 inline mr-1" />
-                      Phone Number
-                    </TableHead>
-                    <TableHead sortable onSort={handleSort} sortKey="status" currentSort={sort}>
-                      <CheckCircle className="w-4 h-4 inline mr-1" />
-                      Status
+                    <TableHead sortable onSort={handleSort} sortKey="role" currentSort={sort}>
+                      <ShieldIcon className="w-4 h-4 inline mr-1" />
+                      Role
                     </TableHead>
                     <TableHead>
-                      <Clock4 className="w-4 h-4 inline mr-1" />
+                      <PhoneIcon className="w-4 h-4 inline mr-1" />
+                      Phone
+                    </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="attendance.todayStatus" currentSort={sort}>
+                      <CalendarCheck className="w-4 h-4 inline mr-1" />
                       Attendance
                     </TableHead>
-                    <TableHead sortable onSort={handleSort} sortKey="rollbackData" currentSort={sort}>
-                      RollBack Data
+                    <TableHead sortable onSort={handleSort} sortKey="attendance.checkInTime" currentSort={sort}>
+                      <ClockIcon className="w-4 h-4 inline mr-1" />
+                      Check-in
                     </TableHead>
                     <TableHead>
-                      RollBack Date
+                      <ClockIcon className="w-4 h-4 inline mr-1" />
+                      Check-out
+                    </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="todayCalled" currentSort={sort}>
+                      <PhoneCall className="w-4 h-4 inline mr-1" />
+                      Calls Today
+                    </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="todayClosed" currentSort={sort}>
+                      <CheckCircle className="w-4 h-4 inline mr-1" />
+                      Closed Today
+                    </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="performanceScore" currentSort={sort}>
+                      <TargetIcon className="w-4 h-4 inline mr-1" />
+                      Performance
                     </TableHead>
                     <TableHead>
+                      <UserCheck className="w-4 h-4 inline mr-1" />
                       TL Name
                     </TableHead>
-                    <TableHead>
-                      Manage TL
+                    <TableHead sortable onSort={handleSort} sortKey="attendanceStreak" currentSort={sort}>
+                      <Zap className="w-4 h-4 inline mr-1" />
+                      Streak
                     </TableHead>
                     <TableHead>
-                      Last Data
-                    </TableHead>
-                    <TableHead>
-                      Called
-                    </TableHead>
-                    <TableHead>
-                      Closed
-                    </TableHead>
-                    <TableHead>
-                      Date Assigned
-                    </TableHead>
-                    <TableHead sortable onSort={handleSort} sortKey="totalPresent" currentSort={sort}>
-                      <TrendingUpIcon className="w-4 h-4 inline mr-1" />
-                      Total Present
-                    </TableHead>
-                    <TableHead sortable onSort={handleSort} sortKey="salary" currentSort={sort}>
-                      Salary
-                    </TableHead>
-                    <TableHead>
-                      <Mail className="w-4 h-4 inline mr-1" />
-                      Email Id
-                    </TableHead>
-                    <TableHead>
-                      Open Leads
-                    </TableHead>
-                    <TableHead>
-                      Action
+                      <CalendarIcon className="w-4 h-4 inline mr-1" />
+                      Last Active
                     </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={19} className="text-center py-12">
+                      <TableCell colSpan={12} className="text-center py-12">
                         <div className="flex flex-col items-center justify-center">
-                          <RefreshCw className="w-10 h-10 animate-spin text-green-600 mb-4" />
+                          <RefreshCw className="w-10 h-10 animate-spin text-blue-600 mb-4" />
                           <span className="text-lg">Loading present users...</span>
-                          <p className="text-sm text-gray-500 mt-2">Please wait while we fetch the data</p>
+                          <p className="text-sm text-gray-500 mt-2">Fetching today's attendance data</p>
                         </div>
                       </TableCell>
                     </TableRow>
                   ) : users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={19} className="text-center py-12 text-gray-500">
+                      <TableCell colSpan={12} className="text-center py-12 text-gray-500">
                         <UserCheck className="w-16 h-16 mx-auto mb-4 opacity-30" />
                         <p className="text-xl font-medium">No users present today</p>
                         <p className="text-sm mt-2">
-                          {(filters.search || filters.status !== 'all' || filters.role !== 'all') 
+                          {(filters.search || filters.role !== 'all' || filters.status !== 'active') 
                             ? 'Try adjusting your search filters' 
-                            : 'No users have marked attendance as present today'}
+                            : 'No users have marked attendance as "Present" today'}
                         </p>
                       </TableCell>
                     </TableRow>
                   ) : (
                     users.map((user) => (
                       <TableRow key={user._id} className="group hover:bg-gray-50 dark:hover:bg-gray-800/50">
+                        {/* Name */}
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm">{user.joinDate}</span>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <RoleChangeButton 
-                            user={user}
-                            onChangeRole={changeUserRole}
-                            loading={actionLoading[user._id]}
-                          />
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                              <User className="w-4 h-4 text-green-600 dark:text-green-300" />
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900 dark:to-cyan-900 flex items-center justify-center">
+                              <User className="w-4 h-4 text-blue-600 dark:text-blue-300" />
                             </div>
                             <div>
                               <p className="font-medium">{user.name}</p>
-                              <p className="text-xs text-gray-500">ID: {user._id?.substring(0, 6)}...</p>
+                              <p className="text-xs text-gray-500 truncate max-w-[150px]">
+                                <MailIcon className="w-3 h-3 inline mr-1" />
+                                {user.email}
+                              </p>
                             </div>
                           </div>
                         </TableCell>
                         
+                        {/* Role */}
+                        <TableCell>
+                          <Badge variant={
+                            user.role === 'admin' ? 'destructive' : 
+                            user.role === 'TL' ? 'default' : 
+                            'secondary'
+                          }>
+                            {user.role}
+                          </Badge>
+                        </TableCell>
+                        
+                        {/* Phone */}
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Phone className="w-4 h-4 text-gray-500" />
@@ -1091,110 +980,88 @@ export default function PresentUsers() {
                           </div>
                         </TableCell>
                         
+                        {/* Attendance */}
                         <TableCell>
-                          <StatusChangeButton 
-                            user={user}
-                            onChangeStatus={changeUserStatus}
-                            loading={actionLoading[user._id]}
-                          />
+                          <AttendanceBadge user={user} />
                         </TableCell>
                         
+                        {/* Check-in Time */}
                         <TableCell>
-                          <PresentBadge user={user} />
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="text-center">
-                            {user.rollbackData > 0 ? (
-                              <Badge variant="destructive">{user.rollbackData}</Badge>
-                            ) : (
-                              <span className="text-gray-500">0</span>
-                            )}
+                          <div className="flex items-center gap-2">
+                            <ClockIcon className="w-4 h-4 text-green-500" />
+                            <span className="text-sm font-medium">{formatTime(user.checkInTime)}</span>
                           </div>
                         </TableCell>
                         
+                        {/* Check-out Time */}
                         <TableCell>
-                          <span className="text-sm">{user.rollbackDate}</span>
+                          <div className="flex items-center gap-2">
+                            <ClockIcon className="w-4 h-4 text-blue-500" />
+                            <span className="text-sm font-medium">
+                              {user.checkOutTime && user.checkOutTime !== '-' 
+                                ? formatTime(user.checkOutTime) 
+                                : 'Not checked out'}
+                            </span>
+                          </div>
                         </TableCell>
                         
+                        {/* Calls Today */}
+                        <TableCell>
+                          <div className="text-center">
+                            <div className="flex flex-col items-center">
+                              <span className={`font-bold text-lg ${
+                                user.todayCalled > 0 ? 'text-blue-600' : 'text-gray-500'
+                              }`}>
+                                {user.todayCalled}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                calls
+                              </span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        
+                        {/* Closed Today */}
+                        <TableCell>
+                          <div className="text-center">
+                            <div className="flex flex-col items-center">
+                              <span className={`font-bold text-lg ${
+                                user.todayClosed > 0 ? 'text-green-600' : 'text-gray-500'
+                              }`}>
+                                {user.todayClosed}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                closed
+                              </span>
+                            </div>
+                          </div>
+                        </TableCell>
+                        
+                        {/* Performance */}
+                        <TableCell>
+                          <PerformanceScore score={user.performanceScore} />
+                        </TableCell>
+                        
+                        {/* TL Name */}
                         <TableCell>
                           <span className="text-sm font-medium">{user.tlName}</span>
                         </TableCell>
                         
-                        <TableCell>
-                          <TLChangeButton 
-                            user={user}
-                            teamLeaders={teamLeaders}
-                            onChangeTL={changeUserTL}
-                            loading={actionLoading[user._id]}
-                          />
-                        </TableCell>
-                        
+                        {/* Attendance Streak */}
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm">{user.lastData}</span>
+                            <Zap className="w-4 h-4 text-yellow-500" />
+                            <span className="font-bold">{user.attendanceStreak}</span>
+                            <span className="text-xs text-gray-500">days</span>
                           </div>
                         </TableCell>
                         
+                        {/* Last Active */}
                         <TableCell>
-                          <div className="text-center">
-                            <span className="font-medium">{user.calledLeads}</span>
+                          <div className="flex items-center gap-2">
+                            <Activity className="w-4 h-4 text-purple-500" />
+                            <span className="text-sm">{formatTime(user.lastActive)}</span>
                           </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="text-center">
-                            <span className="font-medium text-green-600">{user.closedLeads}</span>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <span className="text-sm">{user.dateAssigned}</span>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="text-center">
-                            <span className="font-bold text-green-600">{user.totalPresent}</span>
-                            {user.conversionRate > 0 && (
-                              <p className="text-xs text-gray-500">{user.conversionRate}% conversion</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="text-right">
-                            {user.salary && user.salary !== '-' ? (
-                              <div className="flex items-center justify-end gap-1">
-                                <span className="font-bold text-green-600">₹{user.salary.toLocaleString('en-IN')}</span>
-                              </div>
-                            ) : (
-                              <span className="text-gray-500">{user.salary}</span>
-                            )}
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <div className="flex items-center gap-2 min-w-[200px]">
-                            <Mail className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm truncate">{user.email}</span>
-                          </div>
-                        </TableCell>
-                        
-                        <TableCell>
-                          <OpenLeadsWithrow 
-                            openLeads={user.openLeads}
-                            onWithrow={(amount) => handleWithrow(user._id, amount)}
-                          />
-                        </TableCell>
-                        
-                        <TableCell>
-                          <ActionMenu
-                            user={user}
-                            onEdit={() => editUser(user)}
-                            onDelete={() => deleteUser(user._id)}
-                            loading={actionLoading[user._id]}
-                          />
                         </TableCell>
                       </TableRow>
                     ))
@@ -1210,7 +1077,7 @@ export default function PresentUsers() {
       {users.length > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="text-sm text-gray-500">
-            Showing {users.length} present users
+            Showing {users.length} users present today
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -1236,6 +1103,110 @@ export default function PresentUsers() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Top Performers Section */}
+      {users.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-yellow-500" />
+              Today's Top Performers
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Top by Calls */}
+              <div className="bg-gradient-to-br from-blue-50 to-white dark:from-blue-900/10 dark:to-gray-800 border border-blue-100 dark:border-blue-800 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-blue-700 dark:text-blue-300">
+                    <PhoneCall className="w-4 h-4 inline mr-2" />
+                    Most Calls
+                  </h4>
+                  <Badge variant="info">{Math.max(...users.map(u => u.todayCalled || 0))}</Badge>
+                </div>
+                {users
+                  .filter(u => u.todayCalled > 0)
+                  .sort((a, b) => (b.todayCalled || 0) - (a.todayCalled || 0))
+                  .slice(0, 3)
+                  .map((user, index) => (
+                    <div key={user._id} className="flex items-center justify-between py-2 border-b border-blue-50 dark:border-blue-800/30 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                          index === 0 ? 'bg-yellow-100 text-yellow-800' :
+                          index === 1 ? 'bg-gray-100 text-gray-800' :
+                          'bg-orange-100 text-orange-800'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <span className="font-medium">{user.name}</span>
+                      </div>
+                      <Badge variant="info">{user.todayCalled} calls</Badge>
+                    </div>
+                  ))}
+              </div>
+              
+              {/* Top by Closed */}
+              <div className="bg-gradient-to-br from-green-50 to-white dark:from-green-900/10 dark:to-gray-800 border border-green-100 dark:border-green-800 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-green-700 dark:text-green-300">
+                    <CheckCircle className="w-4 h-4 inline mr-2" />
+                    Most Closed
+                  </h4>
+                  <Badge variant="success">{Math.max(...users.map(u => u.todayClosed || 0))}</Badge>
+                </div>
+                {users
+                  .filter(u => u.todayClosed > 0)
+                  .sort((a, b) => (b.todayClosed || 0) - (a.todayClosed || 0))
+                  .slice(0, 3)
+                  .map((user, index) => (
+                    <div key={user._id} className="flex items-center justify-between py-2 border-b border-green-50 dark:border-green-800/30 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                          index === 0 ? 'bg-yellow-100 text-yellow-800' :
+                          index === 1 ? 'bg-gray-100 text-gray-800' :
+                          'bg-orange-100 text-orange-800'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <span className="font-medium">{user.name}</span>
+                      </div>
+                      <Badge variant="success">{user.todayClosed} closed</Badge>
+                    </div>
+                  ))}
+              </div>
+              
+              {/* Top by Performance */}
+              <div className="bg-gradient-to-br from-purple-50 to-white dark:from-purple-900/10 dark:to-gray-800 border border-purple-100 dark:border-purple-800 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-semibold text-purple-700 dark:text-purple-300">
+                    <TrendingUp className="w-4 h-4 inline mr-2" />
+                    Best Performance
+                  </h4>
+                  <Badge variant="purple">{Math.max(...users.map(u => u.performanceScore || 0))}%</Badge>
+                </div>
+                {users
+                  .sort((a, b) => (b.performanceScore || 0) - (a.performanceScore || 0))
+                  .slice(0, 3)
+                  .map((user, index) => (
+                    <div key={user._id} className="flex items-center justify-between py-2 border-b border-purple-50 dark:border-purple-800/30 last:border-0">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                          index === 0 ? 'bg-yellow-100 text-yellow-800' :
+                          index === 1 ? 'bg-gray-100 text-gray-800' :
+                          'bg-orange-100 text-orange-800'
+                        }`}>
+                          {index + 1}
+                        </div>
+                        <span className="font-medium">{user.name}</span>
+                      </div>
+                      <PerformanceScore score={user.performanceScore} />
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

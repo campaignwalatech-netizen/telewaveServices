@@ -30,7 +30,7 @@ router.get('/health', (req, res) => {
 router.get('/status', (req, res) => {
     res.json({
         success: true,
-        message: 'Campaignwala API Server is running',
+        message: 'Freelancerwala API Server is running',
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development',
         version: '1.0.0'

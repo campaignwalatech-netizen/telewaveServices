@@ -9,14 +9,14 @@ const Footer = ({ darkMode }) => {
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText("Support@campaignwala.in")
+    navigator.clipboard.writeText("Support@freelancerwala.in")
       .then(() => {
         alert("Email address copied to clipboard!");
       })
       .catch(() => {
         // Fallback for older browsers
         const textArea = document.createElement("textarea");
-        textArea.value = "Support@campaignwala.in";
+        textArea.value = "Support@freelancerwala.in";
         document.body.appendChild(textArea);
         textArea.select();
         document.execCommand("copy");
@@ -77,7 +77,7 @@ const Footer = ({ darkMode }) => {
           </div>
 
           <div className="mt-4 text-center text-xs sm:text-sm text-gray-500">
-            © Campaignwala by Codessy
+            © Freelancerwala by Codessy
           </div>
         </div>
       </footer>
@@ -107,7 +107,7 @@ const Footer = ({ darkMode }) => {
                 <span className={`text-lg font-mono ${
                   darkMode ? "text-blue-400" : "text-blue-600"
                 }`}>
-                  Support@campaignwala.in
+                  Support@freelancerwala.in
                 </span>
               </div>
               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -156,16 +156,16 @@ const Footer = ({ darkMode }) => {
               <p>
                 This Privacy Policy applies to access and use of the software
                 including Web Application, and any other relevant medium. The
-                website by the name "Campaignwala" is owned by Campaignwala and
+                website by the name "Freelancerwala" is owned by Freelancerwala and
                 operated by Codessey. (together referred to interchangeably as
-                "we," "our," or "Campaignwala"). Campaignwala enables agents to
+                "we," "our," or "Freelancerwala"). Freelancerwala enables agents to
                 sell various financial and non-financial products and services
                 such as Demat account, credit, saving accounts, etc., through
                 our technology platform and earn money ("Services").
               </p>
 
               <p>
-                We at Campaignwala are committed to protecting the privacy and
+                We at Freelancerwala are committed to protecting the privacy and
                 security of our users ("you", "your", "user(s)", or
                 "subscriber(s)"). Your privacy is important, and maintaining
                 your trust is paramount to us. This Privacy Policy ("Privacy
@@ -237,7 +237,7 @@ const Footer = ({ darkMode }) => {
               <h3 className="font-semibold mt-4">COPYRIGHT POLICY</h3>
               <p>
                 The contents of this Platform may not be reproduced or
-                distributed without permission from Campaignwala as per the
+                distributed without permission from Freelancerwala as per the
                 Copyright Act, 1957.
               </p>
 
@@ -252,7 +252,7 @@ const Footer = ({ darkMode }) => {
                 If you have questions or concerns, contact us at:
                 <br />
                 📧 <span className={`${darkMode ? "text-blue-400" : "text-blue-600"}`}>
-                  Support@campaignwala.in
+                  Support@Freelancerwala.in
                 </span>
                 <br />
                 Grievance Officer: [Enter Name Here]

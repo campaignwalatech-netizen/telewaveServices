@@ -185,7 +185,7 @@ export const AddAccountForm = () => (
 export const DefaultView = () => (
   <div className="p-6">
     <div className="bg-card/50 backdrop-blur-sm rounded-xl border border-border/50 p-8 shadow-lg text-center">
-      <h3 className="text-2xl font-bold text-foreground mb-4">Welcome to Campaignwala Admin Dashboard</h3>
+      <h3 className="text-2xl font-bold text-foreground mb-4">Welcome to Freelancerwala Admin Dashboard</h3>
       <p className="text-muted-foreground">
         Select a menu item from the sidebar to get started
       </p>
