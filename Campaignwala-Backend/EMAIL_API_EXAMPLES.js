@@ -160,7 +160,7 @@ const sendOTP = {
 // ============================================
 
 /*
-1. Create new Collection: "Campaignwala - Email OTP"
+1. Create new Collection: "Freelancewala - Email OTP"
 
 2. Add Environment Variables:
    - base_url: http://localhost:5000

@@ -49,7 +49,7 @@ describe('User Dashboard Navbar Component', () => {
 
   it('should render the navbar with logo, search, and icons', () => {
     renderComponent();
-    expect(screen.getByText('Campaignwala')).toBeInTheDocument();
+    expect(screen.getByText('Freelancewala')).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/search offers/i)).toBeInTheDocument();
     expect(screen.getByTitle(/notifications/i)).toBeInTheDocument();
     expect(screen.getByTitle(/switch to dark mode/i)).toBeInTheDocument();

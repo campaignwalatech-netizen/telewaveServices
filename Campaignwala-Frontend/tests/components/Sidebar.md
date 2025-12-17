@@ -9,7 +9,7 @@
 
 | Test Case ID | Description | Steps to Reproduce | Expected Result |
 | :--- | :--- | :--- | :--- |
-| SDB-001 | It should render the sidebar with a logo and menu items. | 1. Render the `Sidebar` component. | The sidebar should be visible on large screens, displaying the "Campaignwala" logo and a list of navigation links. |
+| SDB-001 | It should render the sidebar with a logo and menu items. | 1. Render the `Sidebar` component. | The sidebar should be visible on large screens, displaying the "Freelancewala" logo and a list of navigation links. |
 | SDB-002 | It should render all menu items correctly. | 1. Render the component. | The sidebar should contain all the menu items defined in the `menuItems` array, each with an icon and a label. |
 | SDB-003 | It should highlight the active menu item. | 1. Render the component. | The "All Offers" menu item should have a different background color and text style to indicate it is the active link. |
 
@@ -31,7 +31,7 @@
 
 | Test Case ID | Description | Steps to Reproduce | Expected Result |
 | :--- | :--- | :--- | :--- |
-| SDB-009 | It should render the correct logo and title. | 1. Render the component. | The sidebar should display a logo with "CW" and the text "Campaignwala". |
+| SDB-009 | It should render the correct logo and title. | 1. Render the component. | The sidebar should display a logo with "CW" and the text "Freelancewala". |
 | SDB-010 | Menu items should have the correct `href` attributes. | 1. Render the component. <br> 2. Inspect the "Manage Account" link. | The `<a>` tag for this item should have `href="#"`. (Note: In a real app, this would be a specific route). |
 
 ---

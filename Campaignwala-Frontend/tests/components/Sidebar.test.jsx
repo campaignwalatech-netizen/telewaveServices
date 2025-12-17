@@ -6,7 +6,7 @@ import Sidebar from '../../src/components/Sidebar';
 describe('Sidebar Component', () => {
   it('should render the sidebar with a logo and menu items', () => {
     render(<Sidebar />);
-    expect(screen.getByText('Campaignwala')).toBeInTheDocument();
+    expect(screen.getByText('Freelancewala')).toBeInTheDocument();
     expect(screen.getByText('Manage Leads')).toBeInTheDocument();
     expect(screen.getByText('All Offers')).toBeInTheDocument();
   });

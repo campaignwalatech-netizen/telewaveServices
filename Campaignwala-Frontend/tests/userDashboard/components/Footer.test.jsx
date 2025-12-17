@@ -19,7 +19,7 @@ describe('Footer Component', () => {
     expect(screen.getByText('💼')).toBeInTheDocument();
 
     // Check for copyright
-    expect(screen.getByText(/© campaignwala by codessy/i)).toBeInTheDocument();
+    expect(screen.getByText(/© freelancewala by codessy/i)).toBeInTheDocument();
   });
 
   it('should have correct href attributes on links', () => {

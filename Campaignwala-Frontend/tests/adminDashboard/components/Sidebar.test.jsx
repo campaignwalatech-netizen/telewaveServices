@@ -15,7 +15,7 @@ describe('Sidebar Component', () => {
 
   it('should render the sidebar with logo and menu items', () => {
     renderComponent();
-    expect(screen.getByText('Campaignwala')).toBeInTheDocument();
+    expect(screen.getByText('Freelancewala')).toBeInTheDocument();
     expect(screen.getByText('Manage Account')).toBeInTheDocument();
     expect(screen.getByText('Payment Withdrawal List')).toBeInTheDocument();
   });

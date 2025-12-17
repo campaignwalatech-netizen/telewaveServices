@@ -1,4 +1,4 @@
-# Campaignwala Panels Backend
+# Freelancewala Panels Backend
 
 Complete Node.js backend API for user authentication and management with admin panel functionality.
 
@@ -373,7 +373,7 @@ campaignwala-panels-backend/
 | ------------- | -------------------------- | --------------------------------------------- |
 | `NODE_ENV`    | Environment mode           | development                                   |
 | `PORT`        | Server port                | 5000                                          |
-| `MONGODB_URI` | MongoDB connection string  | mongodb://localhost:27017/campaignwala_panels |
+| `MONGODB_URI` | MongoDB connection string  | mongodb://localhost:27017/freelancewala |
 | `JWT_SECRET`  | JWT signing secret         | (required)                                    |
 | `JWT_EXPIRE`  | JWT expiration time        | 7d                                            |
 | `STATIC_OTP`  | Static OTP for development | 112233                                        |
@@ -404,4 +404,4 @@ This project is licensed under the ISC License.
 
 ## Support
 
-For support and queries, contact: support@campaignwala.com
+For support and queries, contact: support@freelancewala.com

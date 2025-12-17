@@ -91,7 +91,7 @@ describe('useRouteParams Hook', () => {
 describe('usePageMeta Hook', () => {
   it('should set the document title and meta description', () => {
     const { unmount } = renderHook(() => usePageMeta('Test Title', 'Test Description'));
-    expect(document.title).toBe('Test Title | Campaignwala');
+    expect(document.title).toBe('Test Title | Freelancewala');
     const metaDesc = document.querySelector('meta[name="description"]');
     expect(metaDesc.content).toBe('Test Description');
 

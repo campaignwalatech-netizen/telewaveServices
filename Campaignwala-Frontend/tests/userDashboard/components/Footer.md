@@ -12,7 +12,7 @@
 |--------------|----------------------------------------------------|
 | **Description**  | Verify that the footer renders with all its links and text. |
 | **Steps**      | 1. Navigate to any page in the user dashboard that includes the main layout. |
-| **Expected Result** | The footer should be visible at the bottom of the page, containing:<br>- Links for "Contact Us", "Company", and "Privacy Policy".<br>- Social media icons.<br>- A copyright notice (e.g., "© Campaignwala by codessy"). |
+| **Expected Result** | The footer should be visible at the bottom of the page, containing:<br>- Links for "Contact Us", "Company", and "Privacy Policy".<br>- Social media icons.<br>- A copyright notice (e.g., "© Freelancewala by codessy"). |
 
 ---
 

@@ -747,20 +747,17 @@ const register = async (req, res) => {
         const emailResult = await sendOTPEmail(email, name, otp, 'registration');
 
         return res.json({
-            success: true,
-            message: emailResult.developmentMode 
-                ? 'OTP generated (Check console for OTP)' 
-                : 'OTP sent to your email successfully',
-            requireOTP: true,
-            data: {
-                email: email,
-                name: name,
-                role: role || 'user',
-                otp: otp,
-                developmentMode: emailResult.developmentMode || false,
-                registrationStatus: user.registrationStatus
-            }
-        });
+        success: true,
+        message: 'OTP sent to your email successfully',
+        requireOTP: true,
+        data: {
+         email: email,
+         name: name,
+         role: role || 'user',
+         registrationStatus: user.registrationStatus
+         // REMOVE: otp, developmentMode from response
+    }
+});
 
     } catch (error) {
         console.error('Registration error:', error);
@@ -972,21 +969,17 @@ const login = async (req, res) => {
         const emailResult = await sendOTPEmail(user.email, user.name || 'User', otp, 'login');
 
         return res.json({
-            success: true,
-            message: emailResult.developmentMode
-                ? 'OTP generated (Email service unavailable - check console)'
-                : 'OTP sent to your email. Please verify to complete login.',
-            requireOTP: true,
-            data: {
-                email: user.email,
-                name: user.name,
-                role: user.role,
-                otpSent: !emailResult.developmentMode,
-                otp: otp,
-                developmentMode: emailResult.developmentMode || false,
-                registrationStatus: user.registrationStatus
-            }
-        });
+        success: true,
+        message: 'OTP sent to your email. Please verify to complete login.',
+        requireOTP: true,
+        data: {
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        registrationStatus: user.registrationStatus
+        // REMOVE: otp, developmentMode from response
+    }
+});
 
     } catch (error) {
         console.error('Login error:', error);

@@ -41,6 +41,6 @@
 
 | Test Case ID | Description | Steps to Reproduce | Expected Result |
 | :--- | :--- | :--- | :--- |
-| DF-DV-001 | It should render the default welcome view. | 1. Render the `DefaultView` component. | The component should display a welcome message: "Welcome to Campaignwala Admin Dashboard" and a prompt to select a menu item. |
+| DF-DV-001 | It should render the default welcome view. | 1. Render the `DefaultView` component. | The component should display a welcome message: "Welcome to Freelancewala Admin Dashboard" and a prompt to select a menu item. |
 
 ---

@@ -12,7 +12,7 @@
 |--------------|----------------------------------------------------|
 | **Description**  | Verify that the navbar renders correctly with all its default elements. |
 | **Steps**      | 1. Log in as a user and navigate to the user dashboard. |
-| **Expected Result** | The navbar at the top of the page should display:<br>- The brand logo/name ("Campaignwala").<br>- A search bar (on desktop).<br>- A search icon (on mobile).<br>- A theme toggle button (Sun/Moon icon).<br>- A notifications button.<br>- A user profile avatar. |
+| **Expected Result** | The navbar at the top of the page should display:<br>- The brand logo/name ("Freelancewala").<br>- A search bar (on desktop).<br>- A search icon (on mobile).<br>- A theme toggle button (Sun/Moon icon).<br>- A notifications button.<br>- A user profile avatar. |
 
 ---
 

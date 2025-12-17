@@ -9,7 +9,7 @@
 
 | Test Case ID | Description | Steps to Reproduce | Expected Result |
 | :--- | :--- | :--- | :--- |
-| ADS-001 | It should render the sidebar with logo and menu items. | 1. Render the `Sidebar` component within a `MemoryRouter`. | The sidebar should display the "Campaignwala" logo and a list of top-level menu items. |
+| ADS-001 | It should render the sidebar with logo and menu items. | 1. Render the `Sidebar` component within a `MemoryRouter`. | The sidebar should display the "Freelancewala" logo and a list of top-level menu items. |
 | ADS-002 | It should render submenus correctly. | 1. Render the component. <br> 2. Click on a menu item with a submenu (e.g., "Manage Account"). | The submenu items (e.g., "All Offers", "Add Offers") should become visible. |
 
 ---

@@ -53,17 +53,16 @@ export default function LoginPage() {
   // Inside handleSubmit function in LoginPage
 const handleSubmit = async (e) => {
     e.preventDefault();
-
     setSuccessMessage("");
-    setDevelopmentOTP("");
+    // setDevelopmentOTP("");
     setSendingOtp(true);
     clearAuthError();
 
     try {
-        console.log("🔐 Login attempt with:", { email });
+        // console.log("🔐 Login attempt with:", { email });
 
         const response = await login({ email, password });
-        console.log("✅ Login response:", response);
+        // console.log("✅ Login response:", response);
 
         // Check if user is pending approval
         if (response?.registrationStatus && response.registrationStatus !== 'approved') {
@@ -85,14 +84,12 @@ const handleSubmit = async (e) => {
             // OTP required - show modal
             setUserEmail(response.data?.email || email);
 
-            if (response.data?.developmentMode) {
-                const devOtp = response.data.otp;
-                setDevelopmentOTP(devOtp);
-                setSuccessMessage(
-                    `🔑 OTP Generated: ${devOtp} (Email service unavailable - use this OTP)`
-                );
-                console.log("🔑 Development OTP:", devOtp);
-            } else {
+            if (response?.requireOTP) {
+            setUserEmail(response.data?.email || email);
+            setSuccessMessage("📧 OTP sent to your email!");
+            setSendingOtp(false);
+            setShowOtpModal(true);
+            }else {
                 setSuccessMessage("📧 OTP sent to your email!");
             }
 
@@ -103,11 +100,11 @@ const handleSubmit = async (e) => {
             setSendingOtp(false);
         }
     } catch (err) {
-        console.error("❌ Login error:", err);
+        // console.error("❌ Login error:", err);
         setSendingOtp(false);
         // Check for pending approval error
         if (err.message?.includes('pending approval')) {
-            setFormError(err.message);
+            setFormError(err.message || "Failed to send OTP. Please try again.");
         }
     }
 };

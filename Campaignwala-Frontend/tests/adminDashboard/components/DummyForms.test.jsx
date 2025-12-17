@@ -53,7 +53,7 @@ describe('DummyForms Components', () => {
   describe('DefaultView', () => {
     it('should render the default welcome view', () => {
       render(<DefaultView />);
-      expect(screen.getByText('Welcome to Campaignwala Admin Dashboard')).toBeInTheDocument();
+      expect(screen.getByText('Welcome to Freelancewala Admin Dashboard')).toBeInTheDocument();
       expect(screen.getByText('Select a menu item from the sidebar to get started')).toBeInTheDocument();
     });
   });
