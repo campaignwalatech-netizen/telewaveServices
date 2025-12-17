@@ -346,32 +346,7 @@ export default function AdminSidebar({
 
         {/* Quick Stats & Logout */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-3">
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 gap-2">
-            <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg p-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-green-100 dark:bg-green-800 rounded-full flex items-center justify-center">
-                  <TrendingUp size={12} className="text-green-600 dark:text-green-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">Today's Leads</p>
-                  <p className="text-sm font-bold text-gray-800 dark:text-white">{dashboardStats.todayLeads}</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-lg p-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-red-100 dark:bg-red-800 rounded-full flex items-center justify-center">
-                  <Shield size={12} className="text-red-600 dark:text-red-400" />
-                </div>
-                <div>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">Pending</p>
-                  <p className="text-sm font-bold text-gray-800 dark:text-white">{dashboardStats.pendingApprovals}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
+          
           {/* System Status */}
           <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-2">
             <div className="flex items-center justify-between">
@@ -394,7 +369,7 @@ export default function AdminSidebar({
 
           {/* Version Info */}
           <div className="text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">v2.5.1 • © 2024</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">v2.5.1 • © 2025</p>
           </div>
         </div>
       </div>

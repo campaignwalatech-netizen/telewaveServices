@@ -533,26 +533,50 @@ async getDistributionCounts() {
    * @param {string} notes - Optional notes
    * @returns {Promise}
    */
-  async updateDataStatus(dataId, status, notes = '') {
+ async updateDataStatus(dataId, status, notes = '', responseType = '') {
     try {
-      const response = await api.put('/data/user/update-status', {
-        dataId,
-        status,
-        notes
-      });
-      
-      return {
-        success: true,
-        data: response.data
-      };
+        const response = await api.put('/data/user/update-status', {
+            dataId,
+            status,
+            notes,
+            responseType // Add this
+        });
+        
+        return {
+            success: true,
+            data: response.data
+        };
     } catch (error) {
-      return {
-        success: false,
-        error: error.response?.data?.error || 'Failed to update data status',
-        details: error.response?.data
-      };
+        return {
+            success: false,
+            error: error.response?.data?.error || 'Failed to update data status',
+            details: error.response?.data
+        };
     }
-  },
+},
+
+// Add a bulk update method for better performance:
+async bulkUpdateDataStatus(dataIds, status, responseType = '', notes = '') {
+    try {
+        const response = await api.post('/data/user/bulk-update-status', {
+            dataIds,
+            status,
+            responseType,
+            notes
+        });
+        
+        return {
+            success: true,
+            data: response.data
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: error.response?.data?.error || 'Failed to bulk update data status',
+            details: error.response?.data
+        };
+    }
+},
   
   /**
    * Get user statistics
@@ -613,13 +637,26 @@ async getDistributionCounts() {
    */
   async searchData(query, params = {}) {
     try {
+      // Convert array status to comma-separated string if it's an array
+      const apiParams = { ...params };
+      
+      if (Array.isArray(apiParams.status)) {
+        apiParams.status = apiParams.status.join(',');
+      }
+      
+      // Convert any other array parameters
+      Object.keys(apiParams).forEach(key => {
+        if (Array.isArray(apiParams[key])) {
+          apiParams[key] = apiParams[key].join(',');
+        }
+      });
+
       const response = await api.get('/data/search', {
         params: {
-          query,
-          page: params.page || 1,
-          limit: params.limit || 50,
-          status: params.status,
-          ...params
+          query: query || '',
+          page: apiParams.page || 1,
+          limit: apiParams.limit || 50,
+          ...apiParams
         }
       });
       
@@ -629,6 +666,7 @@ async getDistributionCounts() {
         pagination: response.data.pagination
       };
     } catch (error) {
+      console.error('Search data error:', error.response?.data || error.message);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to search data',
@@ -800,12 +838,19 @@ async adminWithdrawData(dataIds, reason = '') {
    */
   async getDataAnalytics(params = {}) {
     try {
+      // Convert array status to comma-separated string if it's an array
+      const apiParams = { ...params };
+      
+      if (Array.isArray(apiParams.status)) {
+        apiParams.status = apiParams.status.join(',');
+      }
+      
       const response = await api.get('/data/analytics', {
         params: {
-          startDate: params.startDate,
-          endDate: params.endDate,
-          groupBy: params.groupBy || 'day',
-          ...params
+          startDate: apiParams.startDate,
+          endDate: apiParams.endDate,
+          groupBy: apiParams.groupBy || 'day',
+          ...apiParams
         }
       });
       
@@ -814,6 +859,7 @@ async adminWithdrawData(dataIds, reason = '') {
         data: response.data
       };
     } catch (error) {
+      console.error('Analytics error:', error.response?.data || error.message);
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to get analytics',
@@ -821,6 +867,134 @@ async adminWithdrawData(dataIds, reason = '') {
       };
     }
   },
+
+  // Add these new methods to dataService.js
+
+/**
+ * Get called data (Admin only)
+ * @param {Object} params - Query parameters
+ * @returns {Promise}
+ */
+async getCalledData(params = {}) {
+  try {
+    const response = await api.get('/data/admin/called-data', {
+      params: {
+        page: params.page || 1,
+        limit: params.limit || 50,
+        search: params.search,
+        batchNumber: params.batchNumber,
+        assignedTo: params.assignedTo,
+        startDate: params.startDate,
+        endDate: params.endDate,
+        sortBy: params.sortBy || 'teamAssignments.contactedAt',
+        sortOrder: params.sortOrder || 'desc'
+      }
+    });
+    
+    return {
+      success: true,
+      data: response.data.data,
+      pagination: response.data.pagination
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Failed to get called data',
+      details: error.response?.data
+    };
+  }
+},
+
+/**
+ * Get called stats (Admin only)
+ * @param {Object} params - Query parameters
+ * @returns {Promise}
+ */
+async getCalledStats(params = {}) {
+  try {
+    const response = await api.get('/data/admin/called-stats', {
+      params: {
+        startDate: params.startDate,
+        endDate: params.endDate
+      }
+    });
+    
+    return {
+      success: true,
+      data: response.data.data
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Failed to get called stats',
+      details: error.response?.data
+    };
+  }
+},
+
+/**
+ * Get closed data (Admin only)
+ * @param {Object} params - Query parameters
+ * @returns {Promise}
+ */
+async getClosedData(params = {}) {
+  try {
+    const response = await api.get('/data/admin/closed-data', {
+      params: {
+        page: params.page || 1,
+        limit: params.limit || 50,
+        search: params.search,
+        batchNumber: params.batchNumber,
+        closedType: params.closedType || 'all',
+        assignedTo: params.assignedTo,
+        startDate: params.startDate,
+        endDate: params.endDate,
+        sortBy: params.sortBy || 'teamAssignments.statusUpdatedAt',
+        sortOrder: params.sortOrder || 'desc'
+      }
+    });
+    
+    return {
+      success: true,
+      data: response.data.data,
+      pagination: response.data.pagination
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Failed to get closed data',
+      details: error.response?.data
+    };
+  }
+},
+
+/**
+ * Get closed stats (Admin only)
+ * @param {Object} params - Query parameters
+ * @returns {Promise}
+ */
+async getClosedStats(params = {}) {
+  try {
+    const response = await api.get('/data/admin/closed-stats', {
+      params: {
+        startDate: params.startDate,
+        endDate: params.endDate,
+        closedType: params.closedType
+      }
+    });
+    
+    return {
+      success: true,
+      data: response.data.data
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error.response?.data?.error || 'Failed to get closed stats',
+      details: error.response?.data
+    };
+  }
+},
   
   // ==================== BATCH OPERATIONS ====================
   

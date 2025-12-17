@@ -95,6 +95,8 @@ import ClosedLeads from "../userDashboard/pages/ClosedLeads";
 import DataDashboard from "../adminDashboard/pages/data/DataDashboard";
 import UploadDataPage from "../adminDashboard/pages/data/UploadDataPage";
 import DistributeDataPage from "../adminDashboard/pages/data/DistributeDataPage";
+import CalledDataPage from "../adminDashboard/pages/data/CalledDataPage";
+import ClosedDataPage from "../adminDashboard/pages/data/ClosedDataPage";
 
 // TL Data Management Pages
 import TLDistributeDataPage from "../tlDashboard/pages/data/TLDistributeDataPage";
@@ -146,6 +148,8 @@ export default function AppRouter() {
           <Route path="data/dashboard" element={<DataDashboard />} />
           <Route path="data/distribute" element={<DistributeDataPage />} />
           <Route path="data/upload" element={<UploadDataPage />} />
+          <Route path="data/called" element={<CalledDataPage />} />
+          <Route path="data/closed" element={<ClosedDataPage />} />
           
           {/* Manage Account routes */}
           <Route path="manage-account" element={<Navigate to="all-Offers" replace />} />

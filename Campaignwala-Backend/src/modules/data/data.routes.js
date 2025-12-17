@@ -57,7 +57,33 @@ const upload = multer({
 });
 
 // Add these routes:
+// Get called/contacted data (Admin only)
+router.get('/admin/called-data',
+    protect,
+    authorize('admin'),
+    DataController.getCalledData
+);
 
+// Get closed data (Admin only)
+router.get('/admin/closed-data',
+    protect,
+    authorize('admin'),
+    DataController.getClosedData
+);
+
+// Get called/contacted data stats (Admin only)
+router.get('/admin/called-stats',
+    protect,
+    authorize('admin'),
+    DataController.getCalledStats
+);
+
+// Get closed data stats (Admin only)
+router.get('/admin/closed-stats',
+    protect,
+    authorize('admin'),
+    DataController.getClosedStats
+);
 // Get distribution counts
 router.get('/admin/distribution-counts', 
   protect, 
@@ -184,6 +210,13 @@ router.put('/user/update-status',
     DataController.updateDataStatus
 );
 
+// Update data status in bulk
+router.post('/user/bulk-update-status', 
+    protect, 
+    authorize('user'), 
+    DataController.bulkUpdateDataStatus
+);
+
 // Get user statistics
 router.get('/user/statistics', 
     protect, 
@@ -279,7 +312,7 @@ router.post('/test-upload',
 
 // Get analytics
 router.get('/analytics', 
-    protect, 
+    protect,
     DataController.getAnalytics
 );
 
@@ -312,6 +345,11 @@ router.delete('/batches/:id',
     protect, 
     authorize('admin'), 
     DataController.deleteBatch
+);
+
+router.get('/search', 
+    protect, 
+    DataController.searchData
 );
 
 module.exports = router;

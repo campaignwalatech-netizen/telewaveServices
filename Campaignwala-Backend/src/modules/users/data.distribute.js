@@ -52,6 +52,7 @@ const dataDistributionSchema = new mongoose.Schema({
         ]
     },
     
+    
     assignedTo: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
@@ -104,6 +105,12 @@ const dataDistributionSchema = new mongoose.Schema({
             enum: ['assigned', 'contacted', 'converted', 'rejected', 'not_reachable', 'pending'],
             default: 'pending'
         },
+        responseType: {
+        type: String,
+        enum: ['interested', 'not_interested', 'invalid_number', 'rejected'],
+        default: null
+        },
+        
         statusUpdatedAt: {
             type: Date
         },

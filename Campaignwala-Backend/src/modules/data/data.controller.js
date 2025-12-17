@@ -3,6 +3,48 @@ console.log('DataDistribution schema assignedType enum:', DataDistribution.schem
 const BulkDataOperations = require('../users/bulk.operations');
 const User = require('../users/user.model');
 
+
+async function updateUserStatistics(userId, oldStatus, newStatus) {
+    try {
+        const User = mongoose.model('User');
+        const updateObj = {};
+        
+        // Decrement old status
+        if (oldStatus === 'pending') {
+            updateObj.$inc = { ...updateObj.$inc, 'statistics.pendingLeads': -1 };
+        } else if (oldStatus === 'contacted') {
+            updateObj.$inc = { ...updateObj.$inc, 'statistics.contactedLeads': -1 };
+        }
+        
+        // Increment new status
+        if (newStatus === 'pending') {
+            updateObj.$inc = { ...updateObj.$inc, 'statistics.pendingLeads': 1 };
+        } else if (newStatus === 'contacted') {
+            updateObj.$inc = { ...updateObj.$inc, 'statistics.contactedLeads': 1 };
+        } else if (newStatus === 'converted') {
+            updateObj.$inc = { ...updateObj.$inc, 'statistics.convertedLeads': 1 };
+        } else if (newStatus === 'rejected') {
+            updateObj.$inc = { ...updateObj.$inc, 'statistics.rejectedLeads': 1 };
+        } else if (newStatus === 'not_reachable') {
+            updateObj.$inc = { ...updateObj.$inc, 'statistics.notReachableLeads': 1 };
+        }
+        
+        // Update today's counts
+        updateObj.$inc = { 
+            ...updateObj.$inc,
+            'leadDistribution.todaysPendingLeads': (newStatus === 'pending' ? 1 : oldStatus === 'pending' ? -1 : 0),
+            'leadDistribution.todaysCalledLeads': (newStatus === 'contacted' ? 1 : oldStatus === 'contacted' ? -1 : 0),
+            'leadDistribution.todaysConvertedLeads': (newStatus === 'converted' ? 1 : 0)
+        };
+        
+        if (updateObj.$inc) {
+            await User.findByIdAndUpdate(userId, updateObj);
+        }
+    } catch (error) {
+        console.error('Error updating user statistics:', error);
+    }
+}
+
 class DataController {
     
     // ==================== ADMIN CONTROLLERS ====================
@@ -430,49 +472,205 @@ class DataController {
     /**
      * Update data status (for users)
      */
-    static async updateDataStatus(req, res) {
-        try {
-            const userId = req.user._id;
-            const { dataId, status, notes } = req.body;
-            
-            if (!dataId || !status) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Data ID and status are required'
-                });
-            }
-            
-            const validStatuses = ['pending', 'contacted', 'converted', 'rejected', 'not_reachable'];
-            if (!validStatuses.includes(status)) {
-                return res.status(400).json({
-                    success: false,
-                    error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
-                });
-            }
-            
-            const data = await DataDistribution.findById(dataId);
-            
-            if (!data) {
-                return res.status(404).json({
-                    success: false,
-                    error: 'Data not found'
-                });
-            }
-            
-            const result = await data.updateStatus(userId, status, notes);
-            
-            res.status(200).json({
-                success: true,
-                message: 'Data status updated successfully',
-                result
-            });
-        } catch (error) {
-            res.status(500).json({
+
+static async updateDataStatus(req, res) {
+    try {
+        const userId = req.user._id;
+        const { dataId, status, notes } = req.body;
+        
+        if (!dataId || !status) {
+            return res.status(400).json({
                 success: false,
-                error: error.message
+                error: 'Data ID and status are required'
             });
         }
+        
+        const validStatuses = ['pending', 'contacted', 'converted', 'rejected', 'not_reachable'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+            });
+        }
+        
+        // Find the data
+        const data = await DataDistribution.findById(dataId);
+        
+        if (!data) {
+            return res.status(404).json({
+                success: false,
+                error: 'Data not found'
+            });
+        }
+        
+        // Check if user is assigned to this data
+        const assignment = data.teamAssignments.find(ta => 
+            ta.teamMember.toString() === userId.toString() && !ta.withdrawn
+        );
+        
+        if (!assignment) {
+            return res.status(403).json({
+                success: false,
+                error: 'You are not assigned to this data or it has been withdrawn'
+            });
+        }
+        
+        // Map status to responseType if needed
+        let responseType = null;
+        if (status === 'converted') {
+            responseType = 'interested';
+        } else if (status === 'rejected') {
+            responseType = 'rejected';
+        } else if (status === 'not_reachable') {
+            responseType = 'invalid_number';
+        } else if (status === 'contacted') {
+            responseType = null; // No response type for contacted
+        }
+        
+        // Update assignment
+        const oldStatus = assignment.status;
+        assignment.status = status;
+        assignment.statusUpdatedAt = new Date();
+        
+        // Set responseType if applicable
+        if (responseType) {
+            assignment.responseType = responseType;
+        }
+        
+        // Set timestamps
+        if (status === 'contacted' || status === 'converted') {
+            if (status === 'contacted') {
+                assignment.contactedAt = new Date();
+                assignment.callAttempts = (assignment.callAttempts || 0) + 1;
+                assignment.lastCallAt = new Date();
+            } else if (status === 'converted') {
+                assignment.convertedAt = new Date();
+            }
+        }
+        
+        // Update notes
+        if (notes) {
+            assignment.notes = assignment.notes ? `${assignment.notes}\n${notes}` : notes;
+        }
+        
+        // Save the document
+        data.updatedAt = new Date();
+        await data.save();
+        
+        // Update user statistics
+        await updateUserStatistics(userId, oldStatus, status);
+        
+        res.status(200).json({
+            success: true,
+            message: 'Data status updated successfully',
+            data: {
+                _id: data._id,
+                status: assignment.status,
+                responseType: assignment.responseType,
+                contactedAt: assignment.contactedAt,
+                convertedAt: assignment.convertedAt,
+                statusUpdatedAt: assignment.statusUpdatedAt
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
     }
+}
+// Helper function to update user statistics
+
+
+// Update data status in bulk
+static async bulkUpdateDataStatus(req, res) {
+    try {
+        const userId = req.user._id;
+        const { dataIds, status, responseType, notes } = req.body;
+        
+        if (!dataIds || !Array.isArray(dataIds) || dataIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                error: 'Data IDs array is required'
+            });
+        }
+        
+        if (!status) {
+            return res.status(400).json({
+                success: false,
+                error: 'Status is required'
+            });
+        }
+        
+        const validStatuses = ['pending', 'contacted', 'converted', 'rejected', 'not_reachable'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                error: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
+            });
+        }
+        
+        const updateData = {
+            status,
+            notes: notes || '',
+            lastUpdatedBy: userId,
+            updatedAt: new Date(),
+            assignee: {
+                _id: userId,
+                name: req.user.name,
+                role: req.user.role
+            }
+        };
+        
+        // Add timestamp based on status
+        if (status === 'contacted') {
+            updateData.calledAt = new Date();
+            updateData.calledBy = userId;
+        } 
+        
+        if (['converted', 'rejected', 'not_reachable'].includes(status)) {
+            updateData.closedAt = new Date();
+            updateData.closedBy = userId;
+            updateData.closedType = status;
+        }
+        
+        // Add response type if provided
+        if (responseType) {
+            updateData.responseType = responseType;
+        }
+        
+        // Bulk update
+        const result = await DataDistribution.updateMany(
+            {
+                _id: { $in: dataIds },
+                assignedTo: userId // Ensure user owns these records
+            },
+            updateData
+        );
+        
+        // Update user stats
+        if (status === 'converted') {
+            await User.findByIdAndUpdate(userId, {
+                $inc: { 'stats.convertedCount': result.modifiedCount }
+            });
+        }
+        
+        res.status(200).json({
+            success: true,
+            message: `${result.modifiedCount} records updated successfully`,
+            data: {
+                modifiedCount: result.modifiedCount,
+                matchedCount: result.matchedCount
+            }
+        });
+    } catch (error) {
+        console.error('Bulk update error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+}
     
     /**
      * Get user data statistics
@@ -528,61 +726,136 @@ class DataController {
     }
 
     static async searchData(req, res) {
-        try {
-            const { query, page = 1, limit = 50 } = req.query;
-            const skip = (page - 1) * limit;
+    try {
+        const { 
+            query = '', 
+            page = 1, 
+            limit = 50,
+            status,
+            batchNumber,
+            assignedTo,
+            startDate,
+            endDate,
+            sortBy = 'assignedAt',
+            sortOrder = 'desc'
+        } = req.query;
 
-            if (!query) {
-                return res.status(400).json({
-                    success: false,
-                    error: 'Search query is required'
+        const skip = (page - 1) * limit;
+
+        // Build filter object
+        const filter = {
+            isActive: true
+        };
+
+        // Add search query filter
+        if (query && query.trim() !== '') {
+            const searchRegex = new RegExp(query, 'i');
+            filter.$or = [
+                { name: searchRegex },
+                { contact: searchRegex },
+                { email: { $regex: searchRegex } },
+                { batchNumber: searchRegex }
+            ];
+        }
+
+        // Add status filter
+        if (status) {
+            if (typeof status === 'string') {
+                const statusArray = status.split(',');
+                
+                // Check if we need to filter by teamAssignments status
+                if (statusArray.includes('contacted') || 
+                    statusArray.includes('converted') || 
+                    statusArray.includes('rejected') ||
+                    statusArray.includes('not_reachable')) {
+                    
+                    // Filter by teamAssignments status
+                    filter['teamAssignments.status'] = { $in: statusArray };
+                    filter['teamAssignments.withdrawn'] = false;
+                } else {
+                    // Filter by distributionStatus
+                    filter.distributionStatus = { $in: statusArray };
+                }
+            }
+        }
+
+        // Add batch filter
+        if (batchNumber && batchNumber.trim() !== '') {
+            filter.batchNumber = batchNumber;
+        }
+
+        // Add assignedTo filter
+        if (assignedTo && assignedTo.trim() !== '') {
+            filter['teamAssignments.teamMember'] = assignedTo;
+        }
+
+        // Add date range filter
+        if (startDate || endDate) {
+            filter.updatedAt = {};
+            if (startDate) {
+                filter.updatedAt.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                filter.updatedAt.$lte = new Date(endDate);
+            }
+        }
+
+        // Build sort object
+        const sort = {};
+        if (sortBy === 'calledAt') {
+            sort['teamAssignments.contactedAt'] = sortOrder === 'asc' ? 1 : -1;
+        } else if (sortBy === 'closedAt') {
+            sort['teamAssignments.statusUpdatedAt'] = sortOrder === 'asc' ? 1 : -1;
+        } else {
+            sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+        }
+
+        // First, get all matching documents
+        const allData = await DataDistribution.find(filter)
+            .populate('assignedBy', 'name email phoneNumber')
+            .populate('assignedTo', 'name email phoneNumber')
+            .populate('teamAssignments.teamMember', 'name email phoneNumber')
+            .sort(sort);
+
+        // Filter in-memory for specific teamAssignment statuses
+        let filteredData = allData;
+        if (status && typeof status === 'string') {
+            const statusArray = status.split(',');
+            
+            if (statusArray.includes('contacted') || 
+                statusArray.includes('converted') || 
+                statusArray.includes('rejected') ||
+                statusArray.includes('not_reachable')) {
+                
+                filteredData = allData.filter(data => {
+                    const activeAssignments = data.teamAssignments.filter(ta => !ta.withdrawn);
+                    return activeAssignments.some(ta => statusArray.includes(ta.status));
                 });
             }
-
-            const searchRegex = new RegExp(query, 'i');
-
-            const [data, total] = await Promise.all([
-                DataDistribution.find({
-                    $or: [
-                        { 'dataField1': searchRegex },
-                        { 'dataField2': searchRegex },
-                        // Add more fields as necessary
-                    ],
-                    isActive: true
-                })
-                .populate('assignedBy', 'name email')
-                .populate('assignedTo', 'name email')
-                .populate('teamAssignments.teamMember', 'name email phoneNumber')
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(parseInt(limit)),
-                DataDistribution.countDocuments({
-                    $or: [
-                        { 'dataField1': searchRegex },
-                        { 'dataField2': searchRegex },
-                        // Add more fields as necessary
-                    ],
-                    isActive: true
-                })
-            ]);
-
-            res.status(200).json({
-                success: true,
-                data,
-                pagination: {
-                    page: parseInt(page),
-                    limit: parseInt(limit),
-                    total,
-                    pages: Math.ceil(total / limit)
-                }
-            });
-        } catch (error) {
-            res.status(500).json({
-                success: false,
-                error: error.message
-            });
         }
+
+        // Apply pagination
+        const total = filteredData.length;
+        const paginatedData = filteredData.slice(skip, skip + parseInt(limit));
+
+        res.status(200).json({
+            success: true,
+            data: paginatedData,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        console.error('Search data error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
     }
+}
 
     static async exportData(req, res) {
         try {
@@ -836,20 +1109,563 @@ static async adminWithdrawData(req, res) {
 }
 
     static async getAnalytics(req, res) {
-        try {
-            const analytics = await BulkDataOperations.generateAnalytics();
+    try {
+        const { 
+            status,
+            startDate,
+            endDate,
+            groupBy = 'day'
+        } = req.query;
 
-            res.status(200).json({
-                success: true,
-                analytics
-            });
-        } catch (error) {
-            res.status(500).json({
-                success: false,
-                error: error.message
-            });
+        // Build filter object
+        const filter = {
+            isActive: true
+        };
+
+        // Add date range filter
+        if (startDate || endDate) {
+            filter.updatedAt = {};
+            if (startDate) {
+                filter.updatedAt.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                filter.updatedAt.$lte = new Date(endDate);
+            }
         }
+
+        // Get all data
+        const allData = await DataDistribution.find(filter)
+            .populate('assignedTo', 'name email phoneNumber')
+            .populate('teamAssignments.teamMember', 'name email phoneNumber');
+
+        // Process analytics
+        let stats = {
+            totalData: allData.length,
+            converted: 0,
+            rejected: 0,
+            notReachable: 0,
+            contacted: 0,
+            pending: 0
+        };
+
+        // Count by teamAssignment status
+        allData.forEach(data => {
+            const activeAssignments = data.teamAssignments.filter(ta => !ta.withdrawn);
+            
+            activeAssignments.forEach(ta => {
+                switch (ta.status) {
+                    case 'converted':
+                        stats.converted++;
+                        break;
+                    case 'rejected':
+                        stats.rejected++;
+                        break;
+                    case 'not_reachable':
+                        stats.notReachable++;
+                        break;
+                    case 'contacted':
+                        stats.contacted++;
+                        break;
+                    case 'pending':
+                        stats.pending++;
+                        break;
+                }
+            });
+        });
+
+        // Calculate conversion rate
+        const totalClosed = stats.converted + stats.rejected + stats.notReachable;
+        stats.totalClosed = totalClosed;
+        stats.conversionRate = totalClosed > 0 ? (stats.converted / totalClosed * 100).toFixed(2) : 0;
+
+        // Get top performers for conversions
+        const userConversionMap = new Map();
+        
+        allData.forEach(data => {
+            const activeAssignments = data.teamAssignments.filter(ta => !ta.withdrawn && ta.status === 'converted');
+            
+            activeAssignments.forEach(ta => {
+                if (ta.teamMember && ta.teamMember._id) {
+                    const userId = ta.teamMember._id.toString();
+                    const userName = ta.teamMember.name || 'Unknown';
+                    
+                    if (userConversionMap.has(userId)) {
+                        userConversionMap.get(userId).count++;
+                    } else {
+                        userConversionMap.set(userId, {
+                            userId,
+                            userName,
+                            count: 1
+                        });
+                    }
+                }
+            });
+        });
+
+        const topConverters = Array.from(userConversionMap.values())
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                ...stats,
+                topConverters,
+                trends: {
+                    daily: [],
+                    weekly: [],
+                    monthly: []
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Analytics error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
     }
+}
+
+static async getCalledData(req, res) {
+    try {
+        const {
+            page = 1,
+            limit = 50,
+            search = '',
+            batchNumber = '',
+            assignedTo = '',
+            startDate = '',
+            endDate = '',
+            sortBy = 'teamAssignments.contactedAt',
+            sortOrder = 'desc'
+        } = req.query;
+
+        const skip = (page - 1) * limit;
+
+        // Build filter object for contacted data
+        const filter = {
+            isActive: true,
+            'teamAssignments.status': 'contacted',
+            'teamAssignments.withdrawn': false
+        };
+
+        // Add search filter
+        if (search && search.trim() !== '') {
+            const searchRegex = new RegExp(search, 'i');
+            filter.$or = [
+                { name: searchRegex },
+                { contact: searchRegex },
+                { email: { $regex: searchRegex } },
+                { batchNumber: searchRegex }
+            ];
+        }
+
+        // Add batch filter
+        if (batchNumber && batchNumber.trim() !== '') {
+            filter.batchNumber = batchNumber;
+        }
+
+        // Add assignedTo filter
+        if (assignedTo && assignedTo.trim() !== '') {
+            filter['teamAssignments.teamMember'] = assignedTo;
+        }
+
+        // Add date range filter
+        if (startDate || endDate) {
+            const dateFilter = {};
+            if (startDate) {
+                dateFilter.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                dateFilter.$lte = new Date(endDate);
+            }
+            filter['teamAssignments.contactedAt'] = dateFilter;
+        }
+
+        // Build sort object
+        const sort = {};
+        if (sortBy.includes('teamAssignments.')) {
+            sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+        } else {
+            sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+        }
+
+        // Get contacted data with pagination
+        const [data, total] = await Promise.all([
+            DataDistribution.find(filter)
+                .populate('assignedBy', 'name email phoneNumber')
+                .populate('assignedTo', 'name email phoneNumber')
+                .populate('teamAssignments.teamMember', 'name email phoneNumber')
+                .sort(sort)
+                .skip(skip)
+                .limit(parseInt(limit)),
+            DataDistribution.countDocuments(filter)
+        ]);
+
+        res.status(200).json({
+            success: true,
+            data,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        console.error('Get called data error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+}
+
+static async getClosedData(req, res) {
+    try {
+        const {
+            page = 1,
+            limit = 50,
+            search = '',
+            batchNumber = '',
+            closedType = 'all',
+            assignedTo = '',
+            startDate = '',
+            endDate = '',
+            sortBy = 'teamAssignments.statusUpdatedAt',
+            sortOrder = 'desc'
+        } = req.query;
+
+        const skip = (page - 1) * limit;
+
+        // Build filter object for closed data
+        const filter = {
+            isActive: true,
+            'teamAssignments.withdrawn': false
+        };
+
+        // Handle closed type filter
+        if (closedType === 'all') {
+            filter['teamAssignments.status'] = {
+                $in: ['converted', 'rejected', 'not_reachable']
+            };
+        } else {
+            filter['teamAssignments.status'] = closedType;
+        }
+
+        // Add search filter
+        if (search && search.trim() !== '') {
+            const searchRegex = new RegExp(search, 'i');
+            filter.$or = [
+                { name: searchRegex },
+                { contact: searchRegex },
+                { email: { $regex: searchRegex } },
+                { batchNumber: searchRegex }
+            ];
+        }
+
+        // Add batch filter
+        if (batchNumber && batchNumber.trim() !== '') {
+            filter.batchNumber = batchNumber;
+        }
+
+        // Add assignedTo filter
+        if (assignedTo && assignedTo.trim() !== '') {
+            filter['teamAssignments.teamMember'] = assignedTo;
+        }
+
+        // Add date range filter
+        if (startDate || endDate) {
+            const dateFilter = {};
+            if (startDate) {
+                dateFilter.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                dateFilter.$lte = new Date(endDate);
+            }
+            filter['teamAssignments.statusUpdatedAt'] = dateFilter;
+        }
+
+        // Build sort object
+        const sort = {};
+        if (sortBy.includes('teamAssignments.')) {
+            sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+        } else {
+            sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+        }
+
+        // Get closed data with pagination
+        const [data, total] = await Promise.all([
+            DataDistribution.find(filter)
+                .populate('assignedBy', 'name email phoneNumber')
+                .populate('assignedTo', 'name email phoneNumber')
+                .populate('teamAssignments.teamMember', 'name email phoneNumber')
+                .sort(sort)
+                .skip(skip)
+                .limit(parseInt(limit)),
+            DataDistribution.countDocuments(filter)
+        ]);
+
+        res.status(200).json({
+            success: true,
+            data,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                pages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        console.error('Get closed data error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+}
+
+static async getCalledStats(req, res) {
+    try {
+        const { startDate = '', endDate = '' } = req.query;
+
+        // Build filter object for contacted data
+        const filter = {
+            isActive: true,
+            'teamAssignments.status': 'contacted',
+            'teamAssignments.withdrawn': false
+        };
+
+        // Add date range filter
+        if (startDate || endDate) {
+            const dateFilter = {};
+            if (startDate) {
+                dateFilter.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                dateFilter.$lte = new Date(endDate);
+            }
+            filter['teamAssignments.contactedAt'] = dateFilter;
+        }
+
+        // Get today's date for today's stats
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const todayFilter = {
+            ...filter,
+            'teamAssignments.contactedAt': {
+                $gte: today,
+                $lt: tomorrow
+            }
+        };
+
+        // Get stats
+        const [totalCalled, calledToday, data] = await Promise.all([
+            DataDistribution.countDocuments(filter),
+            DataDistribution.countDocuments(todayFilter),
+            DataDistribution.find(filter)
+                .populate('teamAssignments.teamMember', 'name')
+        ]);
+
+        // Calculate top performers (users with most calls)
+        const userCallCounts = {};
+        data.forEach(item => {
+            item.teamAssignments.forEach(ta => {
+                if (ta.status === 'contacted' && ta.teamMember && ta.teamMember._id) {
+                    const userId = ta.teamMember._id.toString();
+                    const userName = ta.teamMember.name || 'Unknown';
+                    
+                    if (!userCallCounts[userId]) {
+                        userCallCounts[userId] = {
+                            userId,
+                            userName,
+                            count: 0
+                        };
+                    }
+                    userCallCounts[userId].count++;
+                }
+            });
+        });
+
+        const topPerformers = Object.values(userCallCounts)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+
+        // Calculate average calls per user
+        const uniqueUsers = Object.keys(userCallCounts).length;
+        const averageCallsPerUser = uniqueUsers > 0 ? (totalCalled / uniqueUsers).toFixed(1) : 0;
+
+        res.status(200).json({
+            success: true,
+            data: {
+                totalCalled,
+                calledToday,
+                averageCallsPerUser: parseFloat(averageCallsPerUser),
+                topPerformers
+            }
+        });
+    } catch (error) {
+        console.error('Get called stats error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+}
+
+static async getClosedStats(req, res) {
+    try {
+        const { 
+            startDate = '', 
+            endDate = '',
+            closedType = 'all'
+        } = req.query;
+
+        // Build filter object for closed data
+        const filter = {
+            isActive: true,
+            'teamAssignments.withdrawn': false
+        };
+
+        // Handle closed type filter
+        if (closedType === 'all') {
+            filter['teamAssignments.status'] = {
+                $in: ['converted', 'rejected', 'not_reachable']
+            };
+        } else {
+            filter['teamAssignments.status'] = closedType;
+        }
+
+        // Add date range filter
+        if (startDate || endDate) {
+            const dateFilter = {};
+            if (startDate) {
+                dateFilter.$gte = new Date(startDate);
+            }
+            if (endDate) {
+                dateFilter.$lte = new Date(endDate);
+            }
+            filter['teamAssignments.statusUpdatedAt'] = dateFilter;
+        }
+
+        // Get today's date for today's stats
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const todayFilter = {
+            ...filter,
+            'teamAssignments.statusUpdatedAt': {
+                $gte: today,
+                $lt: tomorrow
+            }
+        };
+
+        // Get all closed data
+        const [allData, todayData] = await Promise.all([
+            DataDistribution.find(filter).populate('teamAssignments.teamMember', 'name'),
+            DataDistribution.find(todayFilter).populate('teamAssignments.teamMember', 'name')
+        ]);
+
+        // Process stats
+        let stats = {
+            totalClosed: allData.length,
+            converted: 0,
+            rejected: 0,
+            notReachable: 0,
+            calledToday: todayData.length,
+            todayConverted: 0,
+            todayRejected: 0,
+            todayNotReachable: 0
+        };
+
+        // Count by status for all time
+        allData.forEach(data => {
+            data.teamAssignments.forEach(ta => {
+                if (!ta.withdrawn) {
+                    switch (ta.status) {
+                        case 'converted':
+                            stats.converted++;
+                            break;
+                        case 'rejected':
+                            stats.rejected++;
+                            break;
+                        case 'not_reachable':
+                            stats.notReachable++;
+                            break;
+                    }
+                }
+            });
+        });
+
+        // Count by status for today
+        todayData.forEach(data => {
+            data.teamAssignments.forEach(ta => {
+                if (!ta.withdrawn) {
+                    switch (ta.status) {
+                        case 'converted':
+                            stats.todayConverted++;
+                            break;
+                        case 'rejected':
+                            stats.todayRejected++;
+                            break;
+                        case 'not_reachable':
+                            stats.todayNotReachable++;
+                            break;
+                    }
+                }
+            });
+        });
+
+        // Calculate conversion rate
+        const totalClosed = stats.converted + stats.rejected + stats.notReachable;
+        stats.conversionRate = totalClosed > 0 ? (stats.converted / totalClosed * 100).toFixed(1) : 0;
+
+        // Calculate top converters
+        const userConversionMap = new Map();
+        allData.forEach(data => {
+            data.teamAssignments.forEach(ta => {
+                if (!ta.withdrawn && ta.status === 'converted' && ta.teamMember) {
+                    const userId = ta.teamMember._id.toString();
+                    const userName = ta.teamMember.name || 'Unknown';
+                    
+                    if (userConversionMap.has(userId)) {
+                        userConversionMap.get(userId).count++;
+                    } else {
+                        userConversionMap.set(userId, {
+                            userId,
+                            userName,
+                            count: 1
+                        });
+                    }
+                }
+            });
+        });
+
+        const topConverters = Array.from(userConversionMap.values())
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+
+        res.status(200).json({
+            success: true,
+            data: {
+                ...stats,
+                topConverters
+            }
+        });
+    } catch (error) {
+        console.error('Get closed stats error:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+}
 
     static async getAllBatches(req, res) {
         try {

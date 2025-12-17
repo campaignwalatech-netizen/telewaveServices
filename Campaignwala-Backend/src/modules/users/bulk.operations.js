@@ -6,6 +6,32 @@ const path = require('path'); // Add this import
 
 class BulkDataOperations {
 
+    //generate Analytics
+    static async generateAnalytics() {
+        try {
+            const totalDataCount = await DataDistribution.countDocuments({});
+            const assignedDataCount = await DataDistribution.countDocuments({ distributionStatus: 'assigned' });
+            const pendingDataCount = await DataDistribution.countDocuments({ distributionStatus: 'pending' });
+            const completedDataCount = await DataDistribution.countDocuments({ distributionStatus: 'completed' });
+            
+            return {
+                success: true,
+                data: {
+                    totalDataCount,
+                    assignedDataCount,
+                    pendingDataCount,
+                    completedDataCount
+                }
+            };
+        } catch (error) {
+            console.error('❌ [BulkOperations] Generate analytics error:', error);
+            return {
+                success: false,
+                error: error.message || 'Failed to generate analytics'
+            };
+        }
+    }
+
 
     //get distributioncounts
     static async getDistributionCounts() {

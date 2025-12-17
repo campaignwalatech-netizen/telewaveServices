@@ -26,6 +26,36 @@ const UserTodayDataPage = () => {
     fetchTodayData();
   }, []);
 
+  // Helper function to map close type to backend status and response type
+  const mapCloseTypeToStatus = (closeType) => {
+    switch (closeType) {
+      case 'converted':
+        return { 
+          status: 'converted', 
+          responseType: 'interested',
+          notes: 'Interested - Marked as converted'
+        };
+      case 'closed':
+        return { 
+          status: 'rejected', 
+          responseType: 'not_interested',
+          notes: 'Not Interested - Closed by user'
+        };
+      case 'not_reachable':
+        return { 
+          status: 'not_reachable', 
+          responseType: 'invalid_number',
+          notes: 'Invalid Number - Not reachable'
+        };
+      default:
+        return { 
+          status: 'rejected', 
+          responseType: 'not_interested',
+          notes: 'Closed by user'
+        };
+    }
+  };
+
   const fetchTodayData = async () => {
     setLoading(true);
     try {
@@ -38,22 +68,48 @@ const UserTodayDataPage = () => {
       if (dataResult.success) {
         const todayList = dataResult.data?.data || [];
         console.log('Today data list:', todayList);
-        setTodayData(todayList);
         
-        // Calculate counts
+        // Process the data to extract user-specific assignment info
+        const processedData = todayList.map(item => {
+          // Extract user's assignment from teamAssignments if available
+          let userAssignment = null;
+          if (item.teamAssignments && Array.isArray(item.teamAssignments)) {
+            // This assumes the current user's assignment is in teamAssignments
+            userAssignment = item.teamAssignments.find(ta => !ta.withdrawn);
+          }
+          
+          return {
+            ...item,
+            // Use assignment status if available, otherwise use item status
+            status: userAssignment?.status || item.status || 'pending',
+            // Extract response type from assignment
+            responseType: userAssignment?.responseType,
+            // Helper fields for frontend display
+            called: userAssignment?.status === 'contacted' || item.status === 'contacted',
+            closed: ['converted', 'rejected', 'not_reachable'].includes(userAssignment?.status || item.status),
+            // Extract timestamps from assignment
+            calledAt: userAssignment?.contactedAt || item.calledAt,
+            closedAt: userAssignment?.convertedAt || userAssignment?.statusUpdatedAt || item.closedAt,
+            // For backward compatibility
+            _id: item._id || item.id,
+            // Store the assignment for reference
+            userAssignment: userAssignment
+          };
+        });
+        
+        setTodayData(processedData);
+        
+        // Calculate counts based on processed status
         const counts = {
-          total: todayList.length,
-          pending: todayList.filter(item => 
-            !item.called && !item.closed && 
-            item.status !== 'completed' && 
-            item.status !== 'closed'
+          total: processedData.length,
+          pending: processedData.filter(item => 
+            item.status === 'pending'
           ).length,
-          called: todayList.filter(item => 
-            item.called || item.status === 'contacted'
+          called: processedData.filter(item => 
+            item.status === 'contacted'
           ).length,
-          closed: todayList.filter(item => 
-            item.closed || item.status === 'completed' || 
-            item.status === 'closed' || item.status === 'converted'
+          closed: processedData.filter(item => 
+            ['converted', 'rejected', 'not_reachable'].includes(item.status)
           ).length
         };
         setTodaysCounts(counts);
@@ -98,27 +154,40 @@ const UserTodayDataPage = () => {
     try {
       console.log('Calling contact:', phoneNumber);
       
-      // First mark as called
-      const updateResult = await dataService.updateDataStatus(dataId, 'contacted');
+      // Mark as contacted
+      const updateResult = await dataService.updateDataStatus(dataId, 'contacted', 'Called by user');
       
       if (updateResult.success) {
         // Update local state
         setTodayData(prev =>
           prev.map(item =>
             item._id === dataId
-              ? { ...item, called: true, status: 'contacted', calledAt: new Date().toISOString() }
+              ? { 
+                  ...item, 
+                  called: true, 
+                  status: 'contacted', 
+                  calledAt: new Date().toISOString(),
+                  // Clear any previous response type when calling
+                  responseType: null,
+                  // Increment call attempts
+                  callAttempts: (item.callAttempts || 0) + 1,
+                  lastCallAt: new Date().toISOString()
+                }
               : item
           )
         );
         
-        // Open dialer with phone number (simulated)
+        // Open dialer with phone number
         window.open(`tel:${phoneNumber}`, '_blank');
         
         // Show success message
         setResult({
           success: true,
           message: `Call initiated with ${phoneNumber}`,
-          data: { calledAt: new Date().toISOString() }
+          data: { 
+            calledAt: new Date().toISOString(),
+            status: 'contacted'
+          }
         });
         
         // Refresh counts
@@ -145,24 +214,10 @@ const UserTodayDataPage = () => {
     try {
       console.log('Closing data:', dataId, closeType);
       
-      let statusToSet = closeType;
-      let message = '';
+      // Map close type to backend status and notes
+      const { status, responseType, notes } = mapCloseTypeToStatus(closeType);
       
-      if (closeType === 'closed') {
-        statusToSet = 'completed';
-        message = 'Data marked as completed';
-      } else if (closeType === 'converted') {
-        statusToSet = 'converted';
-        message = 'Data marked as converted!';
-      } else if (closeType === 'rejected') {
-        statusToSet = 'rejected';
-        message = 'Data marked as rejected';
-      } else if (closeType === 'not_reachable') {
-        statusToSet = 'not_reachable';
-        message = 'Data marked as not reachable';
-      }
-      
-      const updateResult = await dataService.updateDataStatus(dataId, statusToSet, 'Closed by user');
+      const updateResult = await dataService.updateDataStatus(dataId, status, notes);
       
       if (updateResult.success) {
         // Update local state
@@ -172,9 +227,13 @@ const UserTodayDataPage = () => {
               ? { 
                   ...item, 
                   closed: true, 
-                  status: statusToSet, 
+                  status: status, 
                   closedAt: new Date().toISOString(),
-                  closedType: closeType
+                  closedType: closeType,
+                  responseType: responseType,
+                  statusUpdatedAt: new Date().toISOString(),
+                  // Clear called flag if it was set
+                  called: status === 'contacted'
                 }
               : item
           )
@@ -184,10 +243,20 @@ const UserTodayDataPage = () => {
         setSelectedData(prev => prev.filter(id => id !== dataId));
         
         // Show success message
+        const messages = {
+          'converted': 'Data marked as converted! (Interested)',
+          'closed': 'Data marked as not interested',
+          'not_reachable': 'Data marked as invalid number'
+        };
+        
         setResult({
           success: true,
-          message: message,
-          data: { closedAt: new Date().toISOString(), status: statusToSet }
+          message: messages[closeType] || 'Data closed successfully',
+          data: { 
+            closedAt: new Date().toISOString(), 
+            status: status,
+            responseType: responseType
+          }
         });
         
         // Refresh counts
@@ -224,7 +293,7 @@ const UserTodayDataPage = () => {
     }
 
     const confirmMessage = closeType === 'converted' 
-      ? `Mark ${selectedData.length} selected records as converted?`
+      ? `Mark ${selectedData.length} selected records as converted (Interested)?`
       : `Close ${selectedData.length} selected records?`;
     
     if (!window.confirm(confirmMessage)) {
@@ -235,13 +304,15 @@ const UserTodayDataPage = () => {
     setResult(null);
 
     try {
+      const { status, responseType, notes } = mapCloseTypeToStatus(closeType);
+      const bulkNotes = `Bulk ${closeType === 'converted' ? 'converted' : 'closed'}: ${notes}`;
+      
       const results = [];
       const errors = [];
       
       for (const dataId of selectedData) {
         try {
-          const statusToSet = closeType === 'converted' ? 'converted' : 'completed';
-          const updateResult = await dataService.updateDataStatus(dataId, statusToSet, 'Bulk closed');
+          const updateResult = await dataService.updateDataStatus(dataId, status, bulkNotes);
           
           if (updateResult.success) {
             results.push({ dataId, success: true });
@@ -261,9 +332,11 @@ const UserTodayDataPage = () => {
               ? { 
                   ...item, 
                   closed: true, 
-                  status: closeType === 'converted' ? 'converted' : 'completed',
+                  status: status,
                   closedAt: new Date().toISOString(),
-                  closedType: closeType
+                  closedType: closeType,
+                  responseType: responseType,
+                  statusUpdatedAt: new Date().toISOString()
                 }
               : item
           )
@@ -272,8 +345,13 @@ const UserTodayDataPage = () => {
       
       setResult({
         success: errors.length === 0,
-        message: `${results.length} records closed successfully${errors.length > 0 ? `, ${errors.length} failed` : ''}`,
-        data: { closedCount: results.length, errorCount: errors.length },
+        message: `${results.length} records ${closeType === 'converted' ? 'converted' : 'closed'} successfully${errors.length > 0 ? `, ${errors.length} failed` : ''}`,
+        data: { 
+          closedCount: results.length, 
+          errorCount: errors.length,
+          status: status,
+          responseType: responseType
+        },
         errors: errors.length > 0 ? errors : undefined
       });
       
@@ -303,22 +381,20 @@ const UserTodayDataPage = () => {
     // Apply status filter
     if (filterStatus !== 'all') {
       filtered = filtered.filter(item => {
-        if (filterStatus === 'pending') {
-          return !item.called && !item.closed && item.status !== 'completed' && item.status !== 'closed' && item.status !== 'converted';
+        switch (filterStatus) {
+          case 'pending':
+            return item.status === 'pending';
+          case 'called':
+            return item.status === 'contacted';
+          case 'closed':
+            return ['converted', 'rejected', 'not_reachable'].includes(item.status);
+          case 'converted':
+            return item.status === 'converted';
+          case 'contacted':
+            return item.status === 'contacted';
+          default:
+            return true;
         }
-        if (filterStatus === 'called') {
-          return item.called || item.status === 'contacted';
-        }
-        if (filterStatus === 'closed') {
-          return item.closed || item.status === 'completed' || item.status === 'closed' || item.status === 'converted';
-        }
-        if (filterStatus === 'converted') {
-          return item.status === 'converted';
-        }
-        if (filterStatus === 'contacted') {
-          return item.status === 'contacted';
-        }
-        return true;
       });
     }
     
@@ -368,39 +444,78 @@ const UserTodayDataPage = () => {
   };
 
   const getStatusColor = (item) => {
-    if (item.closed || item.status === 'completed' || item.status === 'closed') {
-      return 'bg-green-100 text-green-800';
+    switch (item.status) {
+      case 'converted':
+        return 'bg-emerald-100 text-emerald-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      case 'not_reachable':
+        return 'bg-orange-100 text-orange-800';
+      case 'contacted':
+        return 'bg-blue-100 text-blue-800';
+      case 'pending':
+      default:
+        return 'bg-yellow-100 text-yellow-800';
     }
-    if (item.status === 'converted') {
-      return 'bg-emerald-100 text-emerald-800';
-    }
-    if (item.status === 'rejected') {
-      return 'bg-red-100 text-red-800';
-    }
-    if (item.status === 'not_reachable') {
-      return 'bg-orange-100 text-orange-800';
-    }
-    if (item.called || item.status === 'contacted') {
-      return 'bg-blue-100 text-blue-800';
-    }
-    return 'bg-yellow-100 text-yellow-800';
   };
 
   const getStatusText = (item) => {
-    if (item.status === 'converted') return 'Converted';
-    if (item.status === 'completed' || item.status === 'closed') return 'Closed';
-    if (item.status === 'rejected') return 'Rejected';
-    if (item.status === 'not_reachable') return 'Not Reachable';
-    if (item.called || item.status === 'contacted') return 'Called';
-    return 'Pending';
+    switch (item.status) {
+      case 'converted':
+        return 'Converted';
+      case 'rejected':
+        return 'Rejected';
+      case 'not_reachable':
+        return 'Not Reachable';
+      case 'contacted':
+        return 'Called';
+      case 'pending':
+      default:
+        return 'Pending';
+    }
   };
 
   const getStatusIcon = (item) => {
-    if (item.status === 'converted') return <CheckCircle size={16} />;
-    if (item.status === 'completed' || item.status === 'closed') return <Check size={16} />;
-    if (item.status === 'rejected' || item.status === 'not_reachable') return <AlertCircle size={16} />;
-    if (item.called || item.status === 'contacted') return <PhoneCall size={16} />;
-    return <Clock size={16} />;
+    switch (item.status) {
+      case 'converted':
+        return <CheckCircle size={16} />;
+      case 'rejected':
+      case 'not_reachable':
+        return <AlertCircle size={16} />;
+      case 'contacted':
+        return <PhoneCall size={16} />;
+      case 'pending':
+      default:
+        return <Clock size={16} />;
+    }
+  };
+
+  // Helper function to get response type text
+  const getResponseTypeText = (responseType) => {
+    switch (responseType) {
+      case 'interested':
+        return 'Interested';
+      case 'not_interested':
+        return 'Not Interested';
+      case 'invalid_number':
+        return 'Invalid Number';
+      default:
+        return responseType || '';
+    }
+  };
+
+  // Helper function to get response type color
+  const getResponseTypeColor = (responseType) => {
+    switch (responseType) {
+      case 'interested':
+        return 'text-emerald-600';
+      case 'not_interested':
+        return 'text-blue-600';
+      case 'invalid_number':
+        return 'text-orange-600';
+      default:
+        return 'text-gray-600';
+    }
   };
 
   const filteredData = filterTodayData();
@@ -645,6 +760,20 @@ const UserTodayDataPage = () => {
                             Closed: {formatDate(item.closedAt)}
                           </div>
                         )}
+                        {/* Response Type Display */}
+                        {item.responseType && (
+                          <div className={`text-sm font-medium ${getResponseTypeColor(item.responseType)}`}>
+                            <CheckCircle size={12} className="inline mr-1" />
+                            Response: {getResponseTypeText(item.responseType)}
+                          </div>
+                        )}
+                        {/* Call attempts display */}
+                        {item.callAttempts > 0 && (
+                          <div className="text-sm text-purple-600">
+                            <PhoneCall size={12} className="inline mr-1" />
+                            Calls: {item.callAttempts}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="py-4 px-6">
@@ -657,19 +786,20 @@ const UserTodayDataPage = () => {
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex items-center space-x-2">
-                        {!item.closed && item.status !== 'converted' && item.status !== 'completed' && (
+                        {/* Show actions only if not closed/converted/rejected/not_reachable */}
+                        {!['converted', 'rejected', 'not_reachable'].includes(item.status) && (
                           <>
                             <button
                               onClick={() => handleCall(item._id, item.contact)}
-                              disabled={loading || item.called}
+                              disabled={loading || item.status === 'contacted'}
                               className={`px-3 py-2 rounded-lg flex items-center space-x-2 ${
-                                item.called
+                                item.status === 'contacted'
                                   ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                   : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                               }`}
                             >
                               <Phone size={16} />
-                              <span>{item.called ? 'Called' : 'Call'}</span>
+                              <span>{item.status === 'contacted' ? 'Called' : 'Call'}</span>
                             </button>
                             
                             <div className="relative group">
@@ -690,28 +820,22 @@ const UserTodayDataPage = () => {
                                     className="w-full text-left px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50 flex items-center"
                                   >
                                     <CheckCircle size={14} className="mr-2" />
-                                    Mark as Converted
+                                    Interested (Convert)
                                   </button>
                                   <button
                                     onClick={() => handleClose(item._id, 'closed')}
                                     className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center"
                                   >
                                     <Check size={14} className="mr-2" />
-                                    Mark as Completed
+                                    Not Interested
                                   </button>
-                                  <button
-                                    onClick={() => handleClose(item._id, 'rejected')}
-                                    className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 flex items-center"
-                                  >
-                                    <AlertCircle size={14} className="mr-2" />
-                                    Mark as Rejected
-                                  </button>
+                                  
                                   <button
                                     onClick={() => handleClose(item._id, 'not_reachable')}
                                     className="w-full text-left px-4 py-2 text-sm text-orange-700 hover:bg-orange-50 flex items-center"
                                   >
                                     <AlertCircle size={14} className="mr-2" />
-                                    Mark as Not Reachable
+                                    Invalid Number
                                   </button>
                                 </div>
                               </div>
@@ -719,10 +843,20 @@ const UserTodayDataPage = () => {
                           </>
                         )}
                         
-                        {(item.closed || item.status === 'converted' || item.status === 'completed') && (
-                          <span className="text-sm text-gray-500">
-                            {item.closedType === 'converted' ? 'Converted' : 'Closed'}
-                          </span>
+                        {/* Show closed status if already closed */}
+                        {['converted', 'rejected', 'not_reachable'].includes(item.status) && (
+                          <div className="flex flex-col items-start">
+                            <span className="text-sm font-medium text-gray-700">
+                              {item.status === 'converted' ? 'Converted' : 
+                               item.status === 'rejected' ? 'Rejected' : 
+                               'Not Reachable'}
+                            </span>
+                            {item.responseType && (
+                              <span className={`text-xs ${getResponseTypeColor(item.responseType)}`}>
+                                ({getResponseTypeText(item.responseType)})
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -801,6 +935,11 @@ const UserTodayDataPage = () => {
                   {result.data.errorCount > 0 && (
                     <p className="text-sm text-red-600 mt-2">
                       {result.data.errorCount} error{result.data.errorCount !== 1 ? 's' : ''} occurred
+                    </p>
+                  )}
+                  {result.data.responseType && (
+                    <p className="text-sm text-gray-600 mt-2">
+                      Response: {getResponseTypeText(result.data.responseType)}
                     </p>
                   )}
                 </div>
