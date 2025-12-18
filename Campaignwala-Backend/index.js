@@ -13,6 +13,50 @@ if (process.env.NODE_ENV !== 'production') {
 const app = express();
 
 /* =====================================================
+   DATABASE
+===================================================== */
+connectDB();
+
+/* =====================================================
+   CORS CONFIG (Express 5 compatible)
+===================================================== */
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:8080',
+  'https://campaignwala-seven.vercel.app',
+  'http://localhost:3000',
+  'https://campaign-backend-production-39ca.up.railway.app',
+  'https://telewaveservices.onrender.com',
+  'http://freelancer-backend.ap-south-1.elasticbeanstalk.com',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
+// Create CORS middleware function
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow non-browser requests (Postman, mobile apps, server-to-server)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.log('🔒 CORS BLOCKED:', origin);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
+};
+
+// Apply CORS to all routes
+app.use(cors(corsOptions));
+
+// ✅ Handle OPTIONS preflight - FIXED for Express 5
+app.options(/.*/, cors(corsOptions)); // Use regex instead of '*'
+
+/* =====================================================
    DIAGNOSTIC MIDDLEWARE
 ===================================================== */
 app.use((req, res, next) => {
@@ -32,47 +76,6 @@ app.use((req, res, next) => {
 app.get('/test-probe', (req, res) => {
   return res.status(200).json({ diag: 'express-reached' });
 });
-
-/* =====================================================
-   DATABASE
-===================================================== */
-connectDB();
-
-/* =====================================================
-   CORS CONFIG (NODE 22 SAFE)
-===================================================== */
-const allowedOrigins = [
-  'http://localhost:5173',
-  'http://localhost:8080',
-  'https://campaignwala-seven.vercel.app',
-  'http://localhost:3000',
-  'https://campaign-backend-production-39ca.up.railway.app',
-  'https://telewaveservices.onrender.com',
-  'http://freelancer-backend.ap-south-1.elasticbeanstalk.com',
-  process.env.FRONTEND_URL
-].filter(Boolean);
-
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow non-browser requests (Postman, mobile apps)
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      console.log('🔒 CORS BLOCKED:', origin);
-      return callback(new Error('Not allowed by CORS'));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-  })
-);
-
-// ✅ Handle preflight WITHOUT wildcard routes
-app.use(cors());
 
 /* =====================================================
    BODY PARSERS
@@ -122,7 +125,9 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'production',
     documentation: '/api-docs',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    nodeVersion: process.version,
+    platform: process.platform
   });
 });
 
@@ -134,7 +139,9 @@ app.get('/api/status', (req, res) => {
     success: true,
     message: '✅ API Server is operational',
     environment: process.env.NODE_ENV || 'production',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage()
   });
 });
 
@@ -143,6 +150,7 @@ app.get('/api/status', (req, res) => {
 ===================================================== */
 app.use((err, req, res, next) => {
   console.error('❌ ERROR:', err.message);
+  console.error('Stack:', err.stack);
 
   if (err.message === 'Not allowed by CORS') {
     return res.status(403).json({
@@ -163,7 +171,10 @@ app.use((err, req, res, next) => {
   // Default
   res.status(err.status || 500).json({
     success: false,
-    message: err.message || 'Internal server error'
+    message: process.env.NODE_ENV === 'production' 
+      ? 'Internal server error' 
+      : err.message,
+    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
   });
 });
 
@@ -175,7 +186,8 @@ app.use((req, res) => {
     success: false,
     message: '🔍 Route not found',
     path: req.originalUrl,
-    method: req.method
+    method: req.method,
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -187,6 +199,8 @@ const PORT = process.env.PORT || 8080;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'production'}`);
+  console.log(`📦 Node Version: ${process.version}`);
+  console.log(`🏗️  Platform: ${process.platform}`);
 });
 
 module.exports = app;

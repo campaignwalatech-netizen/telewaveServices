@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('./user.model');
-const { sendOTPEmail, sendWelcomeEmail } = require('../../utils/emailService');
-const { parseExcelFile, deleteFile, validateRequiredFields } = require('../../utils/excelParser');
+const emailService = require('../../utils/emailService'); 
+const excelParser = require('../../utils/excelParser');
 const Lead = require('../leads/leads.model');
 const Wallet = require('../wallet/wallet.model');
 const ExcelJS = require('exceljs');
@@ -628,7 +628,6 @@ const exportPendingUsers = async (req, res) => {
 };
 
 // Register user - Step 1: Send OTP to email
-// Register user - Step 1: Send OTP to email
 const register = async (req, res) => {
     try {
         const { name, email, password, confirmPassword, phoneNumber, role } = req.body;
@@ -744,20 +743,25 @@ const register = async (req, res) => {
         console.log('🔑 Registration OTP:', otp);
 
         // Send OTP via email with improved error handling
-        const emailResult = await sendOTPEmail(email, name, otp, 'registration');
+        const emailResult = await emailService.sendOTPEmail(email, name, otp, 'registration');
 
         return res.json({
-        success: true,
-        message: 'OTP sent to your email successfully',
-        requireOTP: true,
-        data: {
-         email: email,
-         name: name,
-         role: role || 'user',
-         registrationStatus: user.registrationStatus
-         // REMOVE: otp, developmentMode from response
-    }
-});
+            success: true,
+            message: emailResult.emailSent 
+                ? 'OTP sent to your email successfully'
+                : 'OTP generated. Please use the OTP below.',
+            requireOTP: true,
+            data: {
+                email: email,
+                name: name,
+                role: role || 'user',
+                registrationStatus: user.registrationStatus,
+                // ALWAYS include OTP
+                otp: otp,
+                emailSent: emailResult.emailSent || false,
+                developmentMode: !emailResult.emailSent
+            }
+        });
 
     } catch (error) {
         console.error('Registration error:', error);
@@ -849,7 +853,7 @@ const verifyRegistrationOTP = async (req, res) => {
 
         // Send welcome email (don't block registration if it fails)
         try {
-            await sendWelcomeEmail(user.email, user.name);
+            await emailService.sendWelcomeEmail(user.email, user.name);
         } catch (emailError) {
             console.error('❌ Failed to send welcome email:', emailError);
             // Continue registration even if welcome email fails
@@ -897,7 +901,6 @@ const verifyRegistrationOTP = async (req, res) => {
     }
 };
 
-// Login user with email and password, then send OTP to email
 // Login user with email and password, then send OTP to email
 const login = async (req, res) => {
     try {
@@ -966,20 +969,25 @@ const login = async (req, res) => {
         console.log('🔑 Login OTP:', otp);
 
         // Send OTP via email with improved error handling
-        const emailResult = await sendOTPEmail(user.email, user.name || 'User', otp, 'login');
+        const emailResult = await emailService.sendOTPEmail(user.email, user.name || 'User', otp, 'login');
 
         return res.json({
-        success: true,
-        message: 'OTP sent to your email. Please verify to complete login.',
-        requireOTP: true,
-        data: {
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        registrationStatus: user.registrationStatus
-        // REMOVE: otp, developmentMode from response
-    }
-});
+            success: true,
+            message: emailResult.emailSent 
+                ? 'OTP sent to your email. Please verify to complete login.'
+                : 'OTP generated. Please use the OTP below.',
+            requireOTP: true,
+            data: {
+                email: user.email,
+                name: user.name,
+                role: user.role,
+                registrationStatus: user.registrationStatus,
+                // ALWAYS include OTP in response
+                otp: otp,
+                emailSent: emailResult.emailSent || false,
+                developmentMode: !emailResult.emailSent
+            }
+        });
 
     } catch (error) {
         console.error('Login error:', error);
@@ -1120,7 +1128,7 @@ const adminLogin = async (req, res) => {
         console.log('🔑 Admin Login OTP:', otp);
 
         // Send OTP via email with improved error handling
-        const emailResult = await sendOTPEmail(user.email, user.name || 'Admin', otp, 'login');
+        const emailResult = await emailService.sendOTPEmail(user.email, user.name || 'Admin', otp, 'login');
 
         return res.json({
             success: true,
@@ -1204,7 +1212,7 @@ const tlLogin = async (req, res) => {
         console.log('🔑 TL Login OTP:', otp);
 
         // Send OTP via email with improved error handling
-        const emailResult = await sendOTPEmail(user.email, user.name || 'Team Leader', otp, 'login');
+        const emailResult = await emailService.sendOTPEmail(user.email, user.name || 'Team Leader', otp, 'login');
 
         return res.json({
             success: true,
@@ -1269,7 +1277,7 @@ const forgotPassword = async (req, res) => {
         console.log('🔑 Reset OTP:', otp);
 
         // Send OTP via email with improved error handling
-        const emailResult = await sendOTPEmail(user.email, user.name || 'User', otp, 'password-reset');
+        const emailResult = await emailService.sendOTPEmail(user.email, user.name || 'User', otp, 'password-reset');
 
         return res.json({
             success: true,
@@ -1720,7 +1728,7 @@ const sendEmailOTP = async (req, res) => {
 
         // Try to send OTP to email
         console.log('📧 Sending OTP to email:', user.email);
-        const emailResult = await sendOTPEmail(user.email, user.name || 'User', otp, purpose || 'verification');
+        const emailResult = await emailService.sendOTPEmail(user.email, user.name || 'User', otp, purpose || 'verification');
 
         res.json({
             success: true,
@@ -3920,10 +3928,10 @@ const bulkUploadUsers = async (req, res) => {
         console.log('📄 Processing users file:', filePath);
 
         // Parse Excel/CSV file
-        const data = parseExcelFile(filePath);
+        const data = excelParser.parseExcelFile(filePath);
 
         if (!data || data.length === 0) {
-            deleteFile(filePath);
+            excelParser.deleteFile(filePath);
             return res.status(400).json({
                 success: false,
                 message: 'File is empty or contains no valid data'
@@ -3936,10 +3944,10 @@ const bulkUploadUsers = async (req, res) => {
         const requiredFields = ['phoneNumber', 'name', 'email', 'password'];
 
         // Validate required fields
-        const validation = validateRequiredFields(data, requiredFields);
+        const validation = excelParser.validateRequiredFields(data, requiredFields);
 
         if (!validation.isValid) {
-            deleteFile(filePath);
+            excelParser.deleteFile(filePath);
             return res.status(400).json({
                 success: false,
                 message: 'Validation failed: Missing required fields',
@@ -3979,7 +3987,7 @@ const bulkUploadUsers = async (req, res) => {
                 // Send welcome email (with error handling)
                 if (user.email) {
                     try {
-                        await sendWelcomeEmail(user.email, user.name);
+                        await emailService.sendWelcomeEmail(user.email, user.name);
                     } catch (emailError) {
                         console.log('Failed to send welcome email to:', user.email);
                     }
@@ -4005,7 +4013,7 @@ const bulkUploadUsers = async (req, res) => {
         }
 
         // Delete the uploaded file
-        deleteFile(filePath);
+        excelParser.deleteFile(filePath);
 
         res.status(201).json({
             success: true,
@@ -4023,7 +4031,7 @@ const bulkUploadUsers = async (req, res) => {
         console.error('❌ Error in users bulk upload:', error);
         
         if (filePath) {
-            deleteFile(filePath);
+            excelParser.deleteFile(filePath);
         }
 
         res.status(500).json({
@@ -4063,6 +4071,14 @@ const getAllUsersWithStats = async (req, res) => {
             } else if (status === 'inactive') {
                 query.isActive = false;
                 query.isEx = false;
+            } else if (status === 'hold') {
+                query.status = 'hold';
+                return; // Exit function early, or handle as needed
+            } else if (status === 'blocked') {
+                query.status = 'blocked';
+                return; // Exit function early, or handle as needed
+            } else if (status === 'pending') {
+                query.status = 'pending_approval';
             }
         }
 

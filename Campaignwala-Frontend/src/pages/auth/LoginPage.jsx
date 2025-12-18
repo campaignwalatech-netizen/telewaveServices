@@ -54,7 +54,7 @@ export default function LoginPage() {
 const handleSubmit = async (e) => {
     e.preventDefault();
     setSuccessMessage("");
-    // setDevelopmentOTP("");
+    setDevelopmentOTP("");
     setSendingOtp(true);
     clearAuthError();
 
@@ -78,6 +78,15 @@ const handleSubmit = async (e) => {
                 setFormError("Your registration has been rejected. Please contact support.");
             }
             return;
+        }
+        // Check if OTP is in response
+        if (response?.data?.otp) {
+            setDevelopmentOTP(response.data.otp);
+            setSuccessMessage(
+                response.data.emailSent 
+                    ? "📧 OTP sent to your email!"
+                    : `🔑 OTP: ${response.data.otp} (Email service unavailable)`
+            );
         }
 
         if (response?.requireOTP) {
