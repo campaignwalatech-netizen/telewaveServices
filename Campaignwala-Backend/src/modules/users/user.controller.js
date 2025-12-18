@@ -969,25 +969,26 @@ const login = async (req, res) => {
         console.log('🔑 Login OTP:', otp);
 
         // Send OTP via email with improved error handling
-        const emailResult = await emailService.sendOTPEmail(user.email, user.name || 'User', otp, 'login');
+        // In the login function after sending OTP:
+const emailResult = await emailService.sendOTPEmail(user.email, user.name || 'User', otp, 'login');
 
-        return res.json({
-            success: true,
-            message: emailResult.emailSent 
-                ? 'OTP sent to your email. Please verify to complete login.'
-                : 'OTP generated. Please use the OTP below.',
-            requireOTP: true,
-            data: {
-                email: user.email,
-                name: user.name,
-                role: user.role,
-                registrationStatus: user.registrationStatus,
-                // ALWAYS include OTP in response
-                otp: otp,
-                emailSent: emailResult.emailSent || false,
-                developmentMode: !emailResult.emailSent
-            }
-        });
+return res.json({
+    success: true,
+    message: emailResult.emailSent 
+        ? 'OTP sent to your email'
+        : 'OTP generated. Please use the OTP below.',
+    requireOTP: true,
+    data: {
+        email: user.email,
+        name: user.name,
+        role: user.role,
+        registrationStatus: user.registrationStatus,
+        // Always include OTP in response
+        otp: otp,
+        emailSent: emailResult.emailSent || false,
+        developmentMode: !emailResult.emailSent
+    }
+});
 
     } catch (error) {
         console.error('Login error:', error);
