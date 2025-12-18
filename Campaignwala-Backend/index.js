@@ -36,7 +36,7 @@ const corsOptions = {
       'http://freelancer-backend.ap-south-1.elasticbeanstalk.com/',
       'https://telewave-services.vercel.app',
       'http://localhost:5173',
-      "https://campaignwala-seven.vercel.app",
+      'https://campaignwala-seven.vercel.app',
       'https://telewaveservices.onrender.com',
       'https://campaign-backend-production-39ca.up.railway.app',
       process.env.FRONTEND_URL
