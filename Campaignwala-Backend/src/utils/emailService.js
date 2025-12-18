@@ -64,7 +64,7 @@ const sendOTPEmail = async (email, userName, otp, purpose = 'verification') => {
 
         const subject = purposeSubjects[purpose] || 'Your OTP Code - Campaign Waala';
 
-        const mailOptions = {
+        const mailOptions = { 
             from: process.env.EMAIL_FROM || 'Campaign Waala <campaignwalatech@gmail.com>',
             to: email,
             subject: subject,

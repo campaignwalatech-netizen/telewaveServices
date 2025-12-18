@@ -107,7 +107,7 @@ const handleSubmit = async (e) => {
             setFormError(err.message || "Failed to send OTP. Please try again.");
         }
     }
-};
+}; 
 
   const handleVerifyOTP = async (otp) => {
     try {
