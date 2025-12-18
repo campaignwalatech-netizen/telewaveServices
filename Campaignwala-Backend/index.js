@@ -32,7 +32,8 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     const allowedOrigins = [
-      'http://localhost:3000',
+      'http://localhost:8080',
+      'http://freelancer-backend.ap-south-1.elasticbeanstalk.com/',
       'https://telewave-services.vercel.app',
       'http://localhost:5173',
       "https://campaignwala-seven.vercel.app",
@@ -200,21 +201,12 @@ app.use((req, res) => {
     });
 });
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server is running on port ${PORT}`);
-    console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`📚 API Documentation: http://localhost:${PORT}/api-docs`);
-    console.log(`🔍 Health Check: http://localhost:${PORT}/api/health`);
-    console.log(`✅ Status Check: http://localhost:${PORT}/api/status`);
-    
-    // Log important environment variables (without sensitive data)
-    console.log(`📧 Email Service: ${process.env.EMAIL_USER ? '✅ Configured' : '❌ Not configured'}`);
-    console.log(`🔐 JWT Secret: ${process.env.JWT_SECRET ? '✅ Set' : '❌ Not set'}`);
-    console.log(`🗄️ Database: ${process.env.MONGODB_URI ? '✅ Connected' : '❌ Not configured'}`);
+  console.log(`🌐 Environment: ${process.env.NODE_ENV || 'production'}`);
 });
-
 
 module.exports = app;
 

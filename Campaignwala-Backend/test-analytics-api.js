@@ -1,7 +1,7 @@
 // Simple script to test Analytics API endpoints
 // Run: node test-analytics-api.js
 
-const API_BASE = 'http://localhost:3000/api';
+const API_BASE = 'http://localhost:8080/api';
 
 // Simple fetch wrapper
 async function testEndpoint(name, url) {
@@ -63,7 +63,7 @@ async function runTests() {
   console.log('\nIf all tests passed, your backend is working correctly.');
   console.log('If tests failed, check:');
   console.log('  1. Backend server is running');
-  console.log('  2. Port number is correct (default: 3000)');
+  console.log('  2. Port number is correct (default: 8080)');
   console.log('  3. MongoDB is connected');
   console.log('  4. Database has some lead data');
 }

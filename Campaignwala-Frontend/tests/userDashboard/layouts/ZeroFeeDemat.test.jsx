@@ -96,7 +96,7 @@ describe('ZeroFeeDemat Component', () => {
     const copyButton = screen.getByText('Copy Link');
     fireEvent.click(copyButton);
 
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://localhost:3000/share/offer123/user123');
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('http://localhost:8080/share/offer123/user123');
     expect(window.alert).toHaveBeenCalledWith('Link copied to clipboard!');
   });
 

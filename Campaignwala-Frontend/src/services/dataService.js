@@ -46,7 +46,7 @@ async importDataFromFile(file, options = {}) {
     
     const token = apiHelpers.getAuthToken();
     
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/data/import/csv`, {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/data/import/csv`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -757,7 +757,7 @@ async importDataFromCSV(file, options = {}) {
     // Get token from localStorage or your auth system
     const token = localStorage.getItem('token') || apiHelpers.getAuthToken();
     
-    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'}/data/import/csv`, {
+    const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api'}/data/import/csv`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

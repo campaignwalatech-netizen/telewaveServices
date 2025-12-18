@@ -136,7 +136,7 @@ const changePasswordStep2 = {
 
 const sendOTP = {
     method: 'POST',
-    url: 'http://localhost:3000/api/users/send-otp',
+    url: 'http://localhost:8080/api/users/send-otp',
     body: {
         "phoneNumber": "9876543210"
     }
