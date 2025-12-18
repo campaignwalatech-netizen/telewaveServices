@@ -229,7 +229,7 @@ export default function OtpModal({
           </div>
 
           {/* Development Note */}
-          { process.env.NODE_ENV === 'production' && (
+          { import.meta.env.NODE_ENV === 'production' && (
             <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
               <p className="text-xs text-yellow-700 dark:text-yellow-400 text-center">
                 💡 Development: Check console for OTP or use email fallback
