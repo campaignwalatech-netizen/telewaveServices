@@ -2,15 +2,20 @@ const nodemailer = require('nodemailer');
 
 /**
  * Create a fresh transporter per email
- * (Gmail + Railway safe)
+ * (Brevo + Render SAFE)
  */
 const createTransporter = () => {
     return nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp-relay.brevo.com',
+        port: 587,
+        secure: false, // MUST be false for port 587
         auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASSWORD
-        }
+            user: process.env.EMAIL_USER,      // 9e51dd001@smtp-brevo.com
+            pass: process.env.EMAIL_PASSWORD   // Brevo SMTP key
+        },
+        connectionTimeout: 15000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000
     });
 };
 
@@ -37,7 +42,7 @@ const sendOTPEmail = async (email, userName, otp, purpose = 'verification') => {
         const mailOptions = {
             from:
                 process.env.EMAIL_FROM ||
-                `"Campaign Waala" <${process.env.EMAIL_USER}>`,
+                'Campaign Waala <noreply@campaignwala.com>',
             to: email,
             subject,
             html: `<!DOCTYPE html>
@@ -108,10 +113,8 @@ If you didn’t request this, please ignore this email.
             messageId: info.messageId
         };
     } catch (error) {
-        console.error('❌ OTP EMAIL FAILED:', error);
-        throw new Error(
-            `Failed to send OTP email: ${error.message}`
-        );
+        console.error('❌ OTP EMAIL FAILED:', error.message);
+        throw new Error(`Failed to send OTP email: ${error.message}`);
     }
 };
 
@@ -123,7 +126,9 @@ const sendWelcomeEmail = async (email, userName) => {
         const transporter = createTransporter();
 
         await transporter.sendMail({
-            from: `"Campaign Waala" <${process.env.EMAIL_USER}>`,
+            from:
+                process.env.EMAIL_FROM ||
+                'Campaign Waala <noreply@campaignwala.com>',
             to: email,
             subject: 'Welcome to Campaign Waala 🎉',
             html: `
@@ -138,7 +143,7 @@ const sendWelcomeEmail = async (email, userName) => {
         console.log('✅ Welcome email sent:', email);
         return { success: true };
     } catch (error) {
-        console.error('❌ Welcome email failed:', error);
+        console.error('❌ Welcome email failed:', error.message);
         return { success: false, error: error.message };
     }
 };
