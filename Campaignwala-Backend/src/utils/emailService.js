@@ -22,12 +22,7 @@ const createTransporter = () => {
             connectionTimeout: 60000,  // 60 seconds
             greetingTimeout: 30000,    // 30 seconds
             socketTimeout: 90000,      // 90 seconds
-            // TLS options
-            tls: {
-                rejectUnauthorized: false,
-                ciphers: 'SSLv3',
-                minVersion: 'TLSv1.2'
-            },
+            
             // Debug logging
             logger: true,
             debug: true
