@@ -25,7 +25,7 @@ const allowedOrigins = [
   'http://localhost:8080',
   'https://campaignwala-seven.vercel.app',
   'http://localhost:3000',
-  'https://campaign-backend-production-39ca.up.railway.app',
+  'https://campaign-backend-production.up.railway.app',
   'https://telewaveservices.onrender.com',
   'http://freelancer-backend.ap-south-1.elasticbeanstalk.com',
   process.env.FRONTEND_URL
