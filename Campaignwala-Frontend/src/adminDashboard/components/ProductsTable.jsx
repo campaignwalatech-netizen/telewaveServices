@@ -64,7 +64,7 @@ export default function OffersTable() {
 
   const handleExport = () => {
     // Dummy export functionality
-    alert("Exporting campaigns data...");
+    alert("Exporting Freelancer data...");
   };
 
   return (

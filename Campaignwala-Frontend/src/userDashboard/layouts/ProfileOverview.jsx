@@ -243,12 +243,12 @@ const ProfileOverview = ({ darkMode }) => {
 
   // Share card
   const handleShareCard = async () => {
-    const shareText = `🎉 Check out my Campaign Waala Card!\n\n👤 Name: ${userData.name}\n🔐 Unique ID: ${userData.uniqueCode}\n📧 Email: ${userData.email}\n📞 Phone: ${userData.phoneNumber}\n\nJoin Campaign Waala today for exclusive benefits! 🚀`;
+    const shareText = `🎉 Check out my Freelancer Wala Card!\n\n👤 Name: ${userData.name}\n🔐 Unique ID: ${userData.uniqueCode}\n📧 Email: ${userData.email}\n📞 Phone: ${userData.phoneNumber}\n\nJoin Freelancer Wala today for exclusive benefits! 🚀`;
     
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'My Campaign Waala Digital Card',
+          title: 'My Freelancer Wala Digital Card',
           text: shareText,
           url: window.location.href
         });
@@ -307,7 +307,7 @@ const ProfileOverview = ({ darkMode }) => {
           Profile Overview
         </h2>
         <p className={`text-lg ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
-          Your digital identity with Campaign Waala
+          Your digital identity with Freelancer Wala
         </p>
       </div>
 
@@ -332,7 +332,7 @@ const ProfileOverview = ({ darkMode }) => {
             </span>
           </div>
           <div className="absolute bottom-4 left-6">
-            <span className="text-white text-lg font-bold opacity-90">CAMPAIGN WAALA</span>
+            <span className="text-white text-lg font-bold opacity-90">FREELANCER WALA</span>
           </div>
         </div>
 
@@ -452,7 +452,7 @@ const ProfileOverview = ({ darkMode }) => {
                     </div>
                   </div>
                   <div>
-                    <h4 className="text-2xl font-black text-black tracking-widest">CAMPAIGNWAALA</h4>
+                    <h4 className="text-2xl font-black text-black tracking-widest">FREELANCERWALA</h4>
                     <p className="text-xs text-gray-600 font-semibold">DIGITAL PARTNER</p>
                   </div>
                 </div>

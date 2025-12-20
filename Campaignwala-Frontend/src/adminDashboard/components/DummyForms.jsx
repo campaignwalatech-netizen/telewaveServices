@@ -52,10 +52,10 @@ export const UploadLeadsForm = () => (
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">Campaign Name</label>
+          <label className="block text-sm font-medium text-foreground mb-2">Freelancer Name</label>
           <input
             type="text"
-            placeholder="Enter campaign name"
+            placeholder="Enter freelancer name"
             className="w-full px-4 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
           />
         </div>

@@ -247,7 +247,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
             </div>
             {!isMobile && (
               <h1 className={`text-sm md:text-lg font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>
-                Campaign<span className="text-black">wala</span>
+                Freelancer<span className="text-black">Wala</span>
               </h1>
             )}
           </div>

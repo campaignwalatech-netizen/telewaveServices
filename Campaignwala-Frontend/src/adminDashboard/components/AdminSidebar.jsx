@@ -44,10 +44,10 @@ export default function AdminSidebar({
         <div className="flex items-center justify-between p-4 border-b dark:border-gray-700">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 bg-gradient-to-br from-[#570df8] to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">C</span>
+              <span className="text-white font-bold text-lg">F</span>
             </div>
             <span className="text-xl font-bold text-gray-800 dark:text-white">
-              Campaign
+              Freelancer Admin
             </span>
           </div>
           <button

@@ -188,7 +188,7 @@ const ZeroFeeDemat = ({ darkMode }) => {
             </li>
             <li className="flex items-start gap-2">
               <span className="text-green-500 mt-1">•</span>
-              Campaign Waala reserves the right to review and approve all
+              Freelancer Wala reserves the right to review and approve all
               applications.
             </li>
           </ul>

@@ -17,7 +17,7 @@
 
 | Test Case ID | Description | Steps to Reproduce | Expected Result |
 | :--- | :--- | :--- | :--- |
-| DF-UL-001 | It should render the Upload Leads form correctly. | 1. Render the `UploadLeadsForm` component. | The form should have a title "Upload Fresh Leads", a file input for CSV, a text input for campaign name, a textarea for description, and an "Upload Leads" button. |
+| DF-UL-001 | It should render the Upload Leads form correctly. | 1. Render the `UploadLeadsForm` component. | The form should have a title "Upload Fresh Leads", a file input for CSV, a text input for Freelancer name, a textarea for description, and an "Upload Leads" button. |
 
 ---
 

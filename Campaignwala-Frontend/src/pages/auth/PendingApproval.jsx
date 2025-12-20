@@ -102,8 +102,8 @@ export default function PendingApproval({ darkMode }) {
             
             <p className={`text-xs text-center pt-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               Need assistance? Contact support at 
-              <a href="mailto:support@campaignwaala.com" className="text-blue-400 hover:underline ml-1">
-                support@campaignwaala.com
+              <a href="mailto:support@freelancerwala.com" className="text-blue-400 hover:underline ml-1">
+                support@freelancerwala.com
               </a>
             </p>
           </div>

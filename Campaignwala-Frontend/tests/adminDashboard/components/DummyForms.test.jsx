@@ -25,7 +25,7 @@ describe('DummyForms Components', () => {
       render(<UploadLeadsForm />);
       expect(screen.getByText('Upload Fresh Leads')).toBeInTheDocument();
       expect(screen.getByLabelText('Upload CSV File')).toBeInTheDocument();
-      expect(screen.getByLabelText('Campaign Name')).toBeInTheDocument();
+      expect(screen.getByLabelText('Freelancer Name')).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /upload leads/i })).toBeInTheDocument();
     });
   });

@@ -33,7 +33,7 @@ describe('ProfileOverview', () => {
 
     // Check user info
     expect(screen.getByText('John Doe')).toBeInTheDocument();
-    expect(screen.getByText('john.doe@campaignwaala.com')).toBeInTheDocument();
+    expect(screen.getByText('john.doe@freelancerwala.com')).toBeInTheDocument();
     expect(screen.getByText('+91 98765 43210')).toBeInTheDocument();
     expect(screen.getByAltText('User avatar')).toBeInTheDocument();
 
@@ -42,7 +42,7 @@ describe('ProfileOverview', () => {
     expect(screen.getByText('Pending Review by Admin')).toBeInTheDocument();
 
     // Check Campaign Card
-    expect(screen.getByText('YOUR CAMPAIGN WAALA CARD')).toBeInTheDocument();
+    expect(screen.getByText('YOUR FREELANCER WALA CARD')).toBeInTheDocument();
     expect(screen.getByAltText('Digital Card')).toBeInTheDocument();
   });
 

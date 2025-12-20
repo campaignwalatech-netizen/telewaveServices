@@ -33,7 +33,7 @@ describe('AdminSidebar Component', () => {
 
   it('should render the sidebar with logo, menu, and user info', () => {
     renderComponent();
-    expect(screen.getByText('Campaign')).toBeInTheDocument();
+    expect(screen.getByText('Freelancer')).toBeInTheDocument();
     expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('Admin User')).toBeInTheDocument();
     expect(screen.getByText('1234567890')).toBeInTheDocument();

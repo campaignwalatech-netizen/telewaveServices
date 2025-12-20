@@ -239,7 +239,7 @@ const ProfileOverview = ({ darkMode }) => {
             darkMode ? "text-white" : "text-gray-900"
           }`}
         >
-          YOUR CAMPAIGN WAALA CARD
+          YOUR FREELANCER WALA CARD
         </h3>
         <p
           className={`text-sm sm:text-base mb-6 max-w-xl mx-auto leading-relaxed ${

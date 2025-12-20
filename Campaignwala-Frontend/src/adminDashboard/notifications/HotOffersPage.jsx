@@ -592,7 +592,7 @@ export default function HotOffersPage() {
                   {getTotalRecipients() > 10000 && (
                     <div className="mt-2 p-2 bg-orange-500/20 rounded text-xs">
                       <p className="font-medium text-orange-800 dark:text-orange-300">
-                        🚀 High Impact Campaign - 10K+ users
+                        🚀 High Impact Freelancer - 10K+ users
                       </p>
                     </div>
                   )}

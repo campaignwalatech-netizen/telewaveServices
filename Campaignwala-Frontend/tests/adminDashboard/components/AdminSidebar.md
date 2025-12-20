@@ -9,7 +9,7 @@
 
 | Test Case ID | Description | Steps to Reproduce | Expected Result |
 | :--- | :--- | :--- | :--- |
-| ADS-001 | It should render the sidebar with logo, menu, and user info. | 1. Render the `AdminSidebar` component with necessary props (`sidebarOpen`, `setSidebarOpen`, etc.). | The sidebar should display the "Campaign" logo, a list of navigation items, user information, and a logout button. |
+| ADS-001 | It should render the sidebar with logo, menu, and user info. | 1. Render the `AdminSidebar` component with necessary props (`sidebarOpen`, `setSidebarOpen`, etc.). | The sidebar should display the "Freelancer" logo, a list of navigation items, user information, and a logout button. |
 | ADS-002 | It should display the user's phone number and initial. | 1. Render the component with a `userPhone` prop (e.g., "1234567890"). | The user info section should display the phone number and the initial "1" in the avatar. |
 | ADS-003 | It should show a default initial if `userPhone` is not provided. | 1. Render the component without the `userPhone` prop. | The user avatar should display the default initial "U". |
 
