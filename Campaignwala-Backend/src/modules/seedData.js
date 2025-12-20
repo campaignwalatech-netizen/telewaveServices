@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 // MongoDB connection without deprecated options
 const connectDB = async () => {
   try {
-    await mongoose.connect('mongodb://localhost:27017/campaignwala', {
+    await mongoose.connect('mongodb://localhost:27017/freelancerwala', {
       serverSelectionTimeoutMS: 30000, // 30 seconds timeout
       socketTimeoutMS: 45000, // 45 seconds socket timeout
     });

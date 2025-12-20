@@ -122,7 +122,7 @@ app.use('/api', routes);
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: '🚀 Campaignwala Backend API is running!',
+    message: '🚀 Freelancerwala Backend API is running!',
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'production',
     documentation: '/api-docs',

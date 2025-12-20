@@ -30,13 +30,13 @@ const sendOTPEmail = async (email, userName, otp, purpose = 'verification') => {
 
     try {
         const purposeSubjects = {
-            'registration': 'Complete Your Registration - Campaign Waala',
-            'login': 'Your Login OTP - Campaign Waala',
-            'password-reset': 'Reset Your Password - Campaign Waala',
-            'verification': 'Your Verification Code - Campaign Waala'
+            'registration': 'Complete Your Registration - Freelancer Wala',
+            'login': 'Your Login OTP - Freelancer Wala',
+            'password-reset': 'Reset Your Password - Freelancer Wala',
+            'verification': 'Your Verification Code - Freelancer Wala'
         };
 
-        const subject = purposeSubjects[purpose] || 'Your OTP Code - Campaign Waala';
+        const subject = purposeSubjects[purpose] || 'Your OTP Code - Freelancer Wala';
 
         console.log('📤 Sending via Resend...');
 
@@ -48,7 +48,7 @@ const sendOTPEmail = async (email, userName, otp, purpose = 'verification') => {
             text: generateOTPEmailText(userName, otp, purpose),
             headers: {
                 'X-Priority': '1',
-                'X-Mailer': 'CampaignWaala/1.0',
+                'X-Mailer': 'FreelancerWala/1.0',
                 'X-Entity-Ref-ID': `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
             }
         });
@@ -111,7 +111,7 @@ const generateOTPEmailHTML = (userName, otp, purpose) => {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>OTP Verification - Campaign Waala</title>
+        <title>OTP Verification - Freelancer Wala</title>
         <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f5f5f5; }
             .email-container { max-width: 600px; margin: 0 auto; background: white; }
@@ -134,10 +134,6 @@ const generateOTPEmailHTML = (userName, otp, purpose) => {
     </head>
     <body>
         <div class="email-container">
-            <div class="header">
-                <h1>Campaign Waala</h1>
-                <p>${actionMessage.charAt(0).toUpperCase() + actionMessage.slice(1)}</p>
-            </div>
             
             <div class="content">
                 <div class="greeting">
@@ -152,7 +148,7 @@ const generateOTPEmailHTML = (userName, otp, purpose) => {
                 </div>
                 
                 <div class="security-alert">
-                    <strong>🔒 Security Notice:</strong> Never share this OTP with anyone. Campaign Waala will never ask for your OTP, password, or other sensitive information.
+                    <strong>🔒 Security Notice:</strong> Never share this OTP with anyone. Freelancer Wala will never ask for your OTP, password, or other sensitive information.
                 </div>
                 
                 <p>If you didn't request this OTP, please ignore this email or contact our support team.</p>
@@ -160,7 +156,7 @@ const generateOTPEmailHTML = (userName, otp, purpose) => {
                 <p>Need help? Contact us at: <a href="mailto:${RESEND_CONFIG.SUPPORT_EMAIL}">${RESEND_CONFIG.SUPPORT_EMAIL}</a></p>
                 
                 <p>Best regards,<br>
-                <strong>The Campaign Waala Team</strong></p>
+                <strong>The Freelancer Wala Team</strong></p>
             </div>
             
             <div class="footer">
@@ -187,7 +183,7 @@ const generateOTPEmailText = (userName, otp, purpose) => {
     const actionMessage = purposeMessages[purpose] || 'verify your account';
 
     return `
-Campaign Waala - OTP Verification
+Freelancer Wala - OTP Verification
 =================================
 
 Hello ${userName},
@@ -199,7 +195,7 @@ OTP: ${otp}
 ⏰ This OTP is valid for 10 minutes.
 
 🔒 SECURITY NOTICE: Never share this OTP with anyone. 
-Campaign Waala will never ask for your OTP, password, or other sensitive information.
+Freelancer Wala will never ask for your OTP, password, or other sensitive information.
 
 If you didn't request this OTP, please ignore this email or contact our support team.
 
@@ -207,7 +203,7 @@ Need help? Contact: ${RESEND_CONFIG.SUPPORT_EMAIL}
 
 =================================
 Best regards,
-The Campaign Waala Team
+The Freelancer Wala Team
 
 © ${new Date().getFullYear()} ${RESEND_CONFIG.COMPANY_NAME}. All rights reserved.
 This is an automated message, please do not reply.
@@ -225,7 +221,7 @@ const sendWelcomeEmail = async (email, userName) => {
         const { data, error } = await resend.emails.send({
             from: RESEND_CONFIG.FROM_EMAIL,
             to: email,
-            subject: 'Welcome to Campaign Waala! 🎉',
+            subject: 'Welcome to Freelancer Wala! 🎉',
             html: `
             <!DOCTYPE html>
             <html>
@@ -242,7 +238,7 @@ const sendWelcomeEmail = async (email, userName) => {
             <body>
                 <div class="container">
                     <div class="hero">
-                        <h1>Welcome to Campaign Waala! 🚀</h1>
+                        <h1>Welcome to Freelancer Wala! 🚀</h1>
                         <p>Your journey starts here</p>
                     </div>
                     <div class="content">
@@ -251,11 +247,11 @@ const sendWelcomeEmail = async (email, userName) => {
                         <p>Get started by:</p>
                         <ul>
                             <li>📝 Completing your profile</li>
-                            <li>🎯 Exploring available campaigns</li>
+                            <li>🎯 Exploring available Freelancer</li>
                             <li>💰 Start earning today</li>
                         </ul>
                         <p>If you have any questions, feel free to reach out to our support team.</p>
-                        <p>Best regards,<br><strong>The Campaign Waala Team</strong></p>
+                        <p>Best regards,<br><strong>The Freelancer Wala Team</strong></p>
                     </div>
                     <div class="footer">
                         <p>&copy; ${new Date().getFullYear()} ${RESEND_CONFIG.COMPANY_NAME}</p>
@@ -265,7 +261,7 @@ const sendWelcomeEmail = async (email, userName) => {
             </html>
             `,
             text: `
-Welcome to Campaign Waala!
+Welcome to Freelancer Wala!
 
 Hello ${userName},
 
@@ -273,13 +269,13 @@ Welcome aboard! We're excited to have you join our community.
 
 Get started by:
 1. 📝 Completing your profile
-2. 🎯 Exploring available campaigns  
+2. 🎯 Exploring available Freelancer  
 3. 💰 Start earning today
 
 If you have any questions, feel free to reach out to our support team.
 
 Best regards,
-The Campaign Waala Team
+The Freelancer Wala Team
 
 © ${new Date().getFullYear()} ${RESEND_CONFIG.COMPANY_NAME}
             `
@@ -346,20 +342,20 @@ const sendTestEmail = async (toEmail = 'rajkumar6777y@gmail.com') => {
         const { data, error } = await resend.emails.send({
             from: RESEND_CONFIG.FROM_EMAIL,
             to: toEmail,
-            subject: 'Test Email from Campaign Waala',
+            subject: 'Test Email from Freelancer Wala',
             html: `
             <!DOCTYPE html>
             <html>
             <body>
                 <div style="text-align: center; padding: 40px;">
                     <h1 style="color: #667eea;">✅ Email Service Working!</h1>
-                    <p>Campaign Waala email service is configured correctly.</p>
+                    <p>Freelancer Wala email service is configured correctly.</p>
                     <p>Time: ${new Date().toLocaleString()}</p>
                 </div>
             </body>
             </html>
             `,
-            text: 'Test email from Campaign Waala. Email service is working correctly.'
+            text: 'Test email from Freelancer Wala. Email service is working correctly.'
         });
 
         if (error) {

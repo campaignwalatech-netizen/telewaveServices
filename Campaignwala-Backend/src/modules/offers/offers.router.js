@@ -30,7 +30,7 @@ const {
  *         name:
  *           type: string
  *           description: Offer name
- *           example: Premium Digital Campaign
+ *           example: Premium Digital Freelancer
  *         category:
  *           type: string
  *           description: Offer category
@@ -282,7 +282,7 @@ router.get('/category/:categoryId', getOffersByCategory);
  *                             example: "LEAD001"
  *                           name:
  *                             type: string
- *                             example: "Premium Campaign"
+ *                             example: "Premium freelancer"
  *                     failedItems:
  *                       type: array
  *                       items:

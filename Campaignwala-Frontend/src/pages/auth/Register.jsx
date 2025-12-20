@@ -222,18 +222,18 @@ export default function RegisterPage() {
                 C
               </text>
             </svg>
-            <h2 className="text-3xl font-bold text-foreground">Campaign Waala</h2>
+            <h2 className="text-3xl font-bold text-foreground">Freelancer Wala</h2>
           </div>
 
           <div className="mb-8 w-64 mx-auto">
             <img
               src="https://leads.freelancerwaala.com/new_year.gif"
-              alt="Campaign Illustration"
+              alt="Freelancer Illustration"
               className="w-full rounded-lg shadow-lg"
             />
           </div>
 
-          <h3 className="text-2xl font-bold text-foreground mb-4 text-left">Welcome to Campaign Waala!</h3>
+          <h3 className="text-2xl font-bold text-foreground mb-4 text-left">Welcome to Freelancer Wala!</h3>
           <p className="text-muted-foreground leading-relaxed">
             Ready to transform leads into success? Dive into your daily tasks and celebrate your victories!
           </p>

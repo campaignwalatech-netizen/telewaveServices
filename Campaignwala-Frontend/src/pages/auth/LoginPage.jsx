@@ -172,21 +172,21 @@ const handleSubmit = async (e) => {
             <span className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-card border-2 border-primary overflow-hidden mb-2">
               <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" />
             </span>
-            <h2 className="text-3xl font-bold text-foreground">Campaign Waala</h2>
+            <h2 className="text-3xl font-bold text-foreground">Freelancer Wala</h2>
           </div>
 
           {/* Image */}
           <div className="mb-8 w-64 mx-auto">
             <img
               src="https://leads.freelancerwaala.com/new_year.gif"
-              alt="Campaign"
+              alt="Freelancer"
               className="w-full rounded-lg shadow-lg"
             />
           </div>
 
           {/* Welcome text */}
           <h3 className="text-2xl font-bold text-foreground mb-4 text-left">
-            Welcome to Campaign Waala!
+            Welcome to Freelancer Wala!
           </h3>
 
           <div className="space-y-4 text-left">
@@ -197,7 +197,7 @@ const handleSubmit = async (e) => {
             </p>
 
             <p className="text-muted-foreground leading-relaxed">
-              Ready to boost your career? Join Campaign Waala today! Get
+              Ready to boost your career? Join Freelancer Wala today! Get
               Started.
             </p>
           </div>
@@ -213,7 +213,7 @@ const handleSubmit = async (e) => {
               <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" />
             </span>
             <h1 className="text-3xl font-bold text-foreground mb-2">
-              Campaign Waala
+              Freelancer Wala
             </h1>
             <div className="flex items-center justify-center gap-2">
               <LogIn size={28} className="text-primary" />
