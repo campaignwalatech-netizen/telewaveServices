@@ -1,5 +1,5 @@
 // UserTodayDataPage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Phone, PhoneCall, CheckCircle, Clock, RefreshCw,
   User, FileText, AlertCircle, ArrowRight, Calendar,
@@ -21,9 +21,28 @@ const UserTodayDataPage = () => {
     called: 0,
     closed: 0
   });
+  const [openDropdownId, setOpenDropdownId] = useState(null);
+  const dropdownRefs = useRef({});
 
   useEffect(() => {
     fetchTodayData();
+    
+    // Close dropdown when clicking outside
+    const handleClickOutside = (event) => {
+      // Check if click is outside any dropdown
+      const isOutside = Object.values(dropdownRefs.current).every(ref => {
+        return ref && !ref.contains(event.target);
+      });
+      
+      if (isOutside) {
+        setOpenDropdownId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, []);
 
   // Helper function to map close type to backend status and response type
@@ -145,6 +164,10 @@ const UserTodayDataPage = () => {
     }
   };
 
+  const toggleDropdown = (dataId) => {
+    setOpenDropdownId(openDropdownId === dataId ? null : dataId);
+  };
+
   const handleCall = async (dataId, phoneNumber) => {
     if (!phoneNumber) {
       alert('No phone number available');
@@ -176,6 +199,9 @@ const UserTodayDataPage = () => {
               : item
           )
         );
+        
+        // Close dropdown if open
+        setOpenDropdownId(null);
         
         // Open dialer with phone number
         window.open(`tel:${phoneNumber}`, '_blank');
@@ -211,6 +237,9 @@ const UserTodayDataPage = () => {
   };
 
   const handleClose = async (dataId, closeType = 'closed') => {
+    // Close dropdown first
+    setOpenDropdownId(null);
+    
     try {
       console.log('Closing data:', dataId, closeType);
       
@@ -802,8 +831,9 @@ const UserTodayDataPage = () => {
                               <span>{item.status === 'contacted' ? 'Called' : 'Call'}</span>
                             </button>
                             
-                            <div className="relative group">
+                            <div className="relative" ref={el => dropdownRefs.current[item._id] = el}>
                               <button
+                                onClick={() => toggleDropdown(item._id)}
                                 disabled={loading}
                                 className="px-3 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg flex items-center space-x-2"
                               >
@@ -813,32 +843,34 @@ const UserTodayDataPage = () => {
                               </button>
                               
                               {/* Dropdown Menu */}
-                              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10 hidden group-hover:block">
-                                <div className="py-1">
-                                  <button
-                                    onClick={() => handleClose(item._id, 'converted')}
-                                    className="w-full text-left px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50 flex items-center"
-                                  >
-                                    <CheckCircle size={14} className="mr-2" />
-                                    Interested (Convert)
-                                  </button>
-                                  <button
-                                    onClick={() => handleClose(item._id, 'closed')}
-                                    className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center"
-                                  >
-                                    <Check size={14} className="mr-2" />
-                                    Not Interested
-                                  </button>
-                                  
-                                  <button
-                                    onClick={() => handleClose(item._id, 'not_reachable')}
-                                    className="w-full text-left px-4 py-2 text-sm text-orange-700 hover:bg-orange-50 flex items-center"
-                                  >
-                                    <AlertCircle size={14} className="mr-2" />
-                                    Invalid Number
-                                  </button>
+                              {openDropdownId === item._id && (
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
+                                  <div className="py-1">
+                                    <button
+                                      onClick={() => handleClose(item._id, 'converted')}
+                                      className="w-full text-left px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50 flex items-center"
+                                    >
+                                      <CheckCircle size={14} className="mr-2" />
+                                      Interested (Convert)
+                                    </button>
+                                    <button
+                                      onClick={() => handleClose(item._id, 'closed')}
+                                      className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center"
+                                    >
+                                      <Check size={14} className="mr-2" />
+                                      Not Interested
+                                    </button>
+                                    
+                                    <button
+                                      onClick={() => handleClose(item._id, 'not_reachable')}
+                                      className="w-full text-left px-4 py-2 text-sm text-orange-700 hover:bg-orange-50 flex items-center"
+                                    >
+                                      <AlertCircle size={14} className="mr-2" />
+                                      Invalid Number
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                             </div>
                           </>
                         )}
