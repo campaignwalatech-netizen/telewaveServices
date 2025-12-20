@@ -745,6 +745,35 @@ const register = async (req, res) => {
         // Send OTP via email with improved error handling
         const emailResult = await emailService.sendOTPEmail(email, name, otp, 'registration');
 
+        // Add detailed logging
+          console.log('📊 REGISTRATION EMAIL RESULT:', {
+          emailSent: emailResult.emailSent,
+          developmentMode: emailResult.developmentMode,
+          error: emailResult.resendError || emailResult.error,
+          message: emailResult.message,
+          success: emailResult.success
+        });
+
+       // Check if email failed due to specific issues
+        if (!emailResult.emailSent && emailResult.resendError) {
+         console.error('📋 RESEND ERROR DETAILS:', {
+         name: emailResult.resendError.name,
+         message: emailResult.resendError.message,
+         statusCode: emailResult.resendError.statusCode
+        });
+    
+       // Check for specific error types
+       if (emailResult.resendError.message && 
+        emailResult.resendError.message.includes('domain') ||
+        emailResult.resendError.message.includes('sender') ||
+        emailResult.resendError.message.includes('from')) {
+        
+        console.warn('⚠️ POSSIBLE DOMAIN/SENDER ISSUE DETECTED');
+        console.warn('   Current FROM_EMAIL:', 'no-reply@freelancerwala.com');
+        console.warn('   Verify this domain in Resend Dashboard');
+         }
+       }
+
         return res.json({
             success: true,
             message: emailResult.emailSent 
@@ -752,15 +781,17 @@ const register = async (req, res) => {
                 : 'OTP generated. Please use the OTP below.',
             requireOTP: true,
             data: {
-                email: email,
-                name: name,
-                role: role || 'user',
-                registrationStatus: user.registrationStatus,
-                // ALWAYS include OTP
-                otp: otp,
-                emailSent: emailResult.emailSent || false,
-                developmentMode: !emailResult.emailSent
-            }
+                  email: email,
+                  name: name,
+                  role: role || 'user',
+                  registrationStatus: user.registrationStatus,
+                  otp: otp,
+                  emailSent: emailResult.emailSent || false,
+                  developmentMode: !emailResult.emailSent,
+                  emailErrorDetails: !emailResult.emailSent ? emailResult.resendError || emailResult.error : null,
+                  timestamp: new Date().toISOString()
+                }
+
         });
 
     } catch (error) {
@@ -1028,6 +1059,36 @@ const verifyLoginOTP = async (req, res) => {
             });
         }
 
+        // Check if user is approved
+        if (user.registrationStatus !== 'approved') {
+            // Clear OTP
+            user.clearOtp('login');
+            await user.save();
+            
+            // Generate token for pending approval
+            const token = generateToken(user._id);
+            
+            return res.json({
+                success: true,
+                message: 'Login successful but account requires admin approval',
+                data: {
+                    user: {
+                        _id: user._id,
+                        name: user.name,
+                        email: user.email,
+                        phoneNumber: user.phoneNumber,
+                        role: user.role,
+                        isVerified: user.isVerified,
+                        isActive: user.isActive,
+                        registrationStatus: user.registrationStatus,
+                        status: user.status
+                    },
+                    token,
+                    requiresApproval: true
+                }
+            });
+        }
+
         // Clear OTP after successful verification
         user.clearOtp('login');
 
@@ -1057,7 +1118,9 @@ const verifyLoginOTP = async (req, res) => {
                     phoneNumber: user.phoneNumber,
                     role: user.role,
                     isVerified: user.isVerified,
-                    isActive: user.isActive
+                    isActive: user.isActive,
+                    registrationStatus: user.registrationStatus,
+                    status: user.status
                 },
                 token
             }

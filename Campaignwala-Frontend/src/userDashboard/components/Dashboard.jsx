@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import api from '../../services/api';
 import walletService from '../../services/walletService';
 import leadService from '../../services/leadService';
+import authService from '../../services/authService';
+
 
 const Dashboard = ({ darkMode }) => {
   const navigate = useNavigate();
@@ -23,7 +25,6 @@ const Dashboard = ({ darkMode }) => {
     rejected: 0
   });
   const [userName, setUserName] = useState('#user');
-  const [userStatus, setUserStatus] = useState('approved');
 
   // Enhanced colors for categories with better gradients
   const categoryColors = [
@@ -38,12 +39,24 @@ const Dashboard = ({ darkMode }) => {
   ];
 
   useEffect(() => {
+    // Check registration status before loading dashboard
+    checkRegistrationStatus();
     fetchCategories();
     fetchWalletData();
     fetchLeadsStats();
     fetchUserProfile();
     fetchSlides();
   }, []);
+
+  const checkRegistrationStatus = () => {
+    // Using authService to check if user is approved
+    if (!authService.isUserApproved()) {
+      const status = authService.getUserRegistrationStatus();
+      console.log(`⚠️ User not approved (status: ${status}), redirecting to pending approval`);
+      navigate('/pending-approval', { replace: true });
+      return;
+    }
+  };
 
   // Auto-slide effect with smooth transition - Only show 3 slides
   useEffect(() => {
@@ -59,6 +72,10 @@ const Dashboard = ({ darkMode }) => {
       const response = await api.get('/users/profile');
       if (response.data.success) {
         setUserName(response.data.data.user?.name || '#user');
+        // Double-check registration status from API
+        if (response.data.data.user?.registrationStatus !== 'approved') {
+          navigate('/pending-approval', { replace: true });
+        }
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
@@ -118,8 +135,6 @@ const Dashboard = ({ darkMode }) => {
         }
       });
       
-      console.log('Categories Response:', response.data); // Debug
-      
       if (response.data.success) {
         setCategories(response.data.data.categories || []);
       }
@@ -141,8 +156,6 @@ const Dashboard = ({ darkMode }) => {
           order: 'asc'
         }
       });
-      
-      console.log('Slides Response:', response.data); // Debug
       
       if (response.data.success) {
         setSlides(response.data.data.slides || []);

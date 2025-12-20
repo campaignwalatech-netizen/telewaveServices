@@ -29,10 +29,16 @@ export default function LoginPage() {
   const [developmentOTP, setDevelopmentOTP] = useState("");
   const [formError, setFormError] = useState("");
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated AND approved
   useEffect(() => {
-    if (isAuthenticated) {
-      // Map roles to dashboard routes - change as needed
+    if (isAuthenticated && user) {
+      // Check if user is approved
+      if (user.registrationStatus !== 'approved') {
+        navigate('/pending-approval', { replace: true });
+        return;
+      }
+      
+      // Map roles to dashboard routes
       const roleToRoute = {
         admin: "/admin",
         TL: "/tl",
@@ -40,8 +46,6 @@ export default function LoginPage() {
       };
       const target = roleToRoute[userRole] || "/";
 
-      // If user object contains a preferred route, prefer it
-      // (optional override, e.g., user?.preferredRoute)
       if (user?.preferredRoute) {
         navigate(user.preferredRoute, { replace: true });
       } else {
@@ -50,79 +54,57 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, userRole, user, navigate]);
 
-  // Inside handleSubmit function in LoginPage
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setSuccessMessage("");
     setDevelopmentOTP("");
     setSendingOtp(true);
     clearAuthError();
+    setFormError("");
 
     try {
-        // console.log("🔐 Login attempt with:", { email });
+      const response = await login({ email, password });
 
-        const response = await login({ email, password });
-        // console.log("✅ Login response:", response);
+      // Check if OTP is in response
+      if (response?.data?.otp) {
+        setDevelopmentOTP(response.data.otp);
+        setSuccessMessage(
+          response.data.emailSent 
+            ? "📧 OTP sent to your email!"
+            : `🔑 OTP: ${response.data.otp} (Email service unavailable)`
+        );
+      }
 
-        // Check if user is pending approval
-        if (response?.registrationStatus && response.registrationStatus !== 'approved') {
-            setSendingOtp(false);
-            
-            if (response.registrationStatus === 'admin_approval_pending') {
-                setFormError("Your account is pending admin approval. Please wait for approval.");
-            } else if (response.registrationStatus === 'tl_assignment_pending') {
-                setFormError("Your account is pending TL assignment. Please wait for activation.");
-            } else if (response.registrationStatus === 'email_verification_pending') {
-                setFormError("Please complete email verification first.");
-            } else if (response.registrationStatus === 'rejected') {
-                setFormError("Your registration has been rejected. Please contact support.");
-            }
-            return;
-        }
-        // Check if OTP is in response
-        if (response?.data?.otp) {
-            setDevelopmentOTP(response.data.otp);
-            setSuccessMessage(
-                response.data.emailSent 
-                    ? "📧 OTP sent to your email!"
-                    : `🔑 OTP: ${response.data.otp} (Email service unavailable)`
-            );
-        }
-
-        if (response?.requireOTP) {
-            // OTP required - show modal
-            setUserEmail(response.data?.email || email);
-
-            if (response?.requireOTP) {
-            setUserEmail(response.data?.email || email);
-            setSuccessMessage("📧 OTP sent to your email!");
-            setSendingOtp(false);
-            setShowOtpModal(true);
-            }else {
-                setSuccessMessage("📧 OTP sent to your email!");
-            }
-
-            setSendingOtp(false);
-            setShowOtpModal(true);
-        } else {
-            console.log("✅ Login successful without OTP");
-            setSendingOtp(false);
-        }
-    } catch (err) {
-        // console.error("❌ Login error:", err);
+      if (response?.requireOTP) {
+        // OTP required - show modal
+        setUserEmail(response.data?.email || email);
+        setSuccessMessage("📧 OTP sent to your email!");
         setSendingOtp(false);
-        // Check for pending approval error
-        if (err.message?.includes('pending approval')) {
-            setFormError(err.message || "Failed to send OTP. Please try again.");
-        }
+        setShowOtpModal(true);
+      } else {
+        console.log("✅ Login successful without OTP");
+        setSendingOtp(false);
+      }
+    } catch (err) {
+      setSendingOtp(false);
+      // Check for pending approval error from backend
+      if (err.message?.includes('pending approval') || err.message?.includes('pending admin approval')) {
+        setFormError(err.message);
+      } else {
+        setFormError(err.message || "Failed to send OTP. Please try again.");
+      }
     }
-}; 
+  }; 
 
   const handleVerifyOTP = async (otp) => {
     try {
       // Verify OTP and complete login process
-      await verifyLoginOTP(userEmail, otp);
-      // verifyLoginOTP should handle navigation on success
+      const result = await verifyLoginOTP(userEmail, otp);
+      
+      // After OTP verification, check if user is approved
+      if (result?.requiresApproval) {
+        navigate('/pending-approval', { replace: true });
+      }
     } catch (error) {
       console.error("OTP verification error:", error);
       throw error;
@@ -229,6 +211,26 @@ const handleSubmit = async (e) => {
             {error && (
               <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg text-sm">
                 {error}
+              </div>
+            )}
+
+            {formError && (
+              <div className="bg-amber-500/10 border-amber-500/30 text-amber-600 px-4 py-3 rounded-lg text-sm border">
+                <div className="flex items-start gap-2">
+                  <span>⏳</span>
+                  <div>
+                    <div className="font-medium">{formError}</div>
+                    {formError.includes('pending') && (
+                      <button
+                        type="button"
+                        onClick={() => navigate('/pending-approval')}
+                        className="mt-2 text-sm text-blue-600 hover:underline"
+                      >
+                        Go to approval status page →
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 

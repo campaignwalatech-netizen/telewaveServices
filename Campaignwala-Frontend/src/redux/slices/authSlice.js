@@ -1,6 +1,8 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import authService from '../../services/authService';
 
+
+
 // Define user roles - ADDED 'TL' role
 export const USER_ROLES = {
   ADMIN: 'admin',
@@ -223,17 +225,10 @@ export const checkTLPermissions = createAsyncThunk(
 // Initial state
 const initialState = {
   // Authentication status
-  isAuthenticated: localStorage.getItem('isLoggedIn') === 'true',
-  user: (() => {
-    try {
-      const userStr = localStorage.getItem('user');
-      return userStr && userStr !== 'undefined' ? JSON.parse(userStr) : null;
-    } catch (e) {
-      return null;
-    }
-  })(),
-  userRole: localStorage.getItem('userType') || USER_ROLES.GUEST,
-  accessToken: localStorage.getItem('accessToken') || null,
+  isAuthenticated: authService.isAuthenticated(),
+  user: authService.getStoredUser(),
+  userRole: authService.getUserRole(),
+  accessToken: authService.getAccessToken(),
   
   // Loading and error states
   isLoading: false,

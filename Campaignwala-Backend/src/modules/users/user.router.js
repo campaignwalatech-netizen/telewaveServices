@@ -116,6 +116,8 @@ const {
 
 
 
+router.get('/details', protect, authorize('admin','TL'), getUserStats);
+
 // Add this to your user.routes.js
 router.get('/test-email', async (req, res) => {
     try {

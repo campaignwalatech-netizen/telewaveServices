@@ -103,9 +103,9 @@ export default function RegisterPage() {
       const registrationData = {
         name,
         email,
+        phoneNumber,
         password,
         confirmPassword,
-        phoneNumber,
       };
 
       console.log("🔍 Registration data before sending:", registrationData);
@@ -219,7 +219,7 @@ export default function RegisterPage() {
             <svg className="w-10 h-10" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
               <rect width="40" height="40" rx="8" fill="#FF9500" />
               <text x="20" y="26" fontSize="20" fontWeight="bold" fill="white" textAnchor="middle">
-                C
+                F
               </text>
             </svg>
             <h2 className="text-3xl font-bold text-foreground">Freelancer Wala</h2>

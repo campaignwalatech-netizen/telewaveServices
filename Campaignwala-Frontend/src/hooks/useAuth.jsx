@@ -1,6 +1,7 @@
 import { useSelector, useDispatch } from 'react-redux';
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import {
   selectIsAuthenticated,
   selectUser,
@@ -32,6 +33,8 @@ export const useAuth = () => {
   const userRole = useSelector(selectUserRole);
   const error = useSelector(selectAuthError);
   const isLoading = useSelector(selectIsLoading);
+
+  
 
   // Register function - Step 1: Send OTP
   const register = useCallback(async (userData) => {
@@ -141,39 +144,40 @@ export const useAuth = () => {
   }, [dispatch, navigate]);
 
   // Verify Login OTP - Step 2: Complete login
-  const verifyLoginOTP = useCallback(async (email, otp) => {
-    try {
-      console.log('🔑 [useAuth] Verifying login OTP for:', email);
-      
-      dispatch(loginStart());
-      
-      const result = await authService.verifyLoginOTP({ email, otp });
-      
-      // Store auth data and complete login
-      authService.storeAuthData(result.data);
-      dispatch(loginSuccess(result.data));
-      
-      // Check if user is approved (for non-admin users)
-      if (result.data.user.role !== 'admin' && result.data.user.status !== 'approved') {
-        // User not approved, redirect to pending approval
-        navigate('/pending-approval', { replace: true });
-        return result;
-      }
-      
-      // Redirect based on role
-      if (result.data.user.role === 'admin') {
-        navigate('/admin', { replace: true });
-      } else {
-        navigate('/user', { replace: true });
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('❌ [useAuth] Login OTP verification error:', error);
-      dispatch(loginFailure(error.message));
-      throw error;
+// Verify Login OTP - Step 2: Complete login
+const verifyLoginOTP = useCallback(async (email, otp) => {
+  try {
+    console.log('🔑 [useAuth] Verifying login OTP for:', email);
+    
+    dispatch(loginStart());
+    
+    const result = await authService.verifyLoginOTP({ email, otp });
+    
+    // Store auth data and complete login
+    authService.storeAuthData(result.data);
+    dispatch(loginSuccess(result.data));
+    
+    // Check if user is approved using authService
+    if (!authService.isUserApproved()) {
+      console.log(`⚠️ [useAuth] User not approved (status: ${authService.getUserRegistrationStatus()}), redirecting to pending approval`);
+      navigate('/pending-approval', { replace: true });
+      return { ...result, requiresApproval: true };
     }
-  }, [dispatch, navigate]);
+    
+    // Redirect based on role
+    if (result.data.user.role === 'admin') {
+      navigate('/admin', { replace: true });
+    } else {
+      navigate('/user', { replace: true });
+    }
+    
+    return result;
+  } catch (error) {
+    console.error('❌ [useAuth] Login OTP verification error:', error);
+    dispatch(loginFailure(error.message));
+    throw error;
+  }
+}, [dispatch, navigate]);
 
   // Admin login function
   const adminLogin = useCallback(async (credentials) => {
@@ -224,18 +228,29 @@ export const useAuth = () => {
   }, []);
 
   // Logout function
-  const logout = useCallback(async () => {
-    try {
-      await authService.logout();
-      dispatch(logoutUser());
-      navigate('/', { replace: true });
-    } catch (error) {
-      // Force logout even if server call fails
-      authService.clearAuthData();
-      dispatch(logoutUser());
-      navigate('/', { replace: true });
-    }
-  }, [dispatch, navigate]);
+  // In useAuth.jsx
+const logout = useCallback(async () => {
+  try {
+    // Use authService logout
+    await authService.logout();
+    
+    // Dispatch logout action to update Redux state
+    dispatch(logoutUser());
+    
+    // Clear API authorization header
+    delete api.defaults.headers.common['Authorization'];
+    
+    // Redirect to login
+    navigate('/', { replace: true });
+  } catch (error) {
+    console.error('Logout error:', error);
+    // Force logout even if server call fails
+    authService.clearAuthData();
+    dispatch(logoutUser());
+    delete api.defaults.headers.common['Authorization'];
+    navigate('/', { replace: true });
+  }
+}, [dispatch, navigate]);
 
   // Clear error function
   const clearAuthError = useCallback(() => {

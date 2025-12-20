@@ -15,48 +15,6 @@ class AuthService {
    * @param {string} userData.phoneNumber - Phone number
    * @returns {Promise<Object>} - Registration response with OTP requirement
    */
-
-  async sendEmailOTP(purpose = 'verification') {
-    try {
-      const response = await api.post('/users/send-email-otp', { purpose });
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Verify Email OTP
-   * @param {string} otp - OTP code to verify
-   * @returns {Promise<Object>} - Verification response
-   */
-  async verifyEmailOTP(otp) {
-    try {
-      const response = await api.post('/users/verify-email-otp', { otp });
-      return response.data;
-    } catch (error) {
-      throw this.handleError(error);
-    }
-  }
-
-  /**
-   * Handle API errors consistently
-   * @param {Error} error - Axios error object
-   * @returns {Error} - Processed error
-   */
-  handleError(error) {
-    if (error.response) {
-      // Server responded with error status
-      const message = error.response.data?.message || 'Operation failed';
-      return new Error(message);
-    } else if (error.request) {
-      // Request made but no response received
-      return new Error('Network error. Please check your connection.');
-    } else {
-      // Something else happened
-      return new Error('An unexpected error occurred.');
-    }
-  }
   async register(userData) {
     try {
       console.log('📤 [AuthService] Sending registration data:', { 
@@ -85,15 +43,16 @@ class AuthService {
       console.log('🔑 [AuthService] Verifying registration OTP for:', otpData.email);
       const response = await api.post('/users/verify-registration', otpData);
       console.log('✅ [AuthService] Registration OTP verification response:', response.data);
+      
       if (response.data.requiresAdminApproval) {
-      // Don't store auth data for pending approval
-      return {
-        ...response.data,
-        requiresAdminApproval: true
-      };
-    }
-    
-    return response.data;
+        // Don't store auth data for pending approval
+        return {
+          ...response.data,
+          requiresAdminApproval: true
+        };
+      }
+      
+      return response.data;
     } catch (error) {
       console.error('❌ [AuthService] Registration OTP verification error:', error.response?.data || error.message);
       throw this.handleError(error);
@@ -332,6 +291,7 @@ class AuthService {
     localStorage.removeItem('user');
     localStorage.removeItem('userEmail');
     localStorage.removeItem('userName');
+    localStorage.removeItem('token');
   }
 
   /**
@@ -343,13 +303,16 @@ class AuthService {
     
     localStorage.setItem('isLoggedIn', 'true');
     localStorage.setItem('accessToken', token);
+    localStorage.setItem('token', token);
     localStorage.setItem('userType', user.role);
     localStorage.setItem('user', JSON.stringify(user));
     localStorage.setItem('userEmail', user.email);
     localStorage.setItem('userName', user.name);
     
     // Set authorization header for future requests
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    if (token) {
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    }
   }
 
   /**
@@ -364,6 +327,177 @@ class AuthService {
       console.error('Error parsing stored user data:', error);
       return null;
     }
+  }
+
+  /**
+   * Check if user is approved (registration status check)
+   * @returns {boolean} - Whether user is approved
+   */
+  isUserApproved() {
+    try {
+      const user = this.getStoredUser();
+      return user ? user.registrationStatus === 'approved' : false;
+    } catch (error) {
+      console.error('Error checking user approval status:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get user registration status
+   * @returns {string|null} - Registration status
+   */
+  getUserRegistrationStatus() {
+    try {
+      const user = this.getStoredUser();
+      return user ? user.registrationStatus : null;
+    } catch (error) {
+      console.error('Error getting user registration status:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if user needs admin approval
+   * @returns {boolean} - Whether user needs approval
+   */
+  needsAdminApproval() {
+    try {
+      const user = this.getStoredUser();
+      return user ? user.registrationStatus === 'admin_approval_pending' : false;
+    } catch (error) {
+      console.error('Error checking admin approval status:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Refresh user data from API
+   * @returns {Promise<Object|null>} - Updated user data
+   */
+  async refreshUserData() {
+    try {
+      const response = await this.getProfile();
+      if (response.success && response.data.user) {
+        // Update stored user data
+        const currentUser = this.getStoredUser();
+        const updatedUser = {
+          ...currentUser,
+          ...response.data.user,
+          registrationStatus: response.data.user.registrationStatus || currentUser?.registrationStatus
+        };
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        return updatedUser;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Verify login using auth routes (alternative endpoint)
+   * @param {Object} data - Login verification data
+   * @param {string} data.email - User email
+   * @param {string} data.otp - OTP code
+   * @returns {Promise<Object>} - Verification response
+   */
+  async verifyAuthLoginOTP(data) {
+    try {
+      console.log('🔑 [AuthService] Verifying login via auth route:', data.email);
+      const response = await api.post('/auth/verify-login-otp', data);
+      console.log('✅ [AuthService] Auth login verification response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [AuthService] Auth login verification error:', error.response?.data || error.message);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Register via auth routes (alternative endpoint)
+   * @param {Object} userData - User registration data
+   * @returns {Promise<Object>} - Registration response
+   */
+  async authRegister(userData) {
+    try {
+      console.log('📤 [AuthService] Sending registration via auth route:', { 
+        ...userData, 
+        password: '***', 
+        confirmPassword: '***' 
+      });
+      const response = await api.post('/auth/register', userData);
+      console.log('✅ [AuthService] Auth registration response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [AuthService] Auth registration error:', error.response?.data || error.message);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Verify registration via auth routes (alternative endpoint)
+   * @param {Object} otpData - OTP verification data
+   * @returns {Promise<Object>} - Registration verification response
+   */
+  async verifyAuthRegistrationOTP(otpData) {
+    try {
+      console.log('🔑 [AuthService] Verifying registration via auth route:', otpData.email);
+      const response = await api.post('/auth/verify-registration', otpData);
+      console.log('✅ [AuthService] Auth registration verification response:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ [AuthService] Auth registration verification error:', error.response?.data || error.message);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Verify if current session is still valid
+   * @returns {Promise<boolean>} - Session validity
+   */
+  async verifySession() {
+    try {
+      const token = this.getAccessToken();
+      if (!token) {
+        return false;
+      }
+
+      // Try to get user profile to verify token
+      await this.getProfile();
+      return true;
+    } catch (error) {
+      console.warn('Session verification failed:', error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Setup authorization header for API calls
+   * @param {string} token - Authorization token
+   */
+  setupAuthHeader(token) {
+    if (token) {
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete api.defaults.headers.common['Authorization'];
+    }
+  }
+
+  /**
+   * Initialize auth from storage (on app load)
+   */
+  initializeAuthFromStorage() {
+    const token = localStorage.getItem('token');
+    const user = this.getStoredUser();
+    
+    if (token && user) {
+      this.setupAuthHeader(token);
+      return { token, user };
+    }
+    
+    return null;
   }
 }
 

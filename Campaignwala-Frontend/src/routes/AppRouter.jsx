@@ -1,5 +1,13 @@
 import { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import authService from '../services/authService';
+
+
 
 // TL Dashboard imports
 import TLDashboardLayout from "../tlDashboard/Components/TLDashboardLayout";
@@ -113,10 +121,39 @@ export default function AppRouter() {
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem("darkMode") === "true";
   });
+   const [isAuthInitialized, setIsAuthInitialized] = useState(false);
+
+
+   // Initialize auth from storage on app load
+  useEffect(() => {
+    const authData = authService.initializeAuthFromStorage();
+    if (authData) {
+      console.log('✅ Auth initialized from storage:', authData.user?.email);
+    }
+    setIsAuthInitialized(true);
+    
+    // Verify session periodically
+    const verifySession = async () => {
+      const isValid = await authService.verifySession();
+      if (!isValid) {
+        authService.clearAuthData();
+      }
+    };
+    
+    // Verify session every 5 minutes
+    const interval = setInterval(verifySession, 5 * 60 * 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
 
   useEffect(() => {
     localStorage.setItem("darkMode", darkMode);
   }, [darkMode]);
+
+  if (!isAuthInitialized) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <Router>
@@ -125,76 +162,121 @@ export default function AppRouter() {
         <Route path="/" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/verify-otp" element={<OtpVerification />} />
-        <Route path="/pending-approval" element={<PendingApproval darkMode={darkMode} />} /> {/* MOVE THIS HERE */}
+        <Route path="/pending-approval" element={<PendingApproval darkMode={darkMode} />} />
+        {/* MOVE THIS HERE */}
 
         {/* Public Share Link Route */}
-        <Route path="/share/:offerId/:hrUserId" element={<SharedOfferForm darkMode={darkMode} />} />
-
+        <Route
+          path="/share/:offerId/:hrUserId"
+          element={<SharedOfferForm darkMode={darkMode} />}
+        />
         {/* Admin Dashboard Routes */}
         <Route 
           path="/admin/*" 
           element={
-            <RoleBasedRoute role="admin">
+            <RoleBasedRoute role="admin" requireApproval={false}>
               <App />
             </RoleBasedRoute>
           }
         >
           {/* Default route - redirect to dashboard */}
-          <Route index element={<Navigate to="dashboard" replace />} /> 
+          <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<MainDashboard />} />
-          
+
           {/* ==================== DATA MANAGEMENT ROUTES ==================== */}
-          <Route path="data" element={<Navigate to="data/dashboard" replace />} />
+          <Route
+            path="data"
+            element={<Navigate to="data/dashboard" replace />}
+          />
           <Route path="data/dashboard" element={<DataDashboard />} />
           <Route path="data/distribute" element={<DistributeDataPage />} />
           <Route path="data/upload" element={<UploadDataPage />} />
           <Route path="data/called" element={<CalledDataPage />} />
           <Route path="data/closed" element={<ClosedDataPage />} />
-          
+
           {/* Manage Account routes */}
-          <Route path="manage-account" element={<Navigate to="all-Offers" replace />} />
+          <Route
+            path="manage-account"
+            element={<Navigate to="all-Offers" replace />}
+          />
           <Route path="all-Offers" element={<AllOffersTable />} />
           <Route path="add-Offers" element={<AddOffersForm />} />
           <Route path="approve-Offers" element={<ApproveOffersTable />} />
-          
+
           {/* Manage Category routes */}
-          <Route path="manage-category" element={<Navigate to="all-categories" replace />} />
+          <Route
+            path="manage-category"
+            element={<Navigate to="all-categories" replace />}
+          />
           <Route path="all-categories" element={<AllCategoriesTable />} />
           <Route path="add-category" element={<AddCategoryForm />} />
-          
+
           {/* Leads routes */}
-          <Route path="leads" element={<Navigate to="abc-analytics" replace />} />
+          <Route
+            path="leads"
+            element={<Navigate to="abc-analytics" replace />}
+          />
           <Route path="abc-analytics" element={<ABCAnalytics />} />
-          <Route path="leads-pending" element={<LeadsTable status="pending" />} />
-          <Route path="leads-approved" element={<LeadsTable status="approved" />} />
-          <Route path="leads-completed" element={<LeadsTable status="completed" />} />
-          <Route path="leads-rejected" element={<LeadsTable status="rejected" />} />
-          
+          <Route
+            path="leads-pending"
+            element={<LeadsTable status="pending" />}
+          />
+          <Route
+            path="leads-approved"
+            element={<LeadsTable status="approved" />}
+          />
+          <Route
+            path="leads-completed"
+            element={<LeadsTable status="completed" />}
+          />
+          <Route
+            path="leads-rejected"
+            element={<LeadsTable status="rejected" />}
+          />
+
           {/* User Management routes */}
-          <Route path="user-management" element={<Navigate to="all-users" replace />} />
+          <Route
+            path="user-management"
+            element={<Navigate to="all-users" replace />}
+          />
           <Route path="all-approved-users" element={<ApprovedUsers />} />
           <Route path="all-users" element={<AllUsers />} />
           <Route path="present-users" element={<PresentUsers />} />
           <Route path="all-tl" element={<AllTeamLeaders />} />
           <Route path="not-approved" element={<NotApprovedUsers />} />
-          <Route path="all-active-users" element={<UsersTable userType="active" />} />
-          <Route path="all-hold-users" element={<UsersTable userType="hold" />} />
+          <Route
+            path="all-active-users"
+            element={<UsersTable userType="active" />}
+          />
+          <Route
+            path="all-hold-users"
+            element={<UsersTable userType="hold" />}
+          />
           <Route path="all-ex-users" element={<UsersTable userType="ex" />} />
-          
+
           {/* Slide Board routes */}
-          <Route path="slideboard" element={<Navigate to="all-slides" replace />} />
+          <Route
+            path="slideboard"
+            element={<Navigate to="all-slides" replace />}
+          />
           <Route path="all-slides" element={<AllSlidesTable />} />
           <Route path="add-slide" element={<AddSlideForm />} />
-          
+
           {/* Payment Withdrawal */}
-          <Route path="payment-withdrawal" element={<PaymentWithdrawalTable />} />
-          
+          <Route
+            path="payment-withdrawal"
+            element={<PaymentWithdrawalTable />}
+          />
+
           {/* Notifications routes */}
           <Route path="notifications" element={<AdminDashboard />} />
-          <Route path="notifications/incomplete-profile" element={<IncompleteProfilePage />} />
+          <Route
+            path="notifications/incomplete-profile"
+            element={<IncompleteProfilePage />}
+          />
           <Route path="notifications/hot-offers" element={<HotOffersPage />} />
           <Route path="notifications/history" element={<HistoryPage />} />
-          
+
           {/* Miscellaneous routes */}
           <Route path="miscellaneous" element={<ResetPasswordForm />} />
           <Route path="reset-password" element={<ResetPasswordForm />} />
@@ -205,19 +287,18 @@ export default function AppRouter() {
           {/* Settings */}
           <Route path="settings" element={<SettingsPage />} />
         </Route>
-
         {/* TL Dashboard Routes */}
         <Route
           path="/tl/*"
           element={
-            <RoleBasedRoute role="TL">
+            <RoleBasedRoute role="TL" requireApproval={true}>
               <TLDashboardLayout />
             </RoleBasedRoute>
           }
         >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<TLDashboard />} />
-          
+
           {/* ==================== TL DATA MANAGEMENT ROUTES ==================== */}
           <Route path="data/distribute" element={<TLDistributeDataPage />} />
           <Route path="teamList" element={<TeamManagement />} />
@@ -230,42 +311,79 @@ export default function AppRouter() {
           <Route path="queries" element={<TLQueries />} />
           <Route path="settings" element={<TLSettings />} />
         </Route>
-
         {/* User Dashboard */}
         <Route
           path="/user/*"
           element={
-            <RoleBasedRoute role="user">
+            <RoleBasedRoute role="user" requireApproval={true}>
               <UserDashboardLayout darkMode={darkMode} setDarkMode={setDarkMode} />
             </RoleBasedRoute>
           }
         >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard darkMode={darkMode} />} />
-          
+
           {/* ==================== USER DATA MANAGEMENT ROUTES ==================== */}
-          <Route path="data-today" element={<UserTodayDataPage darkMode={darkMode} />} />
-          
+          <Route
+            path="data-today"
+            element={<UserTodayDataPage darkMode={darkMode} />}
+          />
+
           {/* Legacy leads routes (for compatibility) */}
           <Route path="all-leads" element={<AllLeads darkMode={darkMode} />} />
-          <Route path="leads-today" element={<TodayLeads darkMode={darkMode} />} />
-          <Route path="leads-previous" element={<PreviousLeads darkMode={darkMode} />} />
-          <Route path="leads-closed" element={<ClosedLeads darkMode={darkMode} />} />
-          
+          <Route
+            path="leads-today"
+            element={<TodayLeads darkMode={darkMode} />}
+          />
+          <Route
+            path="leads-previous"
+            element={<PreviousLeads darkMode={darkMode} />}
+          />
+          <Route
+            path="leads-closed"
+            element={<ClosedLeads darkMode={darkMode} />}
+          />
+
           <Route path="wallet" element={<Wallet darkMode={darkMode} />} />
           <Route path="profile" element={<Profile darkMode={darkMode} />} />
-          <Route path="demat-account" element={<DematAccount darkMode={darkMode} />} />
-          <Route path="category-offers/:categoryId" element={<DematAccount darkMode={darkMode} />} />
-          <Route path="zerofee-demat" element={<ZeroFeeDemat darkMode={darkMode} />} />
-          <Route path="zerofee-demat/:offerId" element={<ZeroFeeDemat darkMode={darkMode} />} />
-          <Route path="wallet-withdrawl" element={<WalletAndWithdrawl darkMode={darkMode} />} />
-          <Route path="profile-overview" element={<ProfileOverview darkMode={darkMode} />} />
-          <Route path="kyc-details" element={<KYCDetails darkMode={darkMode} />} />
-          <Route path="total-balance" element={<TotalBalance darkMode={darkMode} />} />
-          <Route path="notification-page" element={<NotificationsPage darkMode={darkMode} />} />
+          <Route
+            path="demat-account"
+            element={<DematAccount darkMode={darkMode} />}
+          />
+          <Route
+            path="category-offers/:categoryId"
+            element={<DematAccount darkMode={darkMode} />}
+          />
+          <Route
+            path="zerofee-demat"
+            element={<ZeroFeeDemat darkMode={darkMode} />}
+          />
+          <Route
+            path="zerofee-demat/:offerId"
+            element={<ZeroFeeDemat darkMode={darkMode} />}
+          />
+          <Route
+            path="wallet-withdrawl"
+            element={<WalletAndWithdrawl darkMode={darkMode} />}
+          />
+          <Route
+            path="profile-overview"
+            element={<ProfileOverview darkMode={darkMode} />}
+          />
+          <Route
+            path="kyc-details"
+            element={<KYCDetails darkMode={darkMode} />}
+          />
+          <Route
+            path="total-balance"
+            element={<TotalBalance darkMode={darkMode} />}
+          />
+          <Route
+            path="notification-page"
+            element={<NotificationsPage darkMode={darkMode} />}
+          />
           <Route path="query" element={<UserQueryForm darkMode={darkMode} />} />
         </Route>
-
         {/* Fallback Route - Redirect to login if not authenticated */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

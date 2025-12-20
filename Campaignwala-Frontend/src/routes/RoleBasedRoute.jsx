@@ -1,15 +1,22 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { selectIsAuthenticated, selectUserRole, selectIsLoading } from '../redux/slices/authSlice';
+import { 
+  selectIsAuthenticated, 
+  selectUserRole, 
+  selectIsLoading,
+  selectUser 
+} from '../redux/slices/authSlice';
 import Loader from '../components/Loader';
+import authService from '../services/authService';
 
 /**
- * Role-based Route Component
- * Restricts access based on user role
+ * Role-based Route Component with Registration Status Check
+ * Restricts access based on user role AND registration status
  */
 const RoleBasedRoute = ({
   children,
   role, // Expected role: 'admin', 'user', or 'TL'
+  requireApproval = true, // Whether to check registration status (true for users/TLs, false for admin)
   redirectTo = '/',
   fallback = <Loader />
 }) => {
@@ -17,25 +24,15 @@ const RoleBasedRoute = ({
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const userRole = useSelector(selectUserRole);
   const isLoading = useSelector(selectIsLoading);
-
-  // Debug logs
-  console.log('RoleBasedRoute Debug:', {
-    path: location.pathname,
-    isAuthenticated,
-    userRole,
-    expectedRole: role,
-    isLoading
-  });
+  const user = useSelector(selectUser);
 
   // Show loading fallback while auth state is being determined
   if (isLoading) {
-    console.log('Showing loader...');
     return fallback;
   }
 
   // Check authentication
   if (!isAuthenticated) {
-    console.log('Not authenticated, redirecting to:', redirectTo);
     return (
       <Navigate 
         to={redirectTo} 
@@ -47,8 +44,6 @@ const RoleBasedRoute = ({
 
   // Check role-based access
   if (userRole !== role) {
-    console.log(`Role mismatch: User has role "${userRole}", expected "${role}"`);
-    
     // Redirect to appropriate dashboard based on user role
     let dashboardRoute = '/';
     switch (userRole) {
@@ -65,7 +60,6 @@ const RoleBasedRoute = ({
         dashboardRoute = '/';
     }
     
-    console.log('Redirecting to dashboard:', dashboardRoute);
     return (
       <Navigate 
         to={dashboardRoute} 
@@ -75,7 +69,20 @@ const RoleBasedRoute = ({
     );
   }
 
-  console.log('All checks passed, rendering children');
+  // Check registration status for non-admin users using authService
+  if (requireApproval && userRole !== 'admin') {
+    if (!authService.isUserApproved()) {
+      console.log(`⚠️ User is not approved (status: ${authService.getUserRegistrationStatus()}), redirecting to pending approval`);
+      return (
+        <Navigate 
+          to="/pending-approval" 
+          state={{ from: location.pathname }} 
+          replace 
+        />
+      );
+    }
+  }
+
   // All checks passed, render the protected content
   return children;
 };
