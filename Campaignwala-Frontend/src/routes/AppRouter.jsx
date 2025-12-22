@@ -82,7 +82,7 @@ import ZeroFeeDemat from "../userDashboard/layouts/ZeroFreeDemat";
 import WalletAndWithdrawl from "../userDashboard/layouts/Wallet&Withdrawl";
 import ProfileOverview from "../userDashboard/layouts/ProfileOverview";
 import KYCDetails from "../userDashboard/layouts/KYCDetails";
-import TotalBalance from "../userDashboard/layouts/TotalBalance";
+// import TotalBalance from "../userDashboard/layouts/TotalBalance";
 import NotificationsPage from "../userDashboard/layouts/NotificationPage";
 import SharedOfferForm from "../userDashboard/pages/SharedOfferForm";
 import UserQueryForm from "../userDashboard/pages/UserQueryForm";
@@ -374,10 +374,7 @@ export default function AppRouter() {
             path="kyc-details"
             element={<KYCDetails darkMode={darkMode} />}
           />
-          <Route
-            path="total-balance"
-            element={<TotalBalance darkMode={darkMode} />}
-          />
+          
           <Route
             path="notification-page"
             element={<NotificationsPage darkMode={darkMode} />}
