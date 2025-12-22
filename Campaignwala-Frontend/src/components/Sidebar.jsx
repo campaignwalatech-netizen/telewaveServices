@@ -149,10 +149,13 @@ export default function Sidebar() {
       >
         <div className="p-6 h-full overflow-y-auto scrollbar-hide flex flex-col">
           <div className="flex items-center gap-3 mb-10 pb-6 border-b border-sidebar-border/30">
-            <span className="inline-flex items-center justify-center w-11 h-11 rounded-full bg-card border-2 border-primary overflow-hidden flex-shrink-0 shadow-xl">
+            <span className="inline-flex items-center justify-center w-11 h-11 rounded-full bg-card border-2 border-gray-400 overflow-hidden flex-shrink-0 shadow-xl">
               <img src="/logo.jpeg" alt="Logo" className="w-full h-full object-cover" />
             </span>
-            <h1 className="text-xl font-bold text-sidebar-foreground tracking-tight">Freelancerwala</h1>
+            <h1 className="text-xl font-bold text-sidebar-foreground tracking-tight">
+            <span className="font-bold text-lg">
+                Freelancer<span className="text-yellow-500"> Wala</span>
+              </span></h1>
           </div>
           <nav className="space-y-1 flex-1">
             {menuItems.map((item) => {

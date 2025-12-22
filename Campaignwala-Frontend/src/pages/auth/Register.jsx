@@ -216,10 +216,14 @@ export default function RegisterPage() {
       <div className="hidden md:flex md:w-1/2 bg-muted/30 flex-col items-center justify-center p-8">
         <div className="max-w-md text-center">
           <div className="flex flex-col items-center justify-center gap-2 mb-8">
-            <span className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-card border-2 border-primary overflow-hidden mb-2">
+            <span className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-card border-2 border-gray-400 overflow-hidden mb-2">
               <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" />
             </span>
-            <h2 className="text-3xl font-bold text-foreground">Freelancer Wala</h2>
+            <h1 className="text-3xl font-bold text-foreground">
+            <span className="font-bold text-lg">
+                Freelancer<span className="text-yellow-500"> Wala</span>
+              </span>
+            </h1>
           </div>
 
           {/* Image */}

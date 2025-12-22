@@ -240,11 +240,11 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
             <img
               src="/logo.jpeg"
               alt="Logo"
-              className="w-8 h-8 rounded-full object-cover border-1 border-black-900"
+              className="w-8 h-8 rounded-full object-cover border-2 border-gray-400"
             />
             {!isMobile && (
               <span className="font-bold text-lg">
-                Freelancer<span className="text-black-500"> Wala</span>
+                Freelancer<span className="text-yellow-500"> Wala</span>
               </span>
             )}
           </div>
