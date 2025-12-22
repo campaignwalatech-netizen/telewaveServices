@@ -320,15 +320,19 @@ export default function AdminSidebar({
       <div className="flex flex-col h-full">
         {/* Logo Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
+          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center shadow-md">
-              <span className="text-white font-bold text-lg">A</span>
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-800 dark:text-white">Admin Panel</h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Lead Management System</p>
-            </div>
+            <img
+              src="/logo.jpeg"
+              alt="Logo"
+              className="w-8 h-8 rounded-full object-cover border-1 border-black-900"
+            />
+              <span className="font-bold text-lg">
+                Freelancer<span className="text-black-500"> Wala</span>
+              </span>
+            
           </div>
+        </div>
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400"

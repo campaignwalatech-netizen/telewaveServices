@@ -215,20 +215,18 @@ export default function RegisterPage() {
       {/* ---------- LEFT PANEL ---------- */}
       <div className="hidden md:flex md:w-1/2 bg-muted/30 flex-col items-center justify-center p-8">
         <div className="max-w-md text-center">
-          <div className="flex items-center justify-center gap-2 mb-8">
-            <svg className="w-10 h-10" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect width="40" height="40" rx="8" fill="#FF9500" />
-              <text x="20" y="26" fontSize="20" fontWeight="bold" fill="white" textAnchor="middle">
-                F
-              </text>
-            </svg>
+          <div className="flex flex-col items-center justify-center gap-2 mb-8">
+            <span className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-card border-2 border-primary overflow-hidden mb-2">
+              <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" />
+            </span>
             <h2 className="text-3xl font-bold text-foreground">Freelancer Wala</h2>
           </div>
 
+          {/* Image */}
           <div className="mb-8 w-64 mx-auto">
             <img
               src="https://leads.freelancerwaala.com/new_year.gif"
-              alt="Freelancer Illustration"
+              alt="Freelancer"
               className="w-full rounded-lg shadow-lg"
             />
           </div>

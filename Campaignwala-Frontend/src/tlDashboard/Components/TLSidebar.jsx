@@ -32,6 +32,7 @@ export default function TLSidebar() {
   const menuItems = [
   { id: "dashboard", label: "Dashboard", icon: Home, path: "/tl/dashboard" },
   { id: "teamList", label: "HR List", icon: Users, path: "/tl/teamList" },
+  { id: "LeadsManage", label: "Leads Manage", icon: Users, path: "/tl/leads/manage" },
   // { id: "data", label: "Data Management", icon: Briefcase, path: "/tl/data" },
   { id: "distribute-data", label: "Distribute Data", icon: Share2, path: "/tl/data/distribute" },
   { id: "performance", label: "Check HR Performance", icon: TrendingUp, path: "/tl/performance" },
@@ -71,15 +72,18 @@ export default function TLSidebar() {
         `}
       >
         {/* Logo Section */}
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <Award className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-800 dark:text-white">Team Leader</h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Dashboard</p>
-            </div>
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <img
+              src="/logo.jpeg"
+              alt="Logo"
+              className="w-8 h-8 rounded-full object-cover border-1 border-black-900"
+            />
+            {(
+              <span className="font-bold text-lg">
+                Freelancer<span className="text-black-500"> Wala</span>
+              </span>
+            )}
           </div>
         </div>
 

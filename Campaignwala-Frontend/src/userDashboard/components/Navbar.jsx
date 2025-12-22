@@ -236,19 +236,16 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
           </button>
 
           {/* LOGO - Hide text on very small screens */}
-          <div className="flex items-center gap-1 md:gap-2 cursor-default select-none">
-            <div className="w-6 h-6 md:w-8 md:h-8 flex-shrink-0">
-              <svg viewBox="0 0 1189 1189" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
-                <circle cx="594.5" cy="594.5" r="594.5" fill="#000"/>
-                <circle cx="594.5" cy="594.5" r="534.5" fill="none" stroke="#fff" strokeWidth="40"/>
-                <circle cx="594.5" cy="594.5" r="474.5" fill="none" stroke="#fff" strokeWidth="40"/>
-                <text x="594.5" y="700" fontFamily="Georgia" fontSize="380" fill="#fff" textAnchor="middle" fontWeight="bold">CW</text>
-              </svg>
-            </div>
+          <div className="flex items-center gap-2">
+            <img
+              src="/logo.jpeg"
+              alt="Logo"
+              className="w-8 h-8 rounded-full object-cover border-1 border-black-900"
+            />
             {!isMobile && (
-              <h1 className={`text-sm md:text-lg font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>
-                Freelancer<span className="text-black">Wala</span>
-              </h1>
+              <span className="font-bold text-lg">
+                Freelancer<span className="text-black-500"> Wala</span>
+              </span>
             )}
           </div>
         </div>

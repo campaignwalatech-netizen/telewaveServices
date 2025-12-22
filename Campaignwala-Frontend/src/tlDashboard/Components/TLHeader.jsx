@@ -154,18 +154,7 @@ export default function TLHeader({ isDark, onThemeToggle, onLogout }) {
           {/* Left Section - Quick Stats */}
           <div className="flex items-center space-x-6">
             <div className="hidden md:flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Users className="w-5 h-5 text-blue-500" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Team: 12</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <BarChart3 className="w-5 h-5 text-green-500" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Leads: 45</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <TrendingUp className="w-5 h-5 text-purple-500" />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Conversion: 68%</span>
-              </div>
+              
             </div>
           </div>
 
@@ -355,45 +344,7 @@ export default function TLHeader({ isDark, onThemeToggle, onLogout }) {
           </div>
         </div>
 
-        {/* Quick Actions Bar */}
-        <div className="px-4 pb-3 flex items-center space-x-4 overflow-x-auto">
-          <button
-            onClick={() => handleQuickActions('assign')}
-            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
-          >
-            {/* <Share2 className="w-4 h-4" />
-            <span>Assign Lead</span> */}
-            <span>Assign Lead</span>
-          </button>
-
-          <button
-            onClick={() => handleQuickActions('approve')}
-            className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
-          >
-            {/* <UserCheck className="w-4 h-4" />
-            <span>Approve Leads</span> */}
-            <span>Approve Leads</span>
-          </button>
-
-          <button
-            onClick={() => handleQuickActions('report')}
-            className="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>Generate Report</span>
-          </button>
-
-          <button
-            onClick={() => {
-              // Navigate to team performance
-              navigate("/team-stats");
-            }}
-            className="px-3 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
-          >
-            <TrendingUp className="w-4 h-4" />
-            <span>Team Stats</span>
-          </button>
-        </div>
+        
       </div>
     </header>
   );
