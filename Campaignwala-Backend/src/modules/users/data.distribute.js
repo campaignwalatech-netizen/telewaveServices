@@ -840,7 +840,7 @@ dataDistributionSchema.pre('save', function(next) {
 // ==================== INDEXES ====================
 
 dataDistributionSchema.index({ contact: 1 });
-dataDistributionSchema.index({ batchNumber: 1 });
+// Removed duplicate index - batchNumber already has index: true which creates index
 dataDistributionSchema.index({ distributionStatus: 1 });
 dataDistributionSchema.index({ assignedTo: 1 });
 dataDistributionSchema.index({ assignedType: 1 });

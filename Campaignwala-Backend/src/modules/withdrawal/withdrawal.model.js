@@ -102,7 +102,7 @@ withdrawalSchema.pre('save', async function(next) {
 withdrawalSchema.index({ userId: 1 });
 withdrawalSchema.index({ status: 1 });
 withdrawalSchema.index({ requestDate: -1 });
-withdrawalSchema.index({ withdrawalId: 1 });
+// Removed duplicate index - withdrawalId already has unique: true which creates index
 
 const Withdrawal = mongoose.model('Withdrawal', withdrawalSchema);
 

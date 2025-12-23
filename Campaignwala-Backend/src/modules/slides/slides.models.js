@@ -47,6 +47,6 @@ const slideSchema = new mongoose.Schema({
 // Index for faster queries
 slideSchema.index({ status: 1, order: 1 });
 slideSchema.index({ category: 1 });
-slideSchema.index({ OffersId: 1 });
+// Removed duplicate index - OffersId already has unique: true which creates index
 
 module.exports = mongoose.model('Slide', slideSchema);

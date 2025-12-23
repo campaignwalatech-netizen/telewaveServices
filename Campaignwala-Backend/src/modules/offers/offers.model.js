@@ -278,10 +278,10 @@ offerSchema.statics.getStats = async function() {
 // ==================== INDEXES ====================
 
 offerSchema.index({ category: 1 });
-offerSchema.index({ status: 1 });
-offerSchema.index({ isApproved: 1 });
+// Removed duplicate index - status already has index: true which creates index
+// Removed duplicate index - isApproved already has index: true which creates index
 offerSchema.index({ createdAt: -1 });
-offerSchema.index({ offersId: 1 });
+// Removed duplicate index - offersId already has unique: true and index: true which create index
 offerSchema.index({ expiryDate: 1 });
 offerSchema.index({ name: 'text', description: 'text', tags: 'text' }); // Text search
 

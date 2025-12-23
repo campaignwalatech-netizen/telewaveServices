@@ -29,6 +29,23 @@ class UserService {
     }
   }
 
+  async getTeamUsersWithStats(params = {}) {
+    try {
+      console.log("🌐 userService.getTeamUsersWithStats called with:", params);
+      const response = await api.get("/users/tl/team-users-with-stats", {
+        params,
+      });
+      console.log(
+        "✅ userService.getTeamUsersWithStats response:",
+        response.data
+      );
+      return response.data;
+    } catch (error) {
+      console.error("❌ userService.getTeamUsersWithStats error:", error);
+      throw this.handleError(error);
+    }
+  }
+
   async getPresentUsers(params = {}) {
     try {
       console.log("🌐 userService.getPresentUsers called with:", params);

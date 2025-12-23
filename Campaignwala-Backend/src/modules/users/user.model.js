@@ -1630,8 +1630,7 @@ userSchema.methods.getTeamDataStats = async function() {
     };
 };
 
-userSchema.index({ email: 1 });
-userSchema.index({ phoneNumber: 1 });
+// Removed duplicate indexes - email and phoneNumber already have unique: true which creates indexes
 userSchema.index({ role: 1 });
 userSchema.index({ status: 1 });
 userSchema.index({ isActive: 1 });

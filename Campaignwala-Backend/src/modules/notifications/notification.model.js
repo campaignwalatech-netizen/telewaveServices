@@ -100,7 +100,7 @@ notificationSchema.pre('save', async function(next) {
 notificationSchema.index({ type: 1 });
 notificationSchema.index({ status: 1 });
 notificationSchema.index({ sentDate: -1 });
-notificationSchema.index({ notificationId: 1 });
+// Removed duplicate index - notificationId already has unique: true which creates index
 notificationSchema.index({ sentBy: 1 });
 notificationSchema.index({ title: 'text', message: 'text' });
 

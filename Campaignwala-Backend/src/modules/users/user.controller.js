@@ -33,6 +33,66 @@ const sendOTP = async (req, res) => {
     }
 };
 
+const getTeamUsersWithStats = async (req, res) => {
+    try {
+        const { page = 1, limit = 20, search = '', status = 'all' } = req.query;
+        const loggedInUserId = req.user.id;
+        
+        // Build query - always filter by reportingTo for TLs
+        const query = { 
+            role: 'user',
+            reportingTo: loggedInUserId  // Automatically filter by logged-in TL
+        };
+        
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } },
+                { phoneNumber: { $regex: search, $options: 'i' } }
+            ];
+        }
+        
+        if (status !== 'all') {
+            query.status = status;
+        }
+        
+        const skip = (page - 1) * limit;
+        const total = await User.countDocuments(query);
+        
+        // Fetch users with necessary population
+        const users = await User.find(query)
+            .skip(skip)
+            .limit(parseInt(limit))
+            .populate('reportingTo', 'name email phoneNumber')
+            .populate('attendance')
+            .populate('rollback')
+            .populate('financials')
+            .populate('statistics')
+            .populate('leadDistribution');
+        
+        res.status(200).json({
+            success: true,
+            data: {
+                users,
+                pagination: {
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    total,
+                    pages: Math.ceil(total / limit)
+                }
+            }
+        });
+        
+    } catch (error) {
+        console.error('Get team users with stats error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get team users with stats',
+            error: error.message
+        });
+    }
+};
+
 // get all teamleaders with active status
 
 const getTeamLeadersWithActiveStatus = async (req, res) => {
@@ -4595,6 +4655,7 @@ module.exports = {
     exportPendingUsers,
     approveAndAssignTL,
     getTeamLeadersWithActiveStatus,
+    getTeamUsersWithStats,
     
     // Legacy functions
     sendOTP

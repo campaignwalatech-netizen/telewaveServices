@@ -99,6 +99,7 @@ const {
     getNotApprovedUsers,
     approveAndAssignTL,
     getTeamLeadersWithActiveStatus,
+    getTeamUsersWithStats,
 } = require('./user.controller');
 
 const {
@@ -115,6 +116,8 @@ const {
 } = require('../../middleware/user.middleware');
 
 
+
+router.get('/tl/team-users-with-stats', authenticateToken, authorize('TL', 'admin'), getTeamUsersWithStats);
 
 router.get('/details', protect, authorize('admin','TL'), getUserStats);
 
@@ -1181,7 +1184,7 @@ router.post('/admin/users/:userId/approve', authenticateToken, requireAdmin, app
  *       200:
  *         description: User marked as Hold
  */
-router.post('/admin/users/:userId/hold', authenticateToken, requireAdmin, markUserHold);
+router.post('/admin/users/:userId/hold', authenticateToken, authorize('TL','admin'), markUserHold);
 
 /**
  * @swagger
@@ -1652,7 +1655,7 @@ router.get('/tl/dashboard-stats', authenticateToken, requireTL, getDashboardStat
  *       200:
  *         description: Team members retrieved successfully
  */
-router.get('/tl/team-members', protect, requireTL, getTeamMembers);
+router.get('/tl/team-members', protect, authorize('TL'), getTeamMembers);
 
 /**
  * @swagger
@@ -1883,7 +1886,7 @@ router.post('/send-otp', sendOTP);
  *       200:
  *         description: Users with statistics retrieved successfully
  */
-router.get('/admin/users-with-stats', authenticateToken, requireAdmin, getAllUsersWithStats);
+router.get('/admin/users-with-stats', authenticateToken, authorize('TL', 'admin'), getAllUsersWithStats);
 
 /**
  * @swagger

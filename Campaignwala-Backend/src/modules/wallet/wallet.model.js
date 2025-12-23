@@ -332,7 +332,7 @@ walletSchema.statics.findWithPendingWithdrawals = function() {
 
 // ==================== INDEXES ====================
 
-walletSchema.index({ userId: 1 });
+// Removed duplicate index - userId already has unique: true and index: true which create index
 walletSchema.index({ 'transactions.createdAt': -1 });
 walletSchema.index({ 'transactions.leadId': 1 });
 walletSchema.index({ 'transactions.withdrawalId': 1 });

@@ -138,7 +138,7 @@ querySchema.index({ status: 1 });
 querySchema.index({ priority: 1 });
 querySchema.index({ category: 1 });
 querySchema.index({ createdAt: -1 });
-querySchema.index({ queryId: 1 });
+// Removed duplicate index - queryId already has unique: true which creates index
 querySchema.index({ user: 'text', subject: 'text', message: 'text' });
 
 // Virtual for reply count

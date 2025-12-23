@@ -162,7 +162,7 @@ router.get('/admin/batch-stats/:batchNumber',
 // Get TL's assigned data
 router.get('/tl/data', 
     protect,
-    authorize('TL'), 
+    authorize('TL','admin'), 
     DataController.getTLData
 );
 
@@ -176,7 +176,7 @@ router.post('/tl/distribute',
 // TL withdraws data from team
 router.post('/tl/withdraw', 
     protect, 
-    authorize('TL'), 
+    authorize('TL','admin'), 
     DataController.tlWithdrawData
 );
 
@@ -190,7 +190,7 @@ router.get('/tl/statistics',
 // Get TL's withdrawn data
 router.get('/tl/withdrawn-data', 
     protect, 
-    authorize('TL'), 
+    authorize('TL', 'admin'), 
     DataController.getWithdrawnData
 );
 
@@ -199,7 +199,7 @@ router.get('/tl/withdrawn-data',
 // Get user's assigned data
 router.get('/user/data', 
     protect, 
-    authorize('user'), 
+    authorize('TL', 'user'), 
     DataController.getUserData
 );
 
@@ -220,7 +220,7 @@ router.post('/user/bulk-update-status',
 // Get user statistics
 router.get('/user/statistics', 
     protect, 
-    authorize('user'), 
+    authorize('TL','user'), 
     DataController.getUserStats
 );
 

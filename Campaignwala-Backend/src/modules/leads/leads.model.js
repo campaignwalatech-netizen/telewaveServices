@@ -493,7 +493,7 @@ leadSchema.statics.findRecent = function(limit = 10) {
 
 // ==================== INDEXES ====================
 
-leadSchema.index({ leadId: 1 });
+// Removed duplicate index - leadId already has unique: true which creates index
 leadSchema.index({ hrUserId: 1, status: 1 });
 leadSchema.index({ assignedTo: 1, status: 1 });
 leadSchema.index({ offerId: 1, status: 1 });
