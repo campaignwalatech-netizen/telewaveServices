@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import toast, { Toaster } from "react-hot-toast";
 
 const UserQueryForm = ({ darkMode: propDarkMode }) => {
   const navigate = useNavigate();
@@ -36,20 +37,37 @@ const UserQueryForm = ({ darkMode: propDarkMode }) => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const { name, email, message } = formData;
 
     if (!name || !email || !message) {
-      setError("Please fill in all required fields.");
+      const errorMsg = "Please fill in all required fields.";
+      setError(errorMsg);
+      toast.error(errorMsg);
+      return;
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      const errorMsg = "Please enter a valid email address.";
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     setError("");
     setSubmitted(true);
 
-    setTimeout(() => {
-      alert("Your query has been submitted successfully!");
+    try {
+      // TODO: Replace with actual API call
+      // const response = await queryService.submitQuery(formData);
+      
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast.success("✅ Your query has been submitted successfully! We'll get back to you soon.");
       setFormData({
         name: "",
         email: "",
@@ -57,7 +75,12 @@ const UserQueryForm = ({ darkMode: propDarkMode }) => {
         message: "",
       });
       setSubmitted(false);
-    }, 1000);
+    } catch (error) {
+      const errorMsg = error.message || "Failed to submit query. Please try again.";
+      setError(errorMsg);
+      toast.error(errorMsg);
+      setSubmitted(false);
+    }
   };
 
   return (
@@ -68,6 +91,28 @@ const UserQueryForm = ({ darkMode: propDarkMode }) => {
           : "bg-gradient-to-br from-blue-50 to-purple-50 text-gray-900"
       }`}
     >
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Back Button */}
       <button
         onClick={() => navigate(-1)}
@@ -91,14 +136,26 @@ const UserQueryForm = ({ darkMode: propDarkMode }) => {
           Submit Your Query
         </h2>
 
-        {error && (
-          <p className="text-red-500 text-sm text-center mb-4">{error}</p>
-        )}
-
         {submitted ? (
-          <p className="text-center text-green-500 font-semibold text-base sm:text-lg">
-            Thank you for your query! We'll get back to you soon.
-          </p>
+          <div className="text-center">
+            <p className="text-green-500 font-semibold text-base sm:text-lg mb-4">
+              Thank you for your query! We'll get back to you soon.
+            </p>
+            <button
+              onClick={() => {
+                setSubmitted(false);
+                setFormData({
+                  name: "",
+                  email: "",
+                  subject: "",
+                  message: "",
+                });
+              }}
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+            >
+              Submit Another Query
+            </button>
+          </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>

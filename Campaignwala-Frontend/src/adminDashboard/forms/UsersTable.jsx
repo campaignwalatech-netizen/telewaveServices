@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect, useRef, useMemo } from "react";
 import userService from "../../services/userService";
+import toast, { Toaster } from "react-hot-toast";
 
 // Enhanced UI Components (keep all your existing components the same)
 const Card = ({ children, className = '' }) => (
@@ -472,11 +473,15 @@ export default function UsersTable({ userType }) {
         const fetchedUsers = response.data.users || [];
         setUsers(fetchedUsers);
       } else {
-        setError(response.message || 'Failed to fetch users');
+        const errorMsg = response.message || 'Failed to fetch users';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('❌ Error fetching users:', err);
-      setError(err.message || 'Failed to load users');
+      const errorMsg = err.message || 'Failed to load users';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -549,7 +554,7 @@ export default function UsersTable({ userType }) {
       await fetchUsers(); // Refresh the entire user list
     } catch (error) {
       console.error(`❌ Error ${action} user:`, error);
-      alert(`Failed to ${action} user: ${error.message}`);
+      toast.error(`Failed to ${action} user: ${error.message}`);
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -572,33 +577,103 @@ export default function UsersTable({ userType }) {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center p-4 sm:p-8">
-        <div className="text-center">
-          <RefreshCw className="w-8 h-8 sm:w-12 sm:h-12 animate-spin text-blue-600 mx-auto mb-3 sm:mb-4" />
-          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-lg">Loading users...</p>
+      <>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+              style: {
+                background: '#059669',
+              },
+            },
+            error: {
+              duration: 5000,
+              style: {
+                background: '#DC2626',
+              },
+            },
+          }}
+        />
+        <div className="h-full flex items-center justify-center p-4 sm:p-8">
+          <div className="text-center">
+            <RefreshCw className="w-8 h-8 sm:w-12 sm:h-12 animate-spin text-blue-600 mx-auto mb-3 sm:mb-4" />
+            <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-lg">Loading users...</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (error) {
     return (
-      <div className="h-full flex items-center justify-center p-4 sm:p-8">
-        <Card className="p-6 sm:p-8 text-center max-w-md w-full">
-          <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-500 mx-auto mb-3 sm:mb-4" />
-          <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">Error loading users</h3>
-          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4 sm:mb-6">{error}</p>
-          <Button onClick={fetchUsers} className="w-full sm:w-auto">
-            <RefreshCw className="w-4 h-4" />
-            Try Again
-          </Button>
-        </Card>
-      </div>
+      <>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+              style: {
+                background: '#059669',
+              },
+            },
+            error: {
+              duration: 5000,
+              style: {
+                background: '#DC2626',
+              },
+            },
+          }}
+        />
+        <div className="h-full flex items-center justify-center p-4 sm:p-8">
+          <Card className="p-6 sm:p-8 text-center max-w-md w-full">
+            <AlertCircle className="w-12 h-12 sm:w-16 sm:h-16 text-red-500 mx-auto mb-3 sm:mb-4" />
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">Error loading users</h3>
+            <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4 sm:mb-6">{error}</p>
+            <Button onClick={fetchUsers} className="w-full sm:w-auto">
+              <RefreshCw className="w-4 h-4" />
+              Try Again
+            </Button>
+          </Card>
+        </div>
+      </>
     );
   }
 
   return (
     <div className="h-full flex flex-col p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Header Section */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 sm:gap-4">
         <div className="flex-1 min-w-0">

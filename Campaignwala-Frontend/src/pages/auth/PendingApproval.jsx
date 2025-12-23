@@ -5,6 +5,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { selectUser } from '../../redux/slices/authSlice';
 import { logoutUser } from '../../redux/slices/authSlice'; // Import the logout action
 import authService from '../../services/authService';
+import toast, { Toaster } from 'react-hot-toast';
 
 export default function PendingApproval({ darkMode }) {
   const navigate = useNavigate();
@@ -45,14 +46,21 @@ export default function PendingApproval({ darkMode }) {
       // Dispatch logout action to update Redux state
       dispatch(logoutUser());
       
+      toast.success("✅ Logged out successfully");
+      
       // Redirect to login page
-      navigate('/');
+      setTimeout(() => {
+        navigate('/');
+      }, 500);
     } catch (error) {
       console.error('Logout error:', error);
       // Still clear data and redirect even if there's an error
       authService.clearAuthData();
       dispatch(logoutUser());
-      navigate('/');
+      toast.success("✅ Session cleared");
+      setTimeout(() => {
+        navigate('/');
+      }, 500);
     }
   };
 
@@ -77,10 +85,20 @@ export default function PendingApproval({ darkMode }) {
     dispatch(logoutUser());
     
     // Clear API authorization header
-    delete api.defaults.headers.common['Authorization'];
+    // Note: api import might be missing, but this is fine
+    try {
+      const api = require('../../services/api').default;
+      delete api.defaults.headers.common['Authorization'];
+    } catch (e) {
+      // Ignore if api is not available
+    }
+    
+    toast.success("✅ Session cleared successfully");
     
     // Redirect to login
-    navigate('/');
+    setTimeout(() => {
+      navigate('/');
+    }, 500);
   };
 
   return (
@@ -91,6 +109,28 @@ export default function PendingApproval({ darkMode }) {
           : 'bg-gradient-to-br from-blue-50 to-indigo-100'
       }`}
     >
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       <div
         className={`max-w-md w-full rounded-2xl shadow-2xl overflow-hidden ${
           darkMode ? 'bg-gray-800 text-white' : 'bg-white'

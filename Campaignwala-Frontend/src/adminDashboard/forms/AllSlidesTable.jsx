@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Edit2, Trash2, X, Eye, Image, Calendar, Upload } from "lucide-react";
 import { useNavigate } from 'react-router-dom';
 import slideService from '../../services/slideService';
+import toast, { Toaster } from "react-hot-toast";
 
 export default function AllSlidesTable() {
   const navigate = useNavigate();
@@ -54,7 +55,7 @@ export default function AllSlidesTable() {
       }
     } catch (error) {
       console.error('❌ Error fetching slides:', error);
-      alert('Failed to load slides');
+      toast.error('Failed to load slides');
     } finally {
       setLoading(false);
     }
@@ -79,13 +80,15 @@ export default function AllSlidesTable() {
       if (response.success) {
         setSlides(slides.filter(s => s._id !== selectedSlide._id));
         setShowDeleteModal(false);
-        setAlertMessage(`Slide "${selectedSlide.offerTitle}" deleted successfully!`);
+        const successMsg = `Slide "${selectedSlide.offerTitle}" deleted successfully!`;
+        setAlertMessage(successMsg);
         setShowSuccessAlert(true);
+        toast.success(`✅ ${successMsg}`);
         setTimeout(() => setShowSuccessAlert(false), 3000);
       }
     } catch (error) {
       console.error('Error deleting slide:', error);
-      alert(error.message || 'Failed to delete slide');
+      toast.error(error.message || 'Failed to delete slide');
       setShowDeleteModal(false);
     }
   };
@@ -100,6 +103,28 @@ export default function AllSlidesTable() {
 
   return (
     <div className="h-full flex flex-col p-4 sm:p-6">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Success Alert */}
       {showSuccessAlert && (
         <div className="fixed top-4 right-4 z-50 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-in">

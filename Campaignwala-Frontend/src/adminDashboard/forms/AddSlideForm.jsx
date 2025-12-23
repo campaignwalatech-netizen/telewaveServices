@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import slideService from '../../services/slideService';
 import categoryService from '../../services/categoryService';
 import { getOffersByCategory } from '../../services/offerService';
+import toast, { Toaster } from "react-hot-toast";
 
 export default function AddSlideForm() {
   const location = useLocation();
@@ -66,7 +67,7 @@ export default function AddSlideForm() {
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
-      alert('Failed to load categories');
+      toast.error('Failed to load categories');
     } finally {
       setLoading(false);
     }
@@ -109,7 +110,7 @@ export default function AddSlideForm() {
 
       // Validation
       if (!formData.offerTitle || !formData.category || !formData.OffersId || !formData.backgroundImage) {
-        alert('❌ Please fill all required fields!');
+        toast.error('❌ Please fill all required fields!');
         setSubmitLoading(false);
         return;
       }
@@ -129,15 +130,15 @@ export default function AddSlideForm() {
         // Update existing slide
         const response = await slideService.updateSlide(editSlide._id, slideData);
         if (response.success) {
-          alert("Slide updated successfully!");
-          navigate('/admin/all-slides');
+          toast.success("✅ Slide updated successfully!");
+          setTimeout(() => navigate('/admin/all-slides'), 1500);
         }
       } else {
         // Create new slide
         const response = await slideService.createSlide(slideData);
         if (response.success) {
-          alert("Slide added successfully!");
-          navigate('/admin/all-slides');
+          toast.success("✅ Slide added successfully!");
+          setTimeout(() => navigate('/admin/all-slides'), 1500);
         }
       }
     } catch (error) {
@@ -148,12 +149,12 @@ export default function AddSlideForm() {
       
       if (errorMessage.includes('Offers ID already exists')) {
         setOffersIdError(true);
-        alert('❌ Offers ID Already Exists!\n\nPlease select a different offer from the dropdown.');
+        toast.error('❌ Offers ID Already Exists! Please select a different offer from the dropdown.', { duration: 6000 });
         document.querySelector('select[name="OffersId"]')?.focus();
       } else if (errorMessage.includes('validation')) {
-        alert('❌ Validation Error!\n\nPlease check all required fields and try again.');
+        toast.error('❌ Validation Error! Please check all required fields and try again.', { duration: 6000 });
       } else {
-        alert(`❌ Error: ${errorMessage}`);
+        toast.error(`❌ Error: ${errorMessage}`);
       }
     } finally {
       setSubmitLoading(false);
@@ -195,13 +196,13 @@ export default function AddSlideForm() {
     if (file) {
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
+        toast.error('Please select an image file');
         return;
       }
       
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('Image size should be less than 5MB');
+        toast.error('Image size should be less than 5MB');
         return;
       }
 
@@ -232,6 +233,28 @@ export default function AddSlideForm() {
 
   return (
     <div className="h-full flex flex-col p-3 sm:p-4">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       <div className="flex items-center gap-3 mb-2">
         <button
           onClick={() => navigate('/admin/all-slides')}

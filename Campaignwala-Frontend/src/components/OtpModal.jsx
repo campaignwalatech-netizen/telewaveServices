@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { X, RotateCcw, Mail } from "lucide-react";
+import toast from "react-hot-toast";
 
 
 export default function OtpModal({
@@ -87,7 +88,9 @@ export default function OtpModal({
     const code = otpCode || otp.join("");
     
     if (code.length !== 4) {
-      setError("Please enter complete 4-digit OTP");
+      const errorMsg = "Please enter complete 4-digit OTP";
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -98,7 +101,9 @@ export default function OtpModal({
       await onVerify(code);
       // onVerify will handle navigation on success
     } catch (err) {
-      setError(err.message || "OTP verification failed");
+      const errorMsg = err.message || "OTP verification failed";
+      setError(errorMsg);
+      toast.error(errorMsg);
       // Clear OTP on error
       setOtp(["", "", "", ""]);
       inputRefs.current[0]?.focus();
@@ -113,9 +118,12 @@ export default function OtpModal({
       setResendTimer(30);
       setOtp(["", "", "", ""]);
       setError("");
+      toast.success("📧 OTP code resent!");
       inputRefs.current[0]?.focus();
     } catch (err) {
-      setError(err.message || "Failed to resend OTP");
+      const errorMsg = err.message || "Failed to resend OTP";
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 

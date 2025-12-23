@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Upload, FileText, CheckCircle, AlertCircle, FileSpreadsheet, ToggleLeft, ToggleRight, UserCheck, UserX, Loader2 } from "lucide-react";
 import { getAllOffers, approveOffer, rejectOffer } from "../../services/offerService";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function ApproveOffersTable() {
   const [uploadedFile, setUploadedFile] = useState(null);
@@ -37,11 +38,15 @@ export default function ApproveOffersTable() {
         );
         setOffers(offersWithLeads);
       } else {
-        setError(response.message || 'Failed to fetch offers');
+        const errorMsg = response.message || 'Failed to fetch offers';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error fetching offers:', err);
-      setError(err.response?.data?.message || 'Failed to load offers. Please try again.');
+      const errorMsg = err.response?.data?.message || 'Failed to load offers. Please try again.';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -68,12 +73,13 @@ export default function ApproveOffersTable() {
         setOffers(offers.map(offer => 
           offer._id === offerId ? response.data : offer
         ));
+        toast.success(`✅ Offer ${currentStatus ? 'rejected' : 'approved'} successfully!`);
       } else {
-        alert(response.message || 'Failed to update approval status');
+        toast.error(response.message || 'Failed to update approval status');
       }
     } catch (err) {
       console.error('Error toggling approval:', err);
-      alert(err.response?.data?.message || 'Failed to update approval status');
+      toast.error(err.response?.data?.message || 'Failed to update approval status');
     } finally {
       setProcessingIds(prev => {
         const newSet = new Set(prev);
@@ -112,14 +118,14 @@ export default function ApproveOffersTable() {
       
       if (!isValidFile) {
         setUploadStatus("error");
-        alert("Please select a valid CSV or Excel file (.csv, .xlsx, .xls)");
+        toast.error("Please select a valid CSV or Excel file (.csv, .xlsx, .xls)");
         return;
       }
 
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
         setUploadStatus("error");
-        alert("File size should be less than 10MB");
+        toast.error("File size should be less than 10MB");
         return;
       }
 
@@ -130,6 +136,7 @@ export default function ApproveOffersTable() {
         setUploadedFile(file);
         setUploadStatus("success");
         setIsUploading(false);
+        toast.success(`✅ File "${file.name}" uploaded successfully!`);
         console.log("CSV file uploaded:", file.name);
       }, 1500);
     }
@@ -153,7 +160,7 @@ export default function ApproveOffersTable() {
         const event = { target: { files: [file] } };
         handleFileUpload(event);
       } else {
-        alert("Please drop a CSV or Excel file");
+        toast.error("Please drop a CSV or Excel file");
       }
     }
   };
@@ -170,6 +177,28 @@ export default function ApproveOffersTable() {
 
   return (
     <div className="h-full flex flex-col bg-background">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Professional Header Section */}
       <div className="bg-card border-b border-border px-3 sm:px-6 py-4 sm:py-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { CheckCircle, ArrowLeft } from "lucide-react";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function OtpVerification() {
   const navigate = useNavigate();
@@ -63,7 +64,9 @@ export default function OtpVerification() {
     const otpCode = otp.join("");
 
     if (otpCode.length !== 4) {
-      setError("Please enter complete OTP");
+      const errorMsg = "Please enter complete OTP";
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -72,6 +75,10 @@ export default function OtpVerification() {
     console.log("Setting localStorage...");
     console.log("phone:", phone);
     console.log("userType:", userType);
+    
+    toast.success("✅ OTP verified successfully! Redirecting...", {
+      duration: 2000,
+    });
     
     // Clear any existing data first
     localStorage.clear();
@@ -102,11 +109,34 @@ export default function OtpVerification() {
     setOtp(["", "", "", ""]);
     setResendTimer(30);
     setError("");
+    toast.success("📱 OTP code resent!");
     inputRefs.current[0]?.focus();
   };
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       <div className="w-full max-w-sm">
         <div className="bg-card/50 backdrop-blur-sm rounded-xl border border-border/50 p-6 shadow-2xl">
           <button
@@ -149,9 +179,6 @@ export default function OtpVerification() {
               ))}
             </div>
 
-            {error && (
-              <p className="text-xs text-red-500 text-center">{error}</p>
-            )}
 
             <button
               type="submit"

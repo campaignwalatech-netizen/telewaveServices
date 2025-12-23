@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Edit2, Trash2, X, Download, Search, Filter, Loader2, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { getAllCategories, deleteCategory } from "../../services/categoryService";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function AllCategoriesTable() {
   const navigate = useNavigate();
@@ -42,7 +43,9 @@ export default function AllCategoriesTable() {
       }
     } catch (err) {
       console.error('Error fetching categories:', err);
-      setError(err.response?.data?.message || 'Failed to load categories. Please try again.');
+      const errorMsg = err.response?.data?.message || 'Failed to load categories. Please try again.';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -66,13 +69,13 @@ export default function AllCategoriesTable() {
         setShowDeleteModal(false);
         setSelectedCategory(null);
         // Show success message
-        alert('Category deleted successfully!');
+        toast.success('✅ Category deleted successfully!');
       } else {
-        alert(response.message || 'Failed to delete category');
+        toast.error(response.message || 'Failed to delete category');
       }
     } catch (err) {
       console.error('Error deleting category:', err);
-      alert(err.response?.data?.message || 'Failed to delete category. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to delete category. Please try again.');
     } finally {
       setDeleting(false);
     }
@@ -108,9 +111,10 @@ export default function AllCategoriesTable() {
       a.download = `categories_${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       window.URL.revokeObjectURL(url);
+      toast.success('✅ Categories exported successfully!');
     } catch (err) {
       console.error('Error exporting categories:', err);
-      alert('Failed to export categories');
+      toast.error('Failed to export categories');
     }
   };
 
@@ -118,6 +122,28 @@ export default function AllCategoriesTable() {
 
   return (
     <div className="h-full flex flex-col p-3 sm:p-4">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Header with Title */}
       <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-2">All Categories</h2>
 

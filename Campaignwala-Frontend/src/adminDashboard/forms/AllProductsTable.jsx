@@ -2,6 +2,7 @@
 import { Edit2, Trash2, X, Download, Search, Filter, Upload, CheckCircle, Copy, Video, Loader2, Link as LinkIcon } from "lucide-react";
 import { getAllOffers, deleteOffer, updateOffer } from "../../services/offerService";
 import { getAllCategories } from "../../services/categoryService";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function AllOffersTable() {
   const [Offers, setOffers] = useState([]);
@@ -84,16 +85,18 @@ export default function AllOffersTable() {
       if (response.success) {
         setOffers(Offers.filter(p => p._id !== selectedProduct._id));
         setShowDeleteModal(false);
-        setAlertMessage(`"${selectedProduct.name}" deleted successfully!`);
+        const successMsg = `"${selectedProduct.name}" deleted successfully!`;
+        setAlertMessage(successMsg);
         setShowSuccessAlert(true);
+        toast.success(`✅ ${successMsg}`);
         setTimeout(() => setShowSuccessAlert(false), 3000);
         setSelectedProduct(null);
       } else {
-        alert(response.message || 'Failed to delete offer');
+        toast.error(response.message || 'Failed to delete offer');
       }
     } catch (err) {
       console.error('Error deleting offer:', err);
-      alert(err.response?.data?.message || 'Failed to delete offer. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to delete offer. Please try again.');
     } finally {
       setDeleting(false);
     }
@@ -115,16 +118,18 @@ export default function AllOffersTable() {
       if (response.success) {
         setOffers(Offers.map(p => p._id === selectedProduct._id ? response.data : p));
         setShowEditModal(false);
-        setAlertMessage(`"${editForm.name}" updated successfully!`);
+        const successMsg = `"${editForm.name}" updated successfully!`;
+        setAlertMessage(successMsg);
         setShowSuccessAlert(true);
+        toast.success(`✅ ${successMsg}`);
         setTimeout(() => setShowSuccessAlert(false), 3000);
         setSelectedProduct(null);
       } else {
-        alert(response.message || 'Failed to update offer');
+        toast.error(response.message || 'Failed to update offer');
       }
     } catch (err) {
       console.error('Error updating offer:', err);
-      alert(err.response?.data?.message || 'Failed to update offer. Please try again.');
+      toast.error(err.response?.data?.message || 'Failed to update offer. Please try again.');
     } finally {
       setUpdating(false);
     }
@@ -153,19 +158,23 @@ export default function AllOffersTable() {
       a.click();
       window.URL.revokeObjectURL(url);
 
-      setAlertMessage("Offers exported successfully!");
+      const successMsg = "Offers exported successfully!";
+      setAlertMessage(successMsg);
       setShowSuccessAlert(true);
+      toast.success(`✅ ${successMsg}`);
       setTimeout(() => setShowSuccessAlert(false), 3000);
     } catch (err) {
       console.error('Error exporting offers:', err);
-      alert('Failed to export offers');
+      toast.error('Failed to export offers');
     }
   };
 
   const handleCopyLink = (link) => {
     navigator.clipboard.writeText(link);
-    setAlertMessage("Link copied to clipboard!");
+    const successMsg = "Link copied to clipboard!";
+    setAlertMessage(successMsg);
     setShowSuccessAlert(true);
+    toast.success(`✅ ${successMsg}`);
     setTimeout(() => setShowSuccessAlert(false), 3000);
   };
 
@@ -173,6 +182,28 @@ export default function AllOffersTable() {
 
   return (
     <div className="h-full flex flex-col p-3 sm:p-4">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Success Alert */}
       {showSuccessAlert && (
         <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded-lg flex items-center gap-2">

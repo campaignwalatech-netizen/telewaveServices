@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, Mail, Lock } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate();
@@ -19,16 +20,30 @@ export default function ForgotPasswordPage() {
     setFormError("");
 
     if (!phone || phone.length !== 10) {
-      setFormError("Please enter a valid 10-digit phone number");
+      const errorMsg = "Please enter a valid 10-digit phone number";
+      setFormError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     try {
       const response = await requestPasswordReset(phone);
       setOtpData(response);
+      
+      // Show success message with OTP if available
+      if (response?.otp) {
+        toast.success(`📱 OTP sent! Use: ${response.otp}`, {
+          duration: 8000,
+        });
+      } else {
+        toast.success("📱 OTP sent to your phone number!");
+      }
+      
       setStep("otp");
     } catch (err) {
-      setFormError(err.message || "Failed to send OTP");
+      const errorMsg = err.message || "Failed to send OTP";
+      setFormError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -37,17 +52,23 @@ export default function ForgotPasswordPage() {
     setFormError("");
 
     if (!otp || otp.length !== 4) {
-      setFormError("Please enter the 4-digit OTP");
+      const errorMsg = "Please enter the 4-digit OTP";
+      setFormError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     if (!newPassword || newPassword.length < 6) {
-      setFormError("Password must be at least 6 characters");
+      const errorMsg = "Password must be at least 6 characters";
+      setFormError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setFormError("Passwords do not match");
+      const errorMsg = "Passwords do not match";
+      setFormError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -57,17 +78,44 @@ export default function ForgotPasswordPage() {
         otp: otp,
         newPassword: newPassword
       });
+      toast.success("✅ Password reset successfully! Redirecting to login...", {
+        duration: 4000,
+      });
       setStep("success");
     } catch (err) {
-      setFormError(err.message || "Failed to reset password");
+      const errorMsg = err.message || "Failed to reset password";
+      setFormError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
   return (
     <main className="min-h-screen bg-background flex items-center justify-center p-6">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       <div className="w-full max-w-md">
         <button
-          onClick={() => navigate("/login")}
+          onClick={() => navigate("/")}
           className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition"
         >
           <ArrowLeft size={20} />
@@ -91,11 +139,6 @@ export default function ForgotPasswordPage() {
             </p>
           </div>
 
-          {(error || formError) && (
-            <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg text-sm mb-4">
-              {error || formError}
-            </div>
-          )}
 
           {step === "phone" && (
             <form onSubmit={handleRequestOTP} className="space-y-6">
@@ -192,10 +235,10 @@ export default function ForgotPasswordPage() {
           {step === "success" && (
             <div className="text-center space-y-4">
               <div className="bg-green-500/10 border border-green-500/30 text-green-600 dark:text-green-400 px-4 py-3 rounded-lg">
-                Your password has been reset successfully!
+                ✅ Your password has been reset successfully!
               </div>
               <Link
-                to="/login"
+                to="/"
                 className="block w-full text-center bg-primary text-primary-foreground font-bold py-3 px-4 rounded-lg transition hover:opacity-90"
               >
                 Go to Login

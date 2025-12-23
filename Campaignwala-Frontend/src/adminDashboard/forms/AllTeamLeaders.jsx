@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import userService from '../../services/userService';
+import toast, { Toaster } from 'react-hot-toast';
 import { 
   Search, 
   Users, 
@@ -405,11 +406,15 @@ export default function AllTeamLeaders() {
         const enhancedTLs = response.data.users.map(enhanceTLData);
         setTeamLeaders(enhancedTLs);
       } else {
-        setError(response.message || 'Failed to fetch team leaders');
+        const errorMsg = response.message || 'Failed to fetch team leaders';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error fetching team leaders:', err);
-      setError(err.message || 'Failed to fetch team leaders');
+      const errorMsg = err.message || 'Failed to fetch team leaders';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -422,14 +427,20 @@ export default function AllTeamLeaders() {
       const response = await userService.updateUser(tlId, data);
       
       if (response.success) {
-        setSuccess('Team Leader profile updated successfully');
+        const successMsg = 'Team Leader profile updated successfully';
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchTeamLeaders();
       } else {
-        setError(response.message || 'Failed to update team leader');
+        const errorMsg = response.message || 'Failed to update team leader';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error updating team leader:', err);
-      setError(err.message || 'Failed to update team leader');
+      const errorMsg = err.message || 'Failed to update team leader';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [tlId]: false }));
     }
@@ -444,14 +455,20 @@ export default function AllTeamLeaders() {
       const response = await userService.markUserAsEx(tlId);
       
       if (response.success) {
-        setSuccess('Team Leader marked as Ex successfully');
+        const successMsg = 'Team Leader marked as Ex successfully';
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchTeamLeaders();
       } else {
-        setError(response.message || 'Failed to mark team leader as Ex');
+        const errorMsg = response.message || 'Failed to mark team leader as Ex';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error marking team leader as Ex:', err);
-      setError(err.message || 'Failed to mark team leader as Ex');
+      const errorMsg = err.message || 'Failed to mark team leader as Ex';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [tlId]: false }));
     }
@@ -466,14 +483,20 @@ export default function AllTeamLeaders() {
       const response = await userService.deleteUser(tlId);
       
       if (response.success) {
-        setSuccess('Team Leader deleted successfully');
+        const successMsg = 'Team Leader deleted successfully';
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchTeamLeaders();
       } else {
-        setError(response.message || 'Failed to delete team leader');
+        const errorMsg = response.message || 'Failed to delete team leader';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error deleting team leader:', err);
-      setError(err.message || 'Failed to delete team leader');
+      const errorMsg = err.message || 'Failed to delete team leader';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [tlId]: false }));
     }
@@ -486,14 +509,20 @@ export default function AllTeamLeaders() {
       const response = await userService.toggleUserStatus(tlId);
       
       if (response.success) {
-        setSuccess('Team Leader status updated successfully');
+        const successMsg = 'Team Leader status updated successfully';
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchTeamLeaders();
       } else {
-        setError(response.message || 'Failed to update status');
+        const errorMsg = response.message || 'Failed to update status';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error updating team leader status:', err);
-      setError(err.message || 'Failed to update status');
+      const errorMsg = err.message || 'Failed to update status';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [tlId]: false }));
     }
@@ -518,10 +547,14 @@ export default function AllTeamLeaders() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      setSuccess('Team Leaders exported successfully');
+      const successMsg = 'Team Leaders exported successfully';
+      setSuccess(successMsg);
+      toast.success(`✅ ${successMsg}`);
     } catch (err) {
       console.error('Error exporting team leaders:', err);
-      setError(err.message || 'Failed to export team leaders');
+      const errorMsg = err.message || 'Failed to export team leaders';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -591,6 +624,28 @@ export default function AllTeamLeaders() {
 
   return (
     <div className="space-y-6 p-6">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>

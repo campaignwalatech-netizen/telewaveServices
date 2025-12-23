@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import userService from '../../services/userService';
+import toast, { Toaster } from 'react-hot-toast';
 import { 
   Search, 
   Users, 
@@ -307,7 +308,7 @@ const TLPendingAssignment = ({ user, teamLeaders, onAssignTL, loading = false })
 
   const handleAssignTL = async () => {
     if (!selectedTL) {
-      alert('Please select a Team Leader');
+      toast.error('Please select a Team Leader');
       return;
     }
 
@@ -436,7 +437,7 @@ const TLAssignmentModal = ({ isOpen, onClose, user, teamLeaders, onAssignTL, loa
 
   const handleSubmit = async () => {
     if (!selectedTL) {
-      alert('Please select a Team Leader');
+      toast.error('Please select a Team Leader');
       return;
     }
 
@@ -600,11 +601,15 @@ export default function NotApprovedUsers() {
         const enhancedUsers = response.data.users.map(enhanceUserData);
         setUsers(enhancedUsers);
       } else {
-        setError(response.message || 'Failed to fetch pending users');
+        const errorMsg = response.message || 'Failed to fetch pending users';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error fetching pending users:', err);
-      setError(err.message || 'Failed to fetch pending users');
+      const errorMsg = err.message || 'Failed to fetch pending users';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -628,7 +633,7 @@ export default function NotApprovedUsers() {
     if (!user) return;
     
     if (teamLeaders.length === 0) {
-      alert('No Team Leaders available. Please add TLs before approving users.');
+      toast.error('No Team Leaders available. Please add TLs before approving users.');
       return;
     }
     
@@ -645,14 +650,20 @@ export default function NotApprovedUsers() {
       const response = await userService.approveUser(userId, { notes: 'Approved by admin' });
       
       if (response.success) {
-        setSuccess('User approved successfully! User is now pending TL assignment.');
+        const successMsg = 'User approved successfully! User is now pending TL assignment.';
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchNotApprovedUsers();
       } else {
-        setError(response.message || 'Failed to approve user');
+        const errorMsg = response.message || 'Failed to approve user';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error approving user:', err);
-      setError(err.message || 'Failed to approve user');
+      const errorMsg = err.message || 'Failed to approve user';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -668,14 +679,20 @@ export default function NotApprovedUsers() {
       const response = await userService.rejectUser(userId, { reason });
       
       if (response.success) {
-        setSuccess('User rejected successfully');
+        const successMsg = 'User rejected successfully';
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchNotApprovedUsers();
       } else {
-        setError(response.message || 'Failed to reject user');
+        const errorMsg = response.message || 'Failed to reject user';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error rejecting user:', err);
-      setError(err.message || 'Failed to reject user');
+      const errorMsg = err.message || 'Failed to reject user';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -711,14 +728,18 @@ export default function NotApprovedUsers() {
     console.log('Assign response:', assignResponse);
     
     if (assignResponse.success) {
-      setSuccess(`User approved and assigned to TL ${tlName} successfully!`);
+      const successMsg = `User approved and assigned to TL ${tlName} successfully!`;
+      setSuccess(successMsg);
+      toast.success(`✅ ${successMsg}`);
       await fetchNotApprovedUsers();
     } else {
       throw new Error(assignResponse.message || 'Failed to assign TL');
     }
   } catch (err) {
     console.error('Error in approve & assign TL:', err);
-    setError(err.message || 'Failed to approve and assign TL');
+    const errorMsg = err.message || 'Failed to approve and assign TL';
+    setError(errorMsg);
+    toast.error(errorMsg);
   } finally {
     setActionLoading(prev => ({ ...prev, [userId]: false }));
   }
@@ -737,14 +758,18 @@ export default function NotApprovedUsers() {
       });
       
       if (assignResponse.success) {
-        setSuccess(`User assigned to TL ${tlName} successfully!`);
+        const successMsg = `User assigned to TL ${tlName} successfully!`;
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchNotApprovedUsers();
       } else {
         throw new Error(assignResponse.message || 'Failed to assign TL');
       }
     } catch (err) {
       console.error('Error assigning TL:', err);
-      setError(err.message || 'Failed to assign TL');
+      const errorMsg = err.message || 'Failed to assign TL';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -759,14 +784,20 @@ export default function NotApprovedUsers() {
       const response = await userService.deleteUser(userId);
       
       if (response.success) {
-        setSuccess('User deleted successfully');
+        const successMsg = 'User deleted successfully';
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchNotApprovedUsers();
       } else {
-        setError(response.message || 'Failed to delete user');
+        const errorMsg = response.message || 'Failed to delete user';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error deleting user:', err);
-      setError(err.message || 'Failed to delete user');
+      const errorMsg = err.message || 'Failed to delete user';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -776,7 +807,7 @@ export default function NotApprovedUsers() {
   const viewUserDetails = (user) => {
     console.log('View user details:', user);
     // You can implement modal or navigate to user details page
-    alert(`Viewing details for: ${user.name}\nEmail: ${user.email}\nPhone: ${user.phoneNumber}\nStatus: ${user.registrationStatus}`);
+    toast.info(`Viewing details for: ${user.name}`, { duration: 4000 });
   };
 
   // Export not approved users
@@ -797,10 +828,14 @@ export default function NotApprovedUsers() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      setSuccess('Pending users exported successfully');
+      const successMsg = 'Pending users exported successfully';
+      setSuccess(successMsg);
+      toast.success(`✅ ${successMsg}`);
     } catch (err) {
       console.error('Error exporting pending users:', err);
-      setError(err.message || 'Failed to export pending users');
+      const errorMsg = err.message || 'Failed to export pending users';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -809,13 +844,15 @@ export default function NotApprovedUsers() {
   // Bulk approve users
   const bulkApproveUsers = async () => {
     if (users.length === 0) {
-      setError('No users to approve');
+      const errorMsg = 'No users to approve';
+      setError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
     
     // For bulk approval, you might want to assign all to a specific TL
     // or show a bulk assignment modal
-    alert('For bulk approval with TL assignment, please use individual approval or contact support for bulk TL assignment.');
+    toast.info('For bulk approval with TL assignment, please use individual approval or contact support for bulk TL assignment.', { duration: 6000 });
   };
 
   // Effects

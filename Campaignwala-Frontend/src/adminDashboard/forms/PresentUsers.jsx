@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import userService from '../../services/userService';
+import toast, { Toaster } from 'react-hot-toast';
 import { 
   Search, 
   Users, 
@@ -485,12 +486,16 @@ export default function PresentUsers() {
         const enhancedUsers = filteredUsers.map(enhanceUserData);
         setUsers(enhancedUsers);
       } else {
-        setError(response?.message || 'Failed to fetch present users');
+        const errorMsg = response?.message || 'Failed to fetch present users';
+        setError(errorMsg);
+        toast.error(errorMsg);
         setUsers([]);
       }
     } catch (err) {
       console.error('Error fetching present users:', err);
-      setError(err.message || 'Failed to fetch present users');
+      const errorMsg = err.message || 'Failed to fetch present users';
+      setError(errorMsg);
+      toast.error(errorMsg);
       setUsers([]);
     } finally {
       setLoading(false);
@@ -561,10 +566,14 @@ export default function PresentUsers() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      setSuccess('Present users exported successfully');
+      const successMsg = 'Present users exported successfully';
+      setSuccess(successMsg);
+      toast.success(`✅ ${successMsg}`);
     } catch (err) {
       console.error('Error exporting present users:', err);
-      setError(err.message || 'Failed to export present users');
+      const errorMsg = err.message || 'Failed to export present users';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -580,14 +589,20 @@ export default function PresentUsers() {
       });
       
       if (response.success) {
-        setSuccess(`Attendance marked as ${status} successfully`);
+        const successMsg = `Attendance marked as ${status} successfully`;
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchPresentUsers();
       } else {
-        setError(response.message || 'Failed to mark attendance');
+        const errorMsg = response.message || 'Failed to mark attendance';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error marking attendance:', err);
-      setError(err.message || 'Failed to mark attendance');
+      const errorMsg = err.message || 'Failed to mark attendance';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -675,6 +690,28 @@ export default function PresentUsers() {
 
   return (
     <div className="space-y-6 p-6">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>

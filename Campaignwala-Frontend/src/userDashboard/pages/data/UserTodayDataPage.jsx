@@ -3,12 +3,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Phone, PhoneCall, CheckCircle, Clock, RefreshCw,
   User, FileText, AlertCircle, ArrowRight, Calendar,
-  Target, ChevronRight, Filter, Search, Check
+  Target, ChevronRight, Filter, Search, Check,
+  Sun, Moon
 } from 'lucide-react';
 import dataService from '../../../services/dataService';
 import userService from '../../../services/userService';
 
-const UserTodayDataPage = () => {
+const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
   const [todayData, setTodayData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedData, setSelectedData] = useState([]);
@@ -22,6 +23,7 @@ const UserTodayDataPage = () => {
     closed: 0
   });
   const [openDropdownId, setOpenDropdownId] = useState(null);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
   const dropdownRefs = useRef({});
 
   useEffect(() => {
@@ -473,18 +475,34 @@ const UserTodayDataPage = () => {
   };
 
   const getStatusColor = (item) => {
-    switch (item.status) {
-      case 'converted':
-        return 'bg-emerald-100 text-emerald-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      case 'not_reachable':
-        return 'bg-orange-100 text-orange-800';
-      case 'contacted':
-        return 'bg-blue-100 text-blue-800';
-      case 'pending':
-      default:
-        return 'bg-yellow-100 text-yellow-800';
+    if (darkMode) {
+      switch (item.status) {
+        case 'converted':
+          return 'bg-emerald-900/30 text-emerald-300';
+        case 'rejected':
+          return 'bg-red-900/30 text-red-300';
+        case 'not_reachable':
+          return 'bg-orange-900/30 text-orange-300';
+        case 'contacted':
+          return 'bg-blue-900/30 text-blue-300';
+        case 'pending':
+        default:
+          return 'bg-yellow-900/30 text-yellow-300';
+      }
+    } else {
+      switch (item.status) {
+        case 'converted':
+          return 'bg-emerald-100 text-emerald-800';
+        case 'rejected':
+          return 'bg-red-100 text-red-800';
+        case 'not_reachable':
+          return 'bg-orange-100 text-orange-800';
+        case 'contacted':
+          return 'bg-blue-100 text-blue-800';
+        case 'pending':
+        default:
+          return 'bg-yellow-100 text-yellow-800';
+      }
     }
   };
 
@@ -535,465 +553,892 @@ const UserTodayDataPage = () => {
 
   // Helper function to get response type color
   const getResponseTypeColor = (responseType) => {
-    switch (responseType) {
-      case 'interested':
-        return 'text-emerald-600';
-      case 'not_interested':
-        return 'text-blue-600';
-      case 'invalid_number':
-        return 'text-orange-600';
-      default:
-        return 'text-gray-600';
+    if (darkMode) {
+      switch (responseType) {
+        case 'interested':
+          return 'text-emerald-400';
+        case 'not_interested':
+          return 'text-blue-400';
+        case 'invalid_number':
+          return 'text-orange-400';
+        default:
+          return 'text-gray-400';
+      }
+    } else {
+      switch (responseType) {
+        case 'interested':
+          return 'text-emerald-600';
+        case 'not_interested':
+          return 'text-blue-600';
+        case 'invalid_number':
+          return 'text-orange-600';
+        default:
+          return 'text-gray-600';
+      }
     }
   };
 
   const filteredData = filterTodayData();
 
   return (
-    <div className="p-6">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Today's Assigned Data</h1>
-        <p className="text-gray-600">Manage your assigned data for today</p>
-      </div>
-      
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-xl shadow p-4">
-          <div className="flex items-center">
-            <div className="p-3 bg-blue-100 rounded-lg mr-4">
-              <Target className="text-blue-600" size={20} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Total Assigned</p>
-              <p className="text-2xl font-bold">{todaysCounts.total}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow p-4">
-          <div className="flex items-center">
-            <div className="p-3 bg-yellow-100 rounded-lg mr-4">
-              <Clock className="text-yellow-600" size={20} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Pending</p>
-              <p className="text-2xl font-bold">{todaysCounts.pending}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow p-4">
-          <div className="flex items-center">
-            <div className="p-3 bg-blue-100 rounded-lg mr-4">
-              <PhoneCall className="text-blue-600" size={20} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Called</p>
-              <p className="text-2xl font-bold">{todaysCounts.called}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow p-4">
-          <div className="flex items-center">
-            <div className="p-3 bg-green-100 rounded-lg mr-4">
-              <CheckCircle className="text-green-600" size={20} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600">Closed</p>
-              <p className="text-2xl font-bold">{todaysCounts.closed}</p>
-            </div>
+    <div className={`min-h-screen transition-colors duration-300 ${
+      darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'
+    }`}>
+      {/* Mobile Header */}
+      <div className={`sticky top-0 z-10 p-4 border-b md:hidden ${
+        darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+      }`}>
+        <div className="flex justify-between items-center">
+          <h1 className="text-xl font-bold">Today's Data</h1>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowMobileFilters(!showMobileFilters)}
+              className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+            >
+              <Filter size={20} />
+            </button>
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+            >
+              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </button>
           </div>
         </div>
       </div>
-      
-      {/* Filters and Actions */}
-      <div className="bg-white rounded-xl shadow p-6 mb-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
-          <div className="flex-1">
-            <h3 className="font-semibold mb-4">Filter & Actions</h3>
-            <div className="flex flex-wrap gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  type="text"
-                  placeholder="Search by name, contact..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              
-              <select
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+
+      <div className="p-4 md:p-6">
+        {/* Desktop Header */}
+        <div className="hidden md:block mb-8">
+          <div className="flex justify-between items-start md:items-center mb-4">
+            <div>
+              <h1 className="text-2xl font-bold mb-2">Today's Assigned Data</h1>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Manage your assigned data for today</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600 text-yellow-400' : 'bg-gray-100 hover:bg-gray-200'}`}
               >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="called">Called</option>
-                <option value="closed">Closed</option>
-                <option value="converted">Converted</option>
-                <option value="contacted">Contacted</option>
-              </select>
-              
+                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
               <button
                 onClick={fetchTodayData}
                 disabled={loading}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center space-x-2 disabled:opacity-50"
+                className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'} disabled:opacity-50`}
               >
                 <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
                 <span>Refresh</span>
               </button>
             </div>
           </div>
-          
-          {/* Bulk Actions */}
-          {selectedData.length > 0 && (
-            <div className="flex flex-col space-y-3">
-              <div className="text-sm text-gray-600">
-                {selectedData.length} record{selectedData.length !== 1 ? 's' : ''} selected
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => handleBulkClose('converted')}
-                  disabled={loading}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium flex items-center space-x-2 disabled:opacity-50"
-                >
-                  <CheckCircle size={18} />
-                  <span>Mark as Converted</span>
-                </button>
-                <button
-                  onClick={() => handleBulkClose('closed')}
-                  disabled={loading}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center space-x-2 disabled:opacity-50"
-                >
-                  <Check size={18} />
-                  <span>Mark as Closed</span>
-                </button>
-              </div>
-            </div>
-          )}
         </div>
-      </div>
-      
-      {/* Data Table */}
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-        <div className="p-6 border-b">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-lg font-semibold">Today's Data List</h2>
-              <p className="text-gray-600 text-sm">
-                Showing {filteredData.length} of {todayData.length} records
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-500">
-                {selectedData.length} selected
+        
+        {/* Stats Overview - Mobile First */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
+          <div className={`rounded-xl shadow p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className="flex items-center">
+              <div className={`p-2 md:p-3 rounded-lg mr-3 md:mr-4 ${
+                darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'
+              }`}>
+                <Target className="w-4 h-4 md:w-5 md:h-5" />
               </div>
-              {filteredData.length > 0 && (
-                <button
-                  onClick={selectAllData}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  {selectedData.length === filteredData.length ? 'Deselect All' : 'Select All'}
-                </button>
-              )}
+              <div>
+                <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Assigned</p>
+                <p className="text-lg md:text-2xl font-bold">{todaysCounts.total}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className={`rounded-xl shadow p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className="flex items-center">
+              <div className={`p-2 md:p-3 rounded-lg mr-3 md:mr-4 ${
+                darkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-600'
+              }`}>
+                <Clock className="w-4 h-4 md:w-5 md:h-5" />
+              </div>
+              <div>
+                <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Pending</p>
+                <p className="text-lg md:text-2xl font-bold">{todaysCounts.pending}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className={`rounded-xl shadow p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className="flex items-center">
+              <div className={`p-2 md:p-3 rounded-lg mr-3 md:mr-4 ${
+                darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'
+              }`}>
+                <PhoneCall className="w-4 h-4 md:w-5 md:h-5" />
+              </div>
+              <div>
+                <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Called</p>
+                <p className="text-lg md:text-2xl font-bold">{todaysCounts.called}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className={`rounded-xl shadow p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            <div className="flex items-center">
+              <div className={`p-2 md:p-3 rounded-lg mr-3 md:mr-4 ${
+                darkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-600'
+              }`}>
+                <CheckCircle className="w-4 h-4 md:w-5 md:h-5" />
+              </div>
+              <div>
+                <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Closed</p>
+                <p className="text-lg md:text-2xl font-bold">{todaysCounts.closed}</p>
+              </div>
             </div>
           </div>
         </div>
         
-        <div className="overflow-x-auto">
-          {loading ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-500">Loading today's data...</p>
-            </div>
-          ) : filteredData.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <FileText className="mx-auto mb-4 text-gray-400" size={48} />
-              <p className="text-lg mb-2">No data found</p>
-              <p className="text-sm">No data has been assigned to you today</p>
-            </div>
-          ) : (
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="py-3 px-6 text-left">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={filteredData.length > 0 && selectedData.length === filteredData.length}
-                        onChange={selectAllData}
-                        className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                      />
+        {/* Mobile Filters Overlay */}
+        {showMobileFilters && (
+          <div className={`fixed inset-0 z-50 md:hidden ${darkMode ? 'bg-gray-900/95' : 'bg-white/95'}`}>
+            <div className="p-4">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold">Filters</h2>
+                <button
+                  onClick={() => setShowMobileFilters(false)}
+                  className="p-2"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Search
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                      type="text"
+                      placeholder="Search by name, contact..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className={`w-full pl-10 pr-4 py-3 rounded-lg ${
+                        darkMode 
+                          ? 'bg-gray-800 border-gray-700 text-white' 
+                          : 'bg-white border-gray-300'
+                      } border focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Filter by Status
+                  </label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className={`w-full px-4 py-3 rounded-lg ${
+                      darkMode 
+                        ? 'bg-gray-800 border-gray-700 text-white' 
+                        : 'bg-white border-gray-300'
+                    } border focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                  >
+                    <option value="all">All Status</option>
+                    <option value="pending">Pending</option>
+                    <option value="called">Called</option>
+                    <option value="closed">Closed</option>
+                    <option value="converted">Converted</option>
+                    <option value="contacted">Contacted</option>
+                  </select>
+                </div>
+                
+                {selectedData.length > 0 && (
+                  <div className="pt-4 border-t border-gray-700">
+                    <p className={`text-sm mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                      {selectedData.length} record{selectedData.length !== 1 ? 's' : ''} selected
+                    </p>
+                    <div className="space-y-2">
+                      <button
+                        onClick={() => {
+                          handleBulkClose('converted');
+                          setShowMobileFilters(false);
+                        }}
+                        disabled={loading}
+                        className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium flex items-center justify-center space-x-2 disabled:opacity-50"
+                      >
+                        <CheckCircle size={18} />
+                        <span>Mark as Converted</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleBulkClose('closed');
+                          setShowMobileFilters(false);
+                        }}
+                        disabled={loading}
+                        className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center justify-center space-x-2 disabled:opacity-50"
+                      >
+                        <Check size={18} />
+                        <span>Mark as Closed</span>
+                      </button>
                     </div>
-                  </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name / Contact
-                  </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Details
-                  </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {filteredData.map((item) => (
-                  <tr key={item._id} className="hover:bg-gray-50">
-                    <td className="py-4 px-6">
-                      <input
-                        type="checkbox"
-                        checked={selectedData.includes(item._id)}
-                        onChange={() => toggleDataSelection(item._id)}
-                        className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                      />
-                    </td>
-                    <td className="py-4 px-6">
-                      <div>
-                        <div className="font-medium text-gray-900">{item.name || 'Unknown'}</div>
-                        <div className="text-sm text-gray-600 font-mono">{item.contact || 'No contact'}</div>
-                        {item.email && (
-                          <div className="text-sm text-gray-500 truncate">{item.email}</div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="space-y-1">
-                        <div className="flex items-center text-sm text-gray-600">
-                          <FileText size={14} className="mr-2" />
-                          <span>Batch: {item.batchNumber || 'N/A'}</span>
-                        </div>
-                        {item.source && (
-                          <div className="text-sm text-gray-500">
-                            Source: {item.source}
-                          </div>
-                        )}
-                        {item.assignedAt && (
-                          <div className="text-sm text-gray-500">
-                            Assigned: {formatDate(item.assignedAt)}
-                          </div>
-                        )}
-                        {item.calledAt && (
-                          <div className="text-sm text-blue-500">
-                            Called: {formatDate(item.calledAt)}
-                          </div>
-                        )}
-                        {item.closedAt && (
-                          <div className="text-sm text-green-500">
-                            Closed: {formatDate(item.closedAt)}
-                          </div>
-                        )}
-                        {/* Response Type Display */}
-                        {item.responseType && (
-                          <div className={`text-sm font-medium ${getResponseTypeColor(item.responseType)}`}>
-                            <CheckCircle size={12} className="inline mr-1" />
-                            Response: {getResponseTypeText(item.responseType)}
-                          </div>
-                        )}
-                        {/* Call attempts display */}
-                        {item.callAttempts > 0 && (
-                          <div className="text-sm text-purple-600">
-                            <PhoneCall size={12} className="inline mr-1" />
-                            Calls: {item.callAttempts}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(item)}`}>
-                          {getStatusIcon(item)}
-                          <span className="ml-2">{getStatusText(item)}</span>
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className="flex items-center space-x-2">
-                        {/* Show actions only if not closed/converted/rejected/not_reachable */}
-                        {!['converted', 'rejected', 'not_reachable'].includes(item.status) && (
-                          <>
-                            <button
-                              onClick={() => handleCall(item._id, item.contact)}
-                              disabled={loading || item.status === 'contacted'}
-                              className={`px-3 py-2 rounded-lg flex items-center space-x-2 ${
-                                item.status === 'contacted'
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Desktop Filters and Actions */}
+        <div className={`hidden md:block rounded-xl shadow p-6 mb-8 ${
+          darkMode ? 'bg-gray-800' : 'bg-white'
+        }`}>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
+            <div className="flex-1">
+              <h3 className={`font-semibold mb-4 ${darkMode ? 'text-gray-300' : 'text-gray-800'}`}>Filter & Actions</h3>
+              <div className="flex flex-wrap gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                  <input
+                    type="text"
+                    placeholder="Search by name, contact..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className={`pl-10 pr-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      darkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                        : 'bg-white border-gray-300'
+                    } border`}
+                  />
+                </div>
+                
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className={`px-4 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                    darkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300'
+                  } border`}
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="called">Called</option>
+                  <option value="closed">Closed</option>
+                  <option value="converted">Converted</option>
+                  <option value="contacted">Contacted</option>
+                </select>
+              </div>
+            </div>
+            
+            {/* Bulk Actions - Desktop */}
+            {selectedData.length > 0 && (
+              <div className="flex flex-col space-y-3">
+                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {selectedData.length} record{selectedData.length !== 1 ? 's' : ''} selected
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => handleBulkClose('converted')}
+                    disabled={loading}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium flex items-center space-x-2 disabled:opacity-50"
+                  >
+                    <CheckCircle size={18} />
+                    <span>Mark as Converted</span>
+                  </button>
+                  <button
+                    onClick={() => handleBulkClose('closed')}
+                    disabled={loading}
+                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center space-x-2 disabled:opacity-50"
+                  >
+                    <Check size={18} />
+                    <span>Mark as Closed</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Data Table */}
+        <div className={`rounded-xl shadow overflow-hidden ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className={`p-4 md:p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-3 md:space-y-0">
+              <div>
+                <h2 className={`text-lg font-semibold ${darkMode ? 'text-gray-300' : 'text-gray-800'}`}>Today's Data List</h2>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Showing {filteredData.length} of {todayData.length} records
+                </p>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {selectedData.length} selected
+                </div>
+                {filteredData.length > 0 && (
+                  <button
+                    onClick={selectAllData}
+                    className={`text-sm ${darkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-800'}`}
+                  >
+                    {selectedData.length === filteredData.length ? 'Deselect All' : 'Select All'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="text-center py-12">
+                <div className={`animate-spin rounded-full h-10 w-10 border-b-2 mx-auto mb-4 ${
+                  darkMode ? 'border-blue-400' : 'border-blue-600'
+                }`}></div>
+                <p className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Loading today's data...</p>
+              </div>
+            ) : filteredData.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className={`mx-auto mb-4 ${darkMode ? 'text-gray-600' : 'text-gray-400'}`} size={48} />
+                <p className={`text-lg mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>No data found</p>
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  {searchQuery || filterStatus !== 'all' 
+                    ? 'Try changing your filters' 
+                    : 'No data has been assigned to you today'}
+                </p>
+              </div>
+            ) : (
+              <div className="md:table w-full">
+                {/* Mobile Card View */}
+                <div className="md:hidden">
+                  {filteredData.map((item) => (
+                    <div
+                      key={item._id}
+                      className={`p-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center mb-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedData.includes(item._id)}
+                              onChange={() => toggleDataSelection(item._id)}
+                              className={`h-4 w-4 mr-3 rounded ${
+                                darkMode 
+                                  ? 'bg-gray-700 border-gray-600 text-blue-400 focus:ring-blue-500/30' 
+                                  : 'border-gray-300 text-blue-600 focus:ring-blue-500'
                               }`}
-                            >
-                              <Phone size={16} />
-                              <span>{item.status === 'contacted' ? 'Called' : 'Call'}</span>
-                            </button>
-                            
-                            <div className="relative" ref={el => dropdownRefs.current[item._id] = el}>
-                              <button
-                                onClick={() => toggleDropdown(item._id)}
-                                disabled={loading}
-                                className="px-3 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg flex items-center space-x-2"
-                              >
-                                <CheckCircle size={16} />
-                                <span>Close</span>
-                                <ChevronRight size={16} />
-                              </button>
-                              
-                              {/* Dropdown Menu */}
-                              {openDropdownId === item._id && (
-                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                                  <div className="py-1">
-                                    <button
-                                      onClick={() => handleClose(item._id, 'converted')}
-                                      className="w-full text-left px-4 py-2 text-sm text-emerald-700 hover:bg-emerald-50 flex items-center"
-                                    >
-                                      <CheckCircle size={14} className="mr-2" />
-                                      Interested (Convert)
-                                    </button>
-                                    <button
-                                      onClick={() => handleClose(item._id, 'closed')}
-                                      className="w-full text-left px-4 py-2 text-sm text-green-700 hover:bg-green-50 flex items-center"
-                                    >
-                                      <Check size={14} className="mr-2" />
-                                      Not Interested
-                                    </button>
-                                    
-                                    <button
-                                      onClick={() => handleClose(item._id, 'not_reachable')}
-                                      className="w-full text-left px-4 py-2 text-sm text-orange-700 hover:bg-orange-50 flex items-center"
-                                    >
-                                      <AlertCircle size={14} className="mr-2" />
-                                      Invalid Number
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
+                            />
+                            <div>
+                              <div className={`font-medium ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                                {item.name || 'Unknown'}
+                              </div>
+                              <div className="text-sm font-mono">{item.contact || 'No contact'}</div>
                             </div>
-                          </>
-                        )}
-                        
-                        {/* Show closed status if already closed */}
-                        {['converted', 'rejected', 'not_reachable'].includes(item.status) && (
-                          <div className="flex flex-col items-start">
-                            <span className="text-sm font-medium text-gray-700">
-                              {item.status === 'converted' ? 'Converted' : 
-                               item.status === 'rejected' ? 'Rejected' : 
-                               'Not Reachable'}
-                            </span>
+                          </div>
+                          
+                          <div className="space-y-2 ml-7">
+                            <div className="flex items-center text-sm">
+                              <FileText size={14} className="mr-2 flex-shrink-0" />
+                              <span>Batch: {item.batchNumber || 'N/A'}</span>
+                            </div>
+                            
+                            {item.source && (
+                              <div className="text-sm">
+                                Source: {item.source}
+                              </div>
+                            )}
+                            
+                            {item.assignedAt && (
+                              <div className="text-sm">
+                                Assigned: {formatDate(item.assignedAt)}
+                              </div>
+                            )}
+                            
+                            {item.calledAt && (
+                              <div className="text-sm text-blue-500">
+                                Called: {formatDate(item.calledAt)}
+                              </div>
+                            )}
+                            
+                            {item.closedAt && (
+                              <div className="text-sm text-green-500">
+                                Closed: {formatDate(item.closedAt)}
+                              </div>
+                            )}
+                            
                             {item.responseType && (
-                              <span className={`text-xs ${getResponseTypeColor(item.responseType)}`}>
-                                ({getResponseTypeText(item.responseType)})
-                              </span>
+                              <div className={`text-sm font-medium ${getResponseTypeColor(item.responseType)}`}>
+                                <CheckCircle size={12} className="inline mr-1" />
+                                Response: {getResponseTypeText(item.responseType)}
+                              </div>
+                            )}
+                            
+                            {item.callAttempts > 0 && (
+                              <div className="text-sm text-purple-500">
+                                <PhoneCall size={12} className="inline mr-1" />
+                                Calls: {item.callAttempts}
+                              </div>
                             )}
                           </div>
-                        )}
+                        </div>
+                        
+                        <div className="flex flex-col items-end">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mb-3 ${getStatusColor(item)}`}>
+                            {getStatusIcon(item)}
+                            <span className="ml-1">{getStatusText(item)}</span>
+                          </span>
+                          
+                          {/* Actions for Mobile */}
+                          {!['converted', 'rejected', 'not_reachable'].includes(item.status) && (
+                            <div className="flex flex-col space-y-2">
+                              <button
+                                onClick={() => handleCall(item._id, item.contact)}
+                                disabled={loading || item.status === 'contacted'}
+                                className={`px-3 py-1.5 rounded-lg flex items-center justify-center space-x-1 text-sm ${
+                                  item.status === 'contacted'
+                                    ? darkMode
+                                      ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : darkMode
+                                    ? 'bg-blue-900/30 text-blue-300 hover:bg-blue-800/30'
+                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                }`}
+                              >
+                                <Phone size={14} />
+                                <span>{item.status === 'contacted' ? 'Called' : 'Call'}</span>
+                              </button>
+                              
+                              <div className="relative" ref={el => dropdownRefs.current[item._id] = el}>
+                                <button
+                                  onClick={() => toggleDropdown(item._id)}
+                                  disabled={loading}
+                                  className={`px-3 py-1.5 rounded-lg flex items-center justify-center space-x-1 text-sm ${
+                                    darkMode 
+                                      ? 'bg-green-900/30 text-green-300 hover:bg-green-800/30' 
+                                      : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  }`}
+                                >
+                                  <CheckCircle size={14} />
+                                  <span>Close</span>
+                                  <ChevronRight size={14} />
+                                </button>
+                                
+                                {/* Dropdown Menu */}
+                                {openDropdownId === item._id && (
+                                  <div className={`absolute right-0 top-full mt-1 w-48 rounded-lg shadow-lg z-10 ${
+                                    darkMode 
+                                      ? 'bg-gray-800 border-gray-700' 
+                                      : 'bg-white border-gray-200'
+                                  } border`}>
+                                    <div className="py-1">
+                                      <button
+                                        onClick={() => handleClose(item._id, 'converted')}
+                                        className={`w-full text-left px-4 py-2 text-sm flex items-center ${
+                                          darkMode
+                                            ? 'text-emerald-300 hover:bg-emerald-900/30'
+                                            : 'text-emerald-700 hover:bg-emerald-50'
+                                        }`}
+                                      >
+                                        <CheckCircle size={14} className="mr-2" />
+                                        Interested (Convert)
+                                      </button>
+                                      <button
+                                        onClick={() => handleClose(item._id, 'closed')}
+                                        className={`w-full text-left px-4 py-2 text-sm flex items-center ${
+                                          darkMode
+                                            ? 'text-green-300 hover:bg-green-900/30'
+                                            : 'text-green-700 hover:bg-green-50'
+                                        }`}
+                                      >
+                                        <Check size={14} className="mr-2" />
+                                        Not Interested
+                                      </button>
+                                      
+                                      <button
+                                        onClick={() => handleClose(item._id, 'not_reachable')}
+                                        className={`w-full text-left px-4 py-2 text-sm flex items-center ${
+                                          darkMode
+                                            ? 'text-orange-300 hover:bg-orange-900/30'
+                                            : 'text-orange-700 hover:bg-orange-50'
+                                        }`}
+                                      >
+                                        <AlertCircle size={14} className="mr-2" />
+                                        Invalid Number
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Show closed status if already closed */}
+                          {['converted', 'rejected', 'not_reachable'].includes(item.status) && (
+                            <div className="flex flex-col items-end">
+                              <span className="text-sm font-medium">
+                                {item.status === 'converted' ? 'Converted' : 
+                                 item.status === 'rejected' ? 'Rejected' : 
+                                 'Not Reachable'}
+                              </span>
+                              {item.responseType && (
+                                <span className={`text-xs ${getResponseTypeColor(item.responseType)}`}>
+                                  ({getResponseTypeText(item.responseType)})
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  ))}
+                </div>
+                
+                {/* Desktop Table View */}
+                <table className="hidden md:table w-full">
+                  <thead className={darkMode ? 'bg-gray-900/50' : 'bg-gray-50'}>
+                    <tr>
+                      <th className="py-3 px-6 text-left">
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={filteredData.length > 0 && selectedData.length === filteredData.length}
+                            onChange={selectAllData}
+                            className={`h-4 w-4 rounded ${
+                              darkMode 
+                                ? 'bg-gray-700 border-gray-600 text-blue-400 focus:ring-blue-500/30' 
+                                : 'border-gray-300 text-blue-600 focus:ring-blue-500'
+                            }`}
+                          />
+                        </div>
+                      </th>
+                      <th className={`py-3 px-6 text-left text-xs font-medium uppercase tracking-wider ${
+                        darkMode ? 'text-gray-300' : 'text-gray-500'
+                      }`}>
+                        Name / Contact
+                      </th>
+                      <th className={`py-3 px-6 text-left text-xs font-medium uppercase tracking-wider ${
+                        darkMode ? 'text-gray-300' : 'text-gray-500'
+                      }`}>
+                        Details
+                      </th>
+                      <th className={`py-3 px-6 text-left text-xs font-medium uppercase tracking-wider ${
+                        darkMode ? 'text-gray-300' : 'text-gray-500'
+                      }`}>
+                        Status
+                      </th>
+                      <th className={`py-3 px-6 text-left text-xs font-medium uppercase tracking-wider ${
+                        darkMode ? 'text-gray-300' : 'text-gray-500'
+                      }`}>
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className={`divide-y ${darkMode ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                    {filteredData.map((item) => (
+                      <tr key={item._id} className={darkMode ? 'hover:bg-gray-700/50' : 'hover:bg-gray-50'}>
+                        <td className="py-4 px-6">
+                          <input
+                            type="checkbox"
+                            checked={selectedData.includes(item._id)}
+                            onChange={() => toggleDataSelection(item._id)}
+                            className={`h-4 w-4 rounded ${
+                              darkMode 
+                                ? 'bg-gray-700 border-gray-600 text-blue-400 focus:ring-blue-500/30' 
+                                : 'border-gray-300 text-blue-600 focus:ring-blue-500'
+                            }`}
+                          />
+                        </td>
+                        <td className="py-4 px-6">
+                          <div>
+                            <div className={`font-medium ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                              {item.name || 'Unknown'}
+                            </div>
+                            <div className={`text-sm font-mono ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              {item.contact || 'No contact'}
+                            </div>
+                            {item.email && (
+                              <div className={`text-sm truncate ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                {item.email}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="space-y-1">
+                            <div className={`flex items-center text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <FileText size={14} className="mr-2" />
+                              <span>Batch: {item.batchNumber || 'N/A'}</span>
+                            </div>
+                            {item.source && (
+                              <div className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                Source: {item.source}
+                              </div>
+                            )}
+                            {item.assignedAt && (
+                              <div className={`text-sm ${darkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                Assigned: {formatDate(item.assignedAt)}
+                              </div>
+                            )}
+                            {item.calledAt && (
+                              <div className="text-sm text-blue-500">
+                                Called: {formatDate(item.calledAt)}
+                              </div>
+                            )}
+                            {item.closedAt && (
+                              <div className="text-sm text-green-500">
+                                Closed: {formatDate(item.closedAt)}
+                              </div>
+                            )}
+                            {/* Response Type Display */}
+                            {item.responseType && (
+                              <div className={`text-sm font-medium ${getResponseTypeColor(item.responseType)}`}>
+                                <CheckCircle size={12} className="inline mr-1" />
+                                Response: {getResponseTypeText(item.responseType)}
+                              </div>
+                            )}
+                            {/* Call attempts display */}
+                            {item.callAttempts > 0 && (
+                              <div className="text-sm text-purple-500">
+                                <PhoneCall size={12} className="inline mr-1" />
+                                Calls: {item.callAttempts}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex items-center">
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(item)}`}>
+                              {getStatusIcon(item)}
+                              <span className="ml-2">{getStatusText(item)}</span>
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex items-center space-x-2">
+                            {/* Show actions only if not closed/converted/rejected/not_reachable */}
+                            {!['converted', 'rejected', 'not_reachable'].includes(item.status) && (
+                              <>
+                                <button
+                                  onClick={() => handleCall(item._id, item.contact)}
+                                  disabled={loading || item.status === 'contacted'}
+                                  className={`px-3 py-2 rounded-lg flex items-center space-x-2 ${
+                                    item.status === 'contacted'
+                                      ? darkMode
+                                        ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                      : darkMode
+                                      ? 'bg-blue-900/30 text-blue-300 hover:bg-blue-800/30'
+                                      : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                  }`}
+                                >
+                                  <Phone size={16} />
+                                  <span>{item.status === 'contacted' ? 'Called' : 'Call'}</span>
+                                </button>
+                                
+                                <div className="relative" ref={el => dropdownRefs.current[item._id] = el}>
+                                  <button
+                                    onClick={() => toggleDropdown(item._id)}
+                                    disabled={loading}
+                                    className={`px-3 py-2 rounded-lg flex items-center space-x-2 ${
+                                      darkMode 
+                                        ? 'bg-green-900/30 text-green-300 hover:bg-green-800/30' 
+                                        : 'bg-green-100 text-green-700 hover:bg-green-200'
+                                    }`}
+                                  >
+                                    <CheckCircle size={16} />
+                                    <span>Close</span>
+                                    <ChevronRight size={16} />
+                                  </button>
+                                  
+                                  {/* Dropdown Menu */}
+                                  {openDropdownId === item._id && (
+                                    <div className={`absolute right-0 mt-2 w-48 rounded-lg shadow-lg z-10 ${
+                                      darkMode 
+                                        ? 'bg-gray-800 border-gray-700' 
+                                        : 'bg-white border-gray-200'
+                                    } border`}>
+                                      <div className="py-1">
+                                        <button
+                                          onClick={() => handleClose(item._id, 'converted')}
+                                          className={`w-full text-left px-4 py-2 text-sm flex items-center ${
+                                            darkMode
+                                              ? 'text-emerald-300 hover:bg-emerald-900/30'
+                                              : 'text-emerald-700 hover:bg-emerald-50'
+                                          }`}
+                                        >
+                                          <CheckCircle size={14} className="mr-2" />
+                                          Interested (Convert)
+                                        </button>
+                                        <button
+                                          onClick={() => handleClose(item._id, 'closed')}
+                                          className={`w-full text-left px-4 py-2 text-sm flex items-center ${
+                                            darkMode
+                                              ? 'text-green-300 hover:bg-green-900/30'
+                                              : 'text-green-700 hover:bg-green-50'
+                                          }`}
+                                        >
+                                          <Check size={14} className="mr-2" />
+                                          Not Interested
+                                        </button>
+                                        
+                                        <button
+                                          onClick={() => handleClose(item._id, 'not_reachable')}
+                                          className={`w-full text-left px-4 py-2 text-sm flex items-center ${
+                                            darkMode
+                                              ? 'text-orange-300 hover:bg-orange-900/30'
+                                              : 'text-orange-700 hover:bg-orange-50'
+                                          }`}
+                                        >
+                                          <AlertCircle size={14} className="mr-2" />
+                                          Invalid Number
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                            
+                            {/* Show closed status if already closed */}
+                            {['converted', 'rejected', 'not_reachable'].includes(item.status) && (
+                              <div className="flex flex-col items-start">
+                                <span className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                  {item.status === 'converted' ? 'Converted' : 
+                                   item.status === 'rejected' ? 'Rejected' : 
+                                   'Not Reachable'}
+                                </span>
+                                {item.responseType && (
+                                  <span className={`text-xs ${getResponseTypeColor(item.responseType)}`}>
+                                    ({getResponseTypeText(item.responseType)})
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+          
+          {/* Data Summary */}
+          {filteredData.length > 0 && (
+            <div className={`p-4 md:p-6 border-t ${darkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+                <div className="mb-4 md:mb-0">
+                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Showing {filteredData.length} record{filteredData.length !== 1 ? 's' : ''}
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                      darkMode ? 'bg-yellow-900/30 text-yellow-300' : 'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      <Clock size={12} className="mr-1" />
+                      Pending: {todaysCounts.pending}
+                    </span>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                      darkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      <PhoneCall size={12} className="mr-1" />
+                      Called: {todaysCounts.called}
+                    </span>
+                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
+                      darkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800'
+                    }`}>
+                      <CheckCircle size={12} className="mr-1" />
+                      Closed: {todaysCounts.closed}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <p>Assigned today: {formatDateFull(todayData[0]?.assignedAt)}</p>
+                  <p>Data automatically moves to previous if not closed</p>
+                </div>
+              </div>
+            </div>
           )}
         </div>
         
-        {/* Data Summary */}
-        {filteredData.length > 0 && (
-          <div className="p-6 border-t bg-gray-50">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-              <div className="mb-4 md:mb-0">
-                <p className="text-sm text-gray-600">
-                  Showing {filteredData.length} record{filteredData.length !== 1 ? 's' : ''}
-                </p>
-                <div className="flex space-x-4 mt-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
-                    <Clock size={12} className="mr-1" />
-                    Pending: {todaysCounts.pending}
-                  </span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
-                    <PhoneCall size={12} className="mr-1" />
-                    Called: {todaysCounts.called}
-                  </span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                    <CheckCircle size={12} className="mr-1" />
-                    Closed: {todaysCounts.closed}
-                  </span>
-                </div>
+        {/* Result Display */}
+        {result && (
+          <div className={`mt-6 rounded-xl p-4 md:p-6 ${
+            result.success 
+              ? darkMode 
+                ? 'bg-emerald-900/20 border border-emerald-800/50' 
+                : 'bg-green-50 border border-green-200'
+              : darkMode 
+                ? 'bg-red-900/20 border border-red-800/50' 
+                : 'bg-red-50 border border-red-200'
+          }`}>
+            <div className="flex items-start">
+              <div className={`p-2 rounded-lg mr-4 ${
+                result.success 
+                  ? darkMode ? 'bg-emerald-900/30' : 'bg-green-100'
+                  : darkMode ? 'bg-red-900/30' : 'bg-red-100'
+              }`}>
+                {result.success ? (
+                  <CheckCircle className={darkMode ? 'text-emerald-400' : 'text-green-600'} size={24} />
+                ) : (
+                  <AlertCircle className={darkMode ? 'text-red-400' : 'text-red-600'} size={24} />
+                )}
               </div>
-              
-              <div className="text-sm text-gray-600">
-                <p>Assigned today: {formatDateFull(todayData[0]?.assignedAt)}</p>
-                <p>Data automatically moves to previous if not closed</p>
+              <div className="flex-1">
+                <h3 className={`font-semibold ${
+                  result.success 
+                    ? darkMode ? 'text-emerald-300' : 'text-green-800'
+                    : darkMode ? 'text-red-300' : 'text-red-800'
+                }`}>
+                  {result.success ? 'Success!' : 'Error'}
+                </h3>
+                <p className={`mt-1 ${
+                  result.success 
+                    ? darkMode ? 'text-emerald-400' : 'text-green-700'
+                    : darkMode ? 'text-red-400' : 'text-red-700'
+                }`}>
+                  {result.message || result.error}
+                </p>
+                
+                {result.data && (
+                  <div className="mt-4">
+                    {result.data.closedCount && (
+                      <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {result.data.closedCount} record{result.data.closedCount !== 1 ? 's' : ''} updated
+                      </p>
+                    )}
+                    {result.data.errorCount > 0 && (
+                      <p className={`text-sm mt-2 ${
+                        darkMode ? 'text-red-400' : 'text-red-600'
+                      }`}>
+                        {result.data.errorCount} error{result.data.errorCount !== 1 ? 's' : ''} occurred
+                      </p>
+                    )}
+                    {result.data.responseType && (
+                      <p className={`text-sm mt-2 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Response: {getResponseTypeText(result.data.responseType)}
+                      </p>
+                    )}
+                  </div>
+                )}
+                
+                {result.errors && result.errors.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className={`font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Errors:</h4>
+                    <div className="space-y-1">
+                      {result.errors.map((error, index) => (
+                        <div key={index} className={`text-sm flex items-start ${
+                          darkMode ? 'text-red-400' : 'text-red-600'
+                        }`}>
+                          <AlertCircle size={14} className="mr-2 mt-0.5 flex-shrink-0" />
+                          <span>ID {error.dataId}: {error.error}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
       </div>
-      
-      {/* Result Display */}
-      {result && (
-        <div className={`mt-6 rounded-xl p-6 ${
-          result.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
-        }`}>
-          <div className="flex items-start">
-            <div className={`p-2 rounded-lg mr-4 ${
-              result.success ? 'bg-green-100' : 'bg-red-100'
-            }`}>
-              {result.success ? (
-                <CheckCircle className="text-green-600" size={24} />
-              ) : (
-                <AlertCircle className="text-red-600" size={24} />
-              )}
-            </div>
-            <div className="flex-1">
-              <h3 className={`font-semibold ${
-                result.success ? 'text-green-800' : 'text-red-800'
-              }`}>
-                {result.success ? 'Success!' : 'Error'}
-              </h3>
-              <p className={`mt-1 ${result.success ? 'text-green-700' : 'text-red-700'}`}>
-                {result.message || result.error}
-              </p>
-              
-              {result.data && (
-                <div className="mt-4">
-                  {result.data.closedCount && (
-                    <p className="text-sm text-gray-600">
-                      {result.data.closedCount} record{result.data.closedCount !== 1 ? 's' : ''} updated
-                    </p>
-                  )}
-                  {result.data.errorCount > 0 && (
-                    <p className="text-sm text-red-600 mt-2">
-                      {result.data.errorCount} error{result.data.errorCount !== 1 ? 's' : ''} occurred
-                    </p>
-                  )}
-                  {result.data.responseType && (
-                    <p className="text-sm text-gray-600 mt-2">
-                      Response: {getResponseTypeText(result.data.responseType)}
-                    </p>
-                  )}
-                </div>
-              )}
-              
-              {result.errors && result.errors.length > 0 && (
-                <div className="mt-4">
-                  <h4 className="font-medium text-gray-700 mb-2">Errors:</h4>
-                  <div className="space-y-1">
-                    {result.errors.map((error, index) => (
-                      <div key={index} className="text-sm text-red-600 flex items-start">
-                        <AlertCircle size={14} className="mr-2 mt-0.5 flex-shrink-0" />
-                        <span>ID {error.dataId}: {error.error}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

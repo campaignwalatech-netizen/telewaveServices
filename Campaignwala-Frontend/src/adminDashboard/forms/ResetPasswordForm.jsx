@@ -1,4 +1,5 @@
 import { useState } from "react";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function ResetPasswordForm() {
   const [formData, setFormData] = useState({
@@ -11,15 +12,15 @@ export default function ResetPasswordForm() {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (formData.newPassword !== formData.confirmPassword) {
-      alert("Passwords do not match!");
+      toast.error("Passwords do not match!");
       return;
     }
     if (formData.otp.length !== 4 || !/^\d{4}$/.test(formData.otp)) {
-      alert("Please enter a valid 4-digit OTP!");
+      toast.error("Please enter a valid 4-digit OTP!");
       return;
     }
     console.log("Reset Password Data:", formData);
-    alert("Password reset successfully!");
+    toast.success("✅ Password reset successfully!");
   };
 
   const handleChange = (e) => {
@@ -28,6 +29,28 @@ export default function ResetPasswordForm() {
 
   return (
     <div className="h-full flex flex-col p-3 sm:p-4">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Header with Title */}
       <div className="mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-foreground">Reset User Password</h2>

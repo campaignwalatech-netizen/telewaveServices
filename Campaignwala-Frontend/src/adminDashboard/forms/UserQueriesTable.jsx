@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Send } from "lucide-react";
+import toast, { Toaster } from "react-hot-toast";
 import Button from "../../components/Button.jsx";
 import { useTheme } from "../../context-api/ThemeContext.jsx";
 import queryService from "../../services/queryService.js";
@@ -65,7 +66,9 @@ export default function UserQueriesTable() {
       }
     } catch (err) {
       console.error('Error fetching queries:', err);
-      setError(err.message || 'Failed to fetch queries');
+      const errorMsg = err.message || 'Failed to fetch queries';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -123,11 +126,11 @@ export default function UserQueriesTable() {
 
           setShowReplyModal(false);
           setReplyMessage("");
-          alert('Reply sent successfully!');
+          toast.success('✅ Reply sent successfully!');
         }
       } catch (err) {
         console.error('Error sending reply:', err);
-        alert(err.message || 'Failed to send reply');
+        toast.error(err.message || 'Failed to send reply');
       }
     }
   };
@@ -142,6 +145,28 @@ export default function UserQueriesTable() {
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Header */}
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-foreground">QUERIES</h1>

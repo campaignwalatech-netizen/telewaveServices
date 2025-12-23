@@ -1,6 +1,7 @@
 import { Download, Search, Filter, X, Upload } from "lucide-react";
 import { useState, useEffect } from "react";
 import leadService from "../../services/leadService";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function LeadsTable({ status }) {
   const [searchTerm, setSearchTerm] = useState("");
@@ -196,7 +197,7 @@ export default function LeadsTable({ status }) {
 
   const handleExport = () => {
     console.log("Exporting leads...");
-    alert("Export functionality will be implemented soon!");
+    toast.info("Export functionality will be implemented soon!");
   };
 
   const handleViewLead = (lead) => {
@@ -212,12 +213,12 @@ export default function LeadsTable({ status }) {
       if (newStatus === 'approved') {
         response = await leadService.approveLead(lead._id);
         if (response.success) {
-          alert(response.message || 'Lead approved successfully!');
+          toast.success(`✅ ${response.message || 'Lead approved successfully!'}`);
         }
       } else if (newStatus === 'completed') {
         response = await leadService.approveLead(lead._id);
         if (response.success) {
-          alert(response.message || 'Lead completed successfully!');
+          toast.success(`✅ ${response.message || 'Lead completed successfully!'}`);
         }
       } else if (newStatus === 'rejected') {
         const reason = prompt('Enter rejection reason:');
@@ -229,18 +230,40 @@ export default function LeadsTable({ status }) {
       }
       
       if (response.success) {
-        alert(`Lead status changed to ${newStatus} successfully!`);
+        toast.success(`✅ Lead status changed to ${newStatus} successfully!`);
         fetchLeads(); // Refresh the leads list
         fetchStats(); // Refresh stats
       }
     } catch (error) {
       console.error('Error updating lead status:', error);
-      alert('Failed to update lead status. Please try again.');
+      toast.error('Failed to update lead status. Please try again.');
     }
   };
 
   return (
     <div className="h-full flex flex-col p-3 sm:p-4">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Header with Title */}
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-xl sm:text-2xl font-bold text-foreground capitalize whitespace-nowrap">{status} Leads</h2>

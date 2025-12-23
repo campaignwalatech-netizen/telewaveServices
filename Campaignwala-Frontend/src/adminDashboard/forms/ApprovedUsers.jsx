@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import userService from '../../services/userService';
+import toast, { Toaster } from 'react-hot-toast';
 import { 
   Search, 
   Users, 
@@ -705,11 +706,15 @@ export default function AllUsers() {
         const enhancedUsers = response.data.users.map(enhanceUserData);
         setUsers(enhancedUsers);
       } else {
-        setError(response.message || 'Failed to fetch users');
+        const errorMsg = response.message || 'Failed to fetch users';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error fetching users:', err);
-      setError(err.message || 'Failed to fetch users');
+      const errorMsg = err.message || 'Failed to fetch users';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -745,14 +750,20 @@ export default function AllUsers() {
       const response = await userService.changeUserRole(userId, { newRole });
       
       if (response.success) {
-        setSuccess(`User role changed to ${newRole} successfully`);
+        const successMsg = `User role changed to ${newRole} successfully`;
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchUsers();
       } else {
-        setError(response.message || 'Failed to change user role');
+        const errorMsg = response.message || 'Failed to change user role';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error changing user role:', err);
-      setError(err.message || 'Failed to change user role');
+      const errorMsg = err.message || 'Failed to change user role';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -773,14 +784,20 @@ export default function AllUsers() {
       }
       
       if (response?.success) {
-        setSuccess(`User status changed to ${newStatus} successfully`);
+        const successMsg = `User status changed to ${newStatus} successfully`;
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchUsers();
       } else {
-        setError(response?.message || 'Failed to change user status');
+        const errorMsg = response?.message || 'Failed to change user status';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error changing user status:', err);
-      setError(err.message || 'Failed to change user status');
+      const errorMsg = err.message || 'Failed to change user status';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -795,14 +812,20 @@ export default function AllUsers() {
       });
       
       if (response.success) {
-        setSuccess(`TL assigned successfully`);
+        const successMsg = `TL assigned successfully`;
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchUsers();
       } else {
-        setError(response.message || 'Failed to assign TL');
+        const errorMsg = response.message || 'Failed to assign TL';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error assigning TL:', err);
-      setError(err.message || 'Failed to assign TL');
+      const errorMsg = err.message || 'Failed to assign TL';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -815,14 +838,20 @@ export default function AllUsers() {
       const response = await userService.processWithdrawal(userId, { amount });
       
       if (response.success) {
-        setSuccess(`Withrow of ₹${amount} processed successfully`);
+        const successMsg = `Withrow of ₹${amount} processed successfully`;
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchUsers();
       } else {
-        setError(response.message || 'Failed to process withrow');
+        const errorMsg = response.message || 'Failed to process withrow';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error processing withrow:', err);
-      setError(err.message || 'Failed to process withrow');
+      const errorMsg = err.message || 'Failed to process withrow';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -837,14 +866,20 @@ export default function AllUsers() {
       const response = await userService.deleteUser(userId);
       
       if (response.success) {
-        setSuccess('User deleted successfully');
+        const successMsg = 'User deleted successfully';
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchUsers();
       } else {
-        setError(response.message || 'Failed to delete user');
+        const errorMsg = response.message || 'Failed to delete user';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error deleting user:', err);
-      setError(err.message || 'Failed to delete user');
+      const errorMsg = err.message || 'Failed to delete user';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
@@ -874,10 +909,14 @@ export default function AllUsers() {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
       
-      setSuccess('Users exported successfully');
+      const successMsg = 'Users exported successfully';
+      setSuccess(successMsg);
+      toast.success(`✅ ${successMsg}`);
     } catch (err) {
       console.error('Error exporting users:', err);
-      setError(err.message || 'Failed to export users');
+      const errorMsg = err.message || 'Failed to export users';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -890,14 +929,20 @@ export default function AllUsers() {
       const response = await userService.bulkUploadUsers(file);
       
       if (response.success) {
-        setSuccess(`${response.data?.processed || 0} users uploaded successfully`);
+        const successMsg = `${response.data?.processed || 0} users uploaded successfully`;
+        setSuccess(successMsg);
+        toast.success(`✅ ${successMsg}`);
         await fetchUsers();
       } else {
-        setError(response.message || 'Failed to upload users');
+        const errorMsg = response.message || 'Failed to upload users';
+        setError(errorMsg);
+        toast.error(errorMsg);
       }
     } catch (err) {
       console.error('Error uploading users:', err);
-      setError(err.message || 'Failed to upload users');
+      const errorMsg = err.message || 'Failed to upload users';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -979,6 +1024,28 @@ export default function AllUsers() {
 
   return (
     <div className="space-y-6 p-6">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>

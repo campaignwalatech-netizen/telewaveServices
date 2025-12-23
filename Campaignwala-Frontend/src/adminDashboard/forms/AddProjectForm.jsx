@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { AlertCircle } from "lucide-react";
 import { createOffer } from "../../services/offerService";
 import { getAllCategories } from "../../services/categoryService";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function AddOffersForm() {
   const [formData, setFormData] = useState({
@@ -45,7 +46,9 @@ export default function AddOffersForm() {
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
-      setErrorMessage("Failed to load categories");
+      const errorMsg = "Failed to load categories";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoadingCategories(false);
     }
@@ -56,7 +59,9 @@ export default function AddOffersForm() {
     
     // Check if commission1 is filled
     if (!formData.commission1) {
-      setErrorMessage("⚠️ Commission 1 is required!");
+      const errorMsg = "⚠️ Commission 1 is required!";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -68,7 +73,9 @@ export default function AddOffersForm() {
       const response = await createOffer(formData);
       
       if (response.success) {
-        setSuccessMessage("✅ Offer created successfully!");
+        const successMsg = "✅ Offer created successfully!";
+        setSuccessMessage(successMsg);
+        toast.success(successMsg);
         
         // Reset form after 2 seconds
         setTimeout(() => {
@@ -91,7 +98,9 @@ export default function AddOffersForm() {
       }
     } catch (error) {
       console.error("Error creating offer:", error);
-      setErrorMessage(error.response?.data?.message || "Failed to create offer. Please try again.");
+      const errorMsg = error.response?.data?.message || "Failed to create offer. Please try again.";
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -134,6 +143,28 @@ export default function AddOffersForm() {
 
   return (
     <div className="h-full flex flex-col p-3 sm:p-4">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-2">Add New Offers</h2>
       
       {/* Alert Messages */}

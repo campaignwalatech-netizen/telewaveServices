@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Eye, X } from "lucide-react";
 import adminLogService from "../../services/adminLogService";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function AdminLogsTable() {
   const [logs, setLogs] = useState([]);
@@ -57,7 +58,9 @@ export default function AdminLogsTable() {
       }
     } catch (err) {
       console.error('Error fetching admin logs:', err);
-      setError(err.message || 'Failed to load admin logs');
+      const errorMsg = err.message || 'Failed to load admin logs';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -90,11 +93,11 @@ export default function AdminLogsTable() {
 
       if (response.success && response.data && response.data.logs) {
         adminLogService.downloadCSV(response.data.logs);
-        alert('Logs exported successfully!');
+        toast.success('✅ Logs exported successfully!');
       }
     } catch (err) {
       console.error('Error exporting logs:', err);
-      alert('Failed to export logs');
+      toast.error('Failed to export logs');
     }
   };
 
@@ -117,6 +120,28 @@ export default function AdminLogsTable() {
 
   return (
     <div className="p-6">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-foreground">Admin Activity Logs</h2>
         <button 

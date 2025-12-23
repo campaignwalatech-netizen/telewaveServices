@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import toast, { Toaster } from "react-hot-toast";
 import {
   BarChart,
   Bar,
@@ -718,7 +719,9 @@ export default function Dashboard() {
       }
     } catch (error) {
       console.error('❌ Failed to load dashboard data:', error);
-      setError(error.message || 'Failed to load dashboard data');
+      const errorMsg = error.message || 'Failed to load dashboard data';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
       setLoadingData({ 
@@ -793,44 +796,119 @@ export default function Dashboard() {
       document.body.appendChild(link);
       link.click();
       link.remove();
+      toast.success('✅ Data exported successfully!');
     } catch (error) {
       console.error('Export failed:', error);
-      alert('Failed to export data. Please try again.');
+      toast.error('Failed to export data. Please try again.');
     }
   };
 
   if (loading) {
-    return <LoadingSkeleton />;
+    return (
+      <>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+              style: {
+                background: '#059669',
+              },
+            },
+            error: {
+              duration: 5000,
+              style: {
+                background: '#DC2626',
+              },
+            },
+          }}
+        />
+        <LoadingSkeleton />
+      </>
+    );
   }
 
   if (error) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center max-w-md mx-auto">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <p className="text-red-500 mb-2 text-lg font-medium">Failed to load dashboard data</p>
-          <p className="text-muted-foreground mb-4">{error}</p>
-          <div className="flex gap-2 justify-center">
-            <Button onClick={loadDashboardData}>Try Again</Button>
-            <Button variant="outline" onClick={() => window.location.reload()}>
-              Refresh Page
-            </Button>
+      <>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+              style: {
+                background: '#059669',
+              },
+            },
+            error: {
+              duration: 5000,
+              style: {
+                background: '#DC2626',
+              },
+            },
+          }}
+        />
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center max-w-md mx-auto">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <p className="text-red-500 mb-2 text-lg font-medium">Failed to load dashboard data</p>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <div className="flex gap-2 justify-center">
+              <Button onClick={loadDashboardData}>Try Again</Button>
+              <Button variant="outline" onClick={() => window.location.reload()}>
+                Refresh Page
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (!dashboardData) {
     return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
-          <p className="text-foreground mb-2 text-lg font-medium">No dashboard data available</p>
-          <p className="text-muted-foreground mb-4">Please check if you have the necessary permissions</p>
-          <Button onClick={loadDashboardData}>Load Dashboard</Button>
+      <>
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#363636',
+              color: '#fff',
+            },
+            success: {
+              duration: 3000,
+              style: {
+                background: '#059669',
+              },
+            },
+            error: {
+              duration: 5000,
+              style: {
+                background: '#DC2626',
+              },
+            },
+          }}
+        />
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center">
+            <AlertCircle className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+            <p className="text-foreground mb-2 text-lg font-medium">No dashboard data available</p>
+            <p className="text-muted-foreground mb-4">Please check if you have the necessary permissions</p>
+            <Button onClick={loadDashboardData}>Load Dashboard</Button>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
@@ -1475,6 +1553,28 @@ export default function Dashboard() {
 
   return (
     <div className="h-full flex flex-col p-3 sm:p-4 lg:p-6 bg-background">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       <div className="max-w-7xl mx-auto w-full">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">

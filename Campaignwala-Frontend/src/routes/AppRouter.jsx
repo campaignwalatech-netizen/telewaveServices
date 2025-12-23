@@ -28,6 +28,7 @@ import LoginPage from "../pages/auth/LoginPage";
 import RegisterPage from "../pages/auth/Register";
 import OtpVerification from "../pages/auth/OtpVerification";
 import PendingApproval from "../pages/auth/PendingApproval";
+import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 
 // Admin Components
 import App from "../App";
@@ -161,9 +162,9 @@ export default function AppRouter() {
         {/* Auth Routes - Public routes */}
         <Route path="/" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/verify-otp" element={<OtpVerification />} />
         <Route path="/pending-approval" element={<PendingApproval darkMode={darkMode} />} />
-        {/* MOVE THIS HERE */}
 
         {/* Public Share Link Route */}
         <Route

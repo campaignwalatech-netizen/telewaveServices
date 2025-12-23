@@ -26,12 +26,57 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
   });
 
   const [attendanceLoading, setAttendanceLoading] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768); // Mobile detection
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isWithinTimeRange, setIsWithinTimeRange] = useState(true); // Track if within allowed time
 
   const profileRef = useRef(null);
   const avatarRef = useRef(null);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+
+  // ---------------------------
+  // CHECK TIME RANGE FUNCTION
+  // ---------------------------
+  const checkTimeRange = () => {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    
+    // Convert to minutes since midnight for easier comparison
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+    const startTimeInMinutes = 0 * 60 + 1; // 00:01 AM
+    const endTimeInMinutes = 10 * 60 + 0; // 10:00 AM
+    
+    return currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes;
+  };
+
+  // ---------------------------
+  // UPDATE TIME RANGE STATUS
+  // ---------------------------
+  useEffect(() => {
+    // Check immediately on load
+    setIsWithinTimeRange(checkTimeRange());
+    
+    // Set up interval to check time range every minute
+    const timeCheckInterval = setInterval(() => {
+      const isWithinRange = checkTimeRange();
+      setIsWithinTimeRange(isWithinRange);
+      
+      // If time passes 10:00 AM and user hasn't marked attendance, mark as absent
+      if (!isWithinRange && !isPresent) {
+        // Only auto-mark if not already marked today
+        const today = new Date().toDateString();
+        const lastMarkedDate = localStorage.getItem("lastAttendanceDate");
+        
+        if (lastMarkedDate !== today) {
+          setIsPresent(false);
+          localStorage.setItem("attendanceStatus", "absent");
+        }
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(timeCheckInterval);
+  }, [isPresent]);
 
   // ---------------------------
   // HANDLE MOBILE VIEW
@@ -107,6 +152,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
           const isMarkedPresent = response.data.status === "present";
           setIsPresent(isMarkedPresent);
           localStorage.setItem("attendanceStatus", isMarkedPresent ? "present" : "absent");
+          localStorage.setItem("lastAttendanceDate", new Date().toDateString());
         }
       } catch (error) {
         console.error("Error fetching today's attendance:", error);
@@ -152,7 +198,8 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
   // ATTENDANCE TOGGLE (WITH API CALL)
   // ---------------------------
   const handleAttendanceToggle = async () => {
-    if (attendanceLoading) return;
+    // Prevent action if not within time range or already loading
+    if (attendanceLoading || !isWithinTimeRange) return;
     
     setAttendanceLoading(true);
     const newStatus = !isPresent;
@@ -164,9 +211,11 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
       if (response.success) {
         setIsPresent(newStatus);
         localStorage.setItem("attendanceStatus", statusValue);
+        localStorage.setItem("lastAttendanceDate", new Date().toDateString());
         
         console.log("Attendance marked successfully:", response.message);
         
+        // Fetch updated status
         const todayResponse = await userService.getTodayAttendance();
         if (todayResponse.success && todayResponse.data) {
           const updatedStatus = todayResponse.data.status === "present";
@@ -205,11 +254,16 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
   const handleLogout = () => {
     setShowProfileMenu(false);
     localStorage.clear();
-    window.location.href = "/";
+    navigate("/"); // Use navigate instead of window.location.href
+    window.location.reload(); // Only reload if needed for auth cleanup
   };
 
   // Truncate text for mobile
   const renderAttendanceText = () => {
+    if (!isWithinTimeRange && !isPresent) {
+      return isMobile ? "Time Over" : "Time Over (Absent)";
+    }
+    
     if (attendanceLoading) {
       return isMobile ? "..." : "Processing...";
     }
@@ -227,7 +281,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
         
         {/* LEFT SECTION */}
         <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
-          {/* Menu toggle - Always show on mobile, hide on large screens */}
+          {/* Menu toggle */}
           <button
             className="p-1.5 md:p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 flex-shrink-0"
             onClick={toggleSidebar}
@@ -235,7 +289,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
             <Menu className={`w-4 h-4 md:w-5 md:h-5 ${darkMode ? "text-gray-300" : "text-gray-700"}`} />
           </button>
 
-          {/* LOGO - Hide text on very small screens */}
+          {/* LOGO */}
           <div className="flex items-center gap-2">
             <img
               src="/logo.jpeg"
@@ -255,20 +309,25 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
           {/* ATTENDANCE BUTTON */}
           <button
             onClick={handleAttendanceToggle}
-            disabled={attendanceLoading}
+            disabled={attendanceLoading || !isWithinTimeRange || isPresent}
             className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full flex items-center gap-1 md:gap-2 font-semibold shadow-md transition-all border flex-shrink-0 ${
-              attendanceLoading
+              !isWithinTimeRange && !isPresent
+                ? darkMode
+                  ? "bg-gray-600 border-gray-500 text-gray-400 cursor-not-allowed"
+                  : "bg-gray-300 border-gray-400 text-gray-500 cursor-not-allowed"
+                : attendanceLoading
                 ? darkMode
                   ? "bg-gray-700 border-gray-600 text-gray-300 cursor-not-allowed"
                   : "bg-gray-300 border-gray-400 text-gray-500 cursor-not-allowed"
                 : isPresent
                 ? darkMode
-                  ? "bg-green-900 border-green-700 text-gray-200 hover:bg-green-800"
-                  : "bg-green-900 border-green-400 text-gray-100 hover:bg-green-800"
+                  ? "bg-green-900 border-green-700 text-gray-200"
+                  : "bg-green-900 border-green-400 text-gray-100"
                 : darkMode
                 ? "bg-red-900 border-red-700 text-gray-100 hover:bg-red-800"
                 : "bg-red-900 border-red-400 text-gray-100 hover:bg-red-800"
             }`}
+            title={!isWithinTimeRange && !isPresent ? "Attendance can only be marked between 00:01 AM to 10:00 AM" : ""}
           >
             {attendanceLoading ? (
               <>
@@ -278,8 +337,12 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
             ) : (
               <>
                 <span
-                  className={`w-2 h-2 md:w-3 md:h-3 rounded-full animate-pulse flex-shrink-0 ${
-                    isPresent ? "bg-green-500" : "bg-red-500"
+                  className={`w-2 h-2 md:w-3 md:h-3 rounded-full flex-shrink-0 ${
+                    !isWithinTimeRange && !isPresent
+                      ? "bg-gray-400"
+                      : isPresent
+                      ? "bg-green-500 animate-pulse"
+                      : "bg-red-500"
                   }`}
                 ></span>
                 {!isMobile && (isPresent ? <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4" /> : <XCircle className="w-3 h-3 md:w-4 md:h-4" />)}
@@ -288,7 +351,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
             )}
           </button>
 
-          {/* WALLET - Hide text on small mobile */}
+          {/* WALLET */}
           <button
             onClick={handleWalletClick}
             className={`px-2 py-1 md:px-3 md:py-1.5 rounded-md flex items-center gap-1 md:gap-2 hover:scale-105 transition flex-shrink-0 ${
@@ -339,7 +402,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
         </div>
       </div>
 
-      {/* DROPDOWN - Responsive width */}
+      {/* DROPDOWN */}
       {showProfileMenu &&
         createPortal(
           <div
@@ -401,7 +464,6 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
           document.body
         )}
 
-      {/* Add CSS for scrollbar hiding */}
       <style jsx>{`
         @keyframes fadeIn {
           from {
@@ -414,15 +476,13 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
           }
         }
         
-        /* Hide scrollbar for Chrome, Safari and Opera */
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }
         
-        /* Hide scrollbar for IE, Edge and Firefox */
         .no-scrollbar {
-          -ms-overflow-style: none;  /* IE and Edge */
-          scrollbar-width: none;  /* Firefox */
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
     </header>

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { createCategory, updateCategory } from "../../services/categoryService";
+import toast, { Toaster } from "react-hot-toast";
 
 export default function AddCategoryForm() {
   const location = useLocation();
@@ -94,11 +95,11 @@ export default function AddCategoryForm() {
       console.log("✅ API Response:", response);
 
       if (response.success) {
-        setSuccessMessage(
-          isEditMode 
-            ? "✅ Category updated successfully!" 
-            : "✅ Category created successfully!"
-        );
+        const successMsg = isEditMode 
+          ? "✅ Category updated successfully!" 
+          : "✅ Category created successfully!";
+        setSuccessMessage(successMsg);
+        toast.success(successMsg);
         
         // Navigate back after 1.5 seconds
         setTimeout(() => {
@@ -110,11 +111,11 @@ export default function AddCategoryForm() {
     } catch (error) {
       console.error("❌ Error:", error);
       console.error("❌ Error response:", error.response);
-      setErrorMessage(
-        error.response?.data?.message || 
+      const errorMsg = error.response?.data?.message || 
         error.message || 
-        `Failed to ${isEditMode ? 'update' : 'create'} category. Please try again.`
-      );
+        `Failed to ${isEditMode ? 'update' : 'create'} category. Please try again.`;
+      setErrorMessage(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -133,14 +134,14 @@ export default function AddCategoryForm() {
       
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        alert('Please select a valid image file');
+        toast.error('Please select a valid image file');
         console.warn("⚠️ Invalid file type:", file.type);
         return;
       }
       
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('File size should be less than 5MB');
+        toast.error('File size should be less than 5MB');
         console.warn("⚠️ File too large:", file.size);
         return;
       }
@@ -172,6 +173,28 @@ export default function AddCategoryForm() {
 
   return (
     <div className="h-full flex flex-col p-3 sm:p-4">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-2">
         {isEditMode ? "Edit Category" : "Add New Category"}
       </h2>
