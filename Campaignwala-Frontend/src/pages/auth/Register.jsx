@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useAuth } from "../../hooks/useAuth";
 import OtpModal from "../../components/OtpModal";
+import toast, { Toaster } from "react-hot-toast";
 import {
   selectIsAuthenticated,
   selectUser,
@@ -23,7 +24,6 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [formError, setFormError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [registrationEmail, setRegistrationEmail] = useState("");
@@ -56,7 +56,6 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setFormError("");
-    setSuccessMessage("");
     setDevelopmentOTP("");
     setPendingApproval(false);
     clearAuthError();
@@ -72,28 +71,38 @@ export default function RegisterPage() {
 
     // Validation
     if (!name || !email || !password || !confirmPassword || !phoneNumber) {
-      setFormError("All fields are required");
+      const errorMsg = "All fields are required";
+      setFormError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     if (password !== confirmPassword) {
-      setFormError("Passwords do not match");
+      const errorMsg = "Passwords do not match";
+      setFormError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     if (password.length < 6) {
-      setFormError("Password must be at least 6 characters long");
+      const errorMsg = "Password must be at least 6 characters long";
+      setFormError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setFormError("Please enter a valid email address");
+      const errorMsg = "Please enter a valid email address";
+      setFormError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
     if (!/^[0-9]{10}$/.test(phoneNumber)) {
-      setFormError("Phone number must be 10 digits");
+      const errorMsg = "Phone number must be 10 digits";
+      setFormError(errorMsg);
+      toast.error(errorMsg);
       return;
     }
 
@@ -121,23 +130,27 @@ export default function RegisterPage() {
         if (result.data?.developmentMode) {
           const devOtp = result.data.otp;
           setDevelopmentOTP(devOtp);
-          setSuccessMessage(`🔑 OTP Generated: ${devOtp} (Email service unavailable - use this OTP)`);
+          toast.success(`🔑 OTP Generated: ${devOtp} (Email service unavailable - use this OTP)`, {
+            duration: 8000,
+          });
           console.log("🔑 Development OTP:", devOtp);
         } else {
-          setSuccessMessage("📧 OTP sent to your email! Please verify to complete registration.");
+          toast.success("📧 OTP sent to your email! Please verify to complete registration.");
         }
 
         setShowOtpModal(true);
       } else {
         // Should not happen with new flow
-        setSuccessMessage("Registration successful! Redirecting...");
+        toast.success("Registration successful! Redirecting...");
         setTimeout(() => {
           window.location.href = "/user";
         }, 2000);
       }
     } catch (err) {
       console.error("❌ Registration error:", err);
-      setFormError(err.message || "Registration failed. Please try again.");
+      const errorMsg = err.message || "Registration failed. Please try again.";
+      setFormError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -149,21 +162,24 @@ export default function RegisterPage() {
     if (result?.requiresAdminApproval) {
       // Show message about pending admin approval
       setPendingApproval(true);
-      setSuccessMessage("✅ Registration successful! Your account is now pending admin approval. You will be notified once approved.");
+      toast.success("✅ Registration successful! Your account is now pending admin approval. You will be notified once approved.", {
+        duration: 5000,
+      });
       
       // Clear OTP modal and redirect after delay
       setTimeout(() => {
         setShowOtpModal(false);
-        setSuccessMessage("");
         setDevelopmentOTP("");
         navigate('/pending-approval', { replace: true });
       }, 2000); // Reduced delay for better UX
     } else {
       // Standard redirect - verifyRegistrationOTP should handle navigation
       console.log("✅ Registration completed successfully!");
+      toast.success("✅ Registration completed successfully!");
     }
   } catch (error) {
     console.error("OTP verification error:", error);
+    toast.error(error.message || "Failed to verify OTP. Please try again.");
     throw error;
   }
 };
@@ -189,15 +205,18 @@ export default function RegisterPage() {
       if (result.data?.developmentMode) {
         const devOtp = result.data.otp;
         setDevelopmentOTP(devOtp);
-        setSuccessMessage(`🔑 OTP Regenerated: ${devOtp} (Email service unavailable)`);
+        toast.success(`🔑 OTP Regenerated: ${devOtp} (Email service unavailable)`, {
+          duration: 8000,
+        });
         console.log("🔑 New Development OTP:", devOtp);
       } else {
-        setSuccessMessage("📧 OTP resent to your email!");
+        toast.success("📧 OTP resent to your email!");
       }
 
       console.log("✅ OTP resent successfully");
     } catch (error) {
       console.error("Error resending OTP:", error);
+      toast.error(error.message || "Failed to resend OTP");
       throw error;
     }
   };
@@ -205,13 +224,34 @@ export default function RegisterPage() {
   const handleCloseOtpModal = () => {
     if (!pendingApproval) {
       setShowOtpModal(false);
-      setSuccessMessage("");
       setDevelopmentOTP("");
     }
   };
 
   return (
     <main className="min-h-screen bg-background flex flex-col md:flex-row">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* ---------- LEFT PANEL ---------- */}
       <div className="hidden md:flex md:w-1/2 bg-muted/30 flex-col items-center justify-center p-8">
         <div className="max-w-md text-center">
@@ -253,34 +293,9 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="bg-card rounded-lg shadow-lg p-8 space-y-6 border border-border">
-            {(error || formError) && (
+            {(error || formError) && !formError.includes('pending') && (
               <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg text-sm">
                 {error || formError}
-              </div>
-            )}
-
-            {successMessage && (
-              <div className={`${
-                developmentOTP ? 'bg-amber-500/10 border-amber-500/30 text-amber-600' : 
-                pendingApproval ? 'bg-blue-500/10 border-blue-500/30 text-blue-600' :
-                'bg-green-500/10 border-green-500/30 text-green-600'
-              } px-4 py-3 rounded-lg text-sm border`}>
-                <div className="flex items-start gap-2">
-                  <span>{developmentOTP ? '🔑' : pendingApproval ? '⏳' : '📧'}</span>
-                  <div>
-                    <div className="font-medium">{successMessage}</div>
-                    {developmentOTP && (
-                      <div className="mt-2 p-2 bg-amber-100 border border-amber-300 rounded text-amber-800 text-center font-mono text-lg">
-                        OTP: {developmentOTP}
-                      </div>
-                    )}
-                    {pendingApproval && (
-                      <div className="mt-2 p-2 bg-blue-100 border border-blue-300 rounded text-blue-800 text-center text-sm">
-                        Redirecting to approval page...
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
             )}
 

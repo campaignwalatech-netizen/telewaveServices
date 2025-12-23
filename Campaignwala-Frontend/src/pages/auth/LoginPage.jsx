@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useAuth } from "../../hooks/useAuth";
 import OtpModal from "../../components/OtpModal";
+import toast, { Toaster } from "react-hot-toast";
 import {
   selectIsAuthenticated,
   selectUser,
@@ -12,7 +13,7 @@ import {
 } from "../../redux/slices/authSlice";
 
 export default function LoginPage() {
-  const { login, verifyLoginOTP, isLoading, error, clearAuthError } = useAuth();
+  const { login, verifyLoginOTP, isLoading, clearAuthError } = useAuth();
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const user = useSelector(selectUser);
   const userRole = useSelector(selectUserRole);
@@ -25,7 +26,6 @@ export default function LoginPage() {
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [sendingOtp, setSendingOtp] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
   const [developmentOTP, setDevelopmentOTP] = useState("");
   const [formError, setFormError] = useState("");
 
@@ -56,7 +56,6 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSuccessMessage("");
     setDevelopmentOTP("");
     setSendingOtp(true);
     clearAuthError();
@@ -68,17 +67,21 @@ export default function LoginPage() {
       // Check if OTP is in response
       if (response?.data?.otp) {
         setDevelopmentOTP(response.data.otp);
-        setSuccessMessage(
-          response.data.emailSent 
-            ? "📧 OTP sent to your email!"
-            : `🔑 OTP: ${response.data.otp} (Email service unavailable)`
-        );
+        if (response.data.emailSent) {
+          toast.success("📧 OTP sent to your email!");
+        } else {
+          toast.success(`🔑 OTP: ${response.data.otp} (Email service unavailable)`, {
+            duration: 8000,
+          });
+        }
       }
 
       if (response?.requireOTP) {
         // OTP required - show modal
         setUserEmail(response.data?.email || email);
-        setSuccessMessage("📧 OTP sent to your email!");
+        if (!response.data?.otp) {
+          toast.success("📧 OTP sent to your email!");
+        }
         setSendingOtp(false);
         setShowOtpModal(true);
       } else {
@@ -90,8 +93,13 @@ export default function LoginPage() {
       // Check for pending approval error from backend
       if (err.message?.includes('pending approval') || err.message?.includes('pending admin approval')) {
         setFormError(err.message);
+        toast.error(err.message, {
+          duration: 6000,
+        });
       } else {
-        setFormError(err.message || "Failed to send OTP. Please try again.");
+        const errorMsg = err.message || "Failed to send OTP. Please try again.";
+        setFormError(errorMsg);
+        toast.error(errorMsg);
       }
     }
   }; 
@@ -124,29 +132,51 @@ export default function LoginPage() {
       if (response.data?.developmentMode) {
         const devOtp = response.data.otp;
         setDevelopmentOTP(devOtp);
-        setSuccessMessage(
-          `🔑 OTP Regenerated: ${devOtp} (Email service unavailable)`
-        );
+        toast.success(`🔑 OTP Regenerated: ${devOtp} (Email service unavailable)`, {
+          duration: 8000,
+        });
         console.log("🔑 New Development OTP:", devOtp);
       } else {
-        setSuccessMessage("📧 OTP resent to your email!");
+        toast.success("📧 OTP resent to your email!");
       }
 
       console.log("✅ OTP resent successfully");
     } catch (error) {
       console.error("Error resending OTP:", error);
+      toast.error(error.message || "Failed to resend OTP");
       throw error;
     }
   };
 
   const handleCloseOtpModal = () => {
     setShowOtpModal(false);
-    setSuccessMessage("");
     setDevelopmentOTP("");
   };
 
   return (
     <main className="min-h-screen bg-background flex flex-col md:flex-row">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* ---------- LEFT SECTION (Desktop Only) ---------- */}
       <div className="hidden md:flex md:w-1/2 bg-muted/30 flex-col items-center justify-center p-8">
         <div className="max-w-md text-center">
@@ -213,47 +243,19 @@ export default function LoginPage() {
             onSubmit={handleSubmit}
             className="bg-card rounded-lg shadow-lg p-8 space-y-6 border border-border"
           >
-            {error && (
-              <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            {formError && (
+            {formError && formError.includes('pending') && (
               <div className="bg-amber-500/10 border-amber-500/30 text-amber-600 px-4 py-3 rounded-lg text-sm border">
                 <div className="flex items-start gap-2">
                   <span>⏳</span>
                   <div>
                     <div className="font-medium">{formError}</div>
-                    {formError.includes('pending') && (
-                      <button
-                        type="button"
-                        onClick={() => navigate('/pending-approval')}
-                        className="mt-2 text-sm text-blue-600 hover:underline"
-                      >
-                        Go to approval status page →
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {successMessage && (
-              <div
-                className={`${
-                  developmentOTP ? "bg-amber-500/10 border-amber-500/30 text-amber-600" : "bg-green-500/10 border-green-500/30 text-green-600"
-                } px-4 py-3 rounded-lg text-sm border`}
-              >
-                <div className="flex items-start gap-2">
-                  <span>{developmentOTP ? "🔑" : "📧"}</span>
-                  <div>
-                    <div className="font-medium">{successMessage}</div>
-                    {developmentOTP && (
-                      <div className="mt-2 p-2 bg-amber-100 border border-amber-300 rounded text-amber-800 text-center font-mono text-lg">
-                        OTP: {developmentOTP}
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => navigate('/pending-approval')}
+                      className="mt-2 text-sm text-blue-600 hover:underline"
+                    >
+                      Go to approval status page →
+                    </button>
                   </div>
                 </div>
               </div>
