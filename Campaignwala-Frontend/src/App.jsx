@@ -10,29 +10,54 @@ import Header from "./adminDashboard/components/Header";
  * Main layout component for admin users
  */
 export default function App() {
-  // Local state for theme
+  // Local state for theme - sync with AppRouter's darkMode
   const [isDark, setIsDark] = useState(() => {
-    const savedTheme = localStorage.getItem('theme');
-    return savedTheme === 'light' ? false : true;
+    // Check both 'darkMode' (from AppRouter) and 'theme' (legacy) for compatibility
+    const darkMode = localStorage.getItem('darkMode');
+    const theme = localStorage.getItem('theme');
+    if (darkMode !== null) {
+      return darkMode === 'true';
+    }
+    return theme !== 'light';
   });
 
-  // Theme management
+  // Theme management - sync with AppRouter's darkMode
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'light') {
-      document.documentElement.classList.remove("dark");
-    } else {
-      document.documentElement.classList.add("dark");
-    }
-  }, []);
+    // Listen for storage changes to sync with AppRouter
+    const handleStorageChange = (e) => {
+      if (e.key === 'darkMode') {
+        const newDarkMode = e.newValue === 'true';
+        setIsDark(newDarkMode);
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also check periodically for changes (for same-tab updates)
+    const interval = setInterval(() => {
+      const darkMode = localStorage.getItem('darkMode');
+      if (darkMode !== null) {
+        const shouldBeDark = darkMode === 'true';
+        if (shouldBeDark !== isDark) {
+          setIsDark(shouldBeDark);
+        }
+      }
+    }, 100);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [isDark]);
 
   useEffect(() => {
     if (isDark) {
       document.documentElement.classList.add("dark");
-      localStorage.setItem('theme', 'dark');
+      localStorage.setItem('darkMode', 'true');
+      localStorage.setItem('theme', 'dark'); // Keep legacy key for compatibility
     } else {
       document.documentElement.classList.remove("dark");
-      localStorage.setItem('theme', 'light');
+      localStorage.setItem('darkMode', 'false');
+      localStorage.setItem('theme', 'light'); // Keep legacy key for compatibility
     }
   }, [isDark]);
 

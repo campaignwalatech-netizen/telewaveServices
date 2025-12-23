@@ -59,21 +59,88 @@ const getTeamUsersWithStats = async (req, res) => {
         const skip = (page - 1) * limit;
         const total = await User.countDocuments(query);
         
-        // Fetch users with necessary population
+        // Fetch users with only the fields you need (no populate for embedded fields)
         const users = await User.find(query)
             .skip(skip)
             .limit(parseInt(limit))
-            .populate('reportingTo', 'name email phoneNumber')
-            .populate('attendance')
-            .populate('rollback')
-            .populate('financials')
-            .populate('statistics')
-            .populate('leadDistribution');
+            .select('name email phoneNumber status createdAt attendance rollback financials statistics leadDistribution reportingTo')
+            .populate('reportingTo', 'name email phoneNumber'); // Only populate reportingTo
+        
+        // Transform the data to include calculated fields
+        const transformedUsers = users.map(user => {
+            const userObj = user.toObject();
+            
+            // Calculate attendance percentage
+            const attendance = userObj.attendance || {};
+            const monthlyStats = attendance.monthlyStats || {};
+            const totalWorkingDays = (monthlyStats.present || 0) + (monthlyStats.absent || 0) + (monthlyStats.late || 0);
+            const attendancePresent = monthlyStats.present || 0;
+            
+            // Rollback data
+            const rollback = userObj.rollback || {};
+            const rollbackTotal = Array.isArray(rollback) ? rollback.length : 0;
+            const rollbackLastDate = rollback.lastDate || null;
+            
+            // Statistics
+            const statistics = userObj.statistics || {};
+            const called = statistics.calledLeads || 0;
+            const closed = statistics.closedLeads || 0;
+            const conversion = called > 0 ? ((closed / called) * 100).toFixed(2) : '0.00';
+            
+            // Lead distribution
+            const leadDistribution = userObj.leadDistribution || {};
+            
+            // Financials
+            const financials = userObj.financials || {};
+            
+            return {
+                _id: userObj._id,
+                name: userObj.name,
+                email: userObj.email,
+                phoneNumber: userObj.phoneNumber,
+                status: userObj.status,
+                createdAt: userObj.createdAt,
+                reportingTo: userObj.reportingTo,
+                
+                // Attendance
+                attendance: {
+                    ...attendance,
+                    attendancePresent,
+                    attendanceTotal: totalWorkingDays || 30,
+                    percentage: totalWorkingDays > 0 ? ((attendancePresent / totalWorkingDays) * 100).toFixed(2) : '0.00'
+                },
+                
+                // Rollback
+                rollback: {
+                    total: rollbackTotal,
+                    lastDate: rollbackLastDate
+                },
+                
+                // Statistics
+                statistics: {
+                    ...statistics,
+                    called,
+                    closed,
+                    conversion
+                },
+                
+                // Lead distribution
+                leadDistribution,
+                
+                // Financials
+                financials,
+                
+                // Withdraw data (same as rollback for now)
+                withdraw: {
+                    total: rollbackTotal
+                }
+            };
+        });
         
         res.status(200).json({
             success: true,
             data: {
-                users,
+                users: transformedUsers,
                 pagination: {
                     page: parseInt(page),
                     limit: parseInt(limit),

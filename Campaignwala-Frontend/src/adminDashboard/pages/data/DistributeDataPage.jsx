@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import dataService from '../../../services/dataService';
 import userService from '../../../services/userService';
+import toast, { Toaster } from 'react-hot-toast';
 
 // Custom debounce function
 const debounce = (func, wait) => {
@@ -26,7 +27,7 @@ const debounce = (func, wait) => {
   };
 };
 
-const DistributeDataPage = () => {
+const DistributeDataPage = ({ darkMode = false, setDarkMode }) => {
   // State for data table
   const [uploadedData, setUploadedData] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
@@ -436,7 +437,7 @@ const DistributeDataPage = () => {
           
         case 'particular_employee':
           if (!selectedUser) {
-            alert('Please select an employee');
+            toast.error('Please select an employee');
             setLoading(false);
             return;
           }
@@ -445,7 +446,7 @@ const DistributeDataPage = () => {
           
         case 'team_leaders_specific':
           if (!selectedTL) {
-            alert('Please select a Team Leader');
+            toast.error('Please select a Team Leader');
             setLoading(false);
             return;
           }
@@ -453,7 +454,7 @@ const DistributeDataPage = () => {
           break;
           
         default:
-          alert('Invalid distribution type');
+          toast.error('Invalid distribution type');
           setLoading(false);
           return;
       }
@@ -462,13 +463,17 @@ const DistributeDataPage = () => {
       setResult(distributionResult);
       
       if (distributionResult.success) {
+        toast.success(`Successfully distributed ${count} records!`);
         setTimeout(() => {
           setShowDistributionModal(false);
           refreshData();
         }, 2000);
+      } else {
+        toast.error(distributionResult.error || 'Failed to distribute data');
       }
     } catch (error) {
       console.error('Distribution error:', error);
+      toast.error(error.message || 'An error occurred during distribution');
       setResult({
         success: false,
         error: 'An error occurred during distribution',
@@ -606,19 +611,51 @@ const DistributeDataPage = () => {
   ).length;
 
   return (
-    <div className="p-6">
+    <div className="p-6 min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: darkMode ? {
+            background: '#1F2937',
+            color: '#fff',
+            border: '1px solid #374151'
+          } : {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: darkMode ? {
+              background: '#065F46',
+              border: '1px solid #047857'
+            } : {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: darkMode ? {
+              background: '#7F1D1D',
+              border: '1px solid #991B1B'
+            } : {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Uploaded Data</h1>
-          <p className="text-gray-600">Manage and distribute uploaded data</p>
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Uploaded Data</h1>
+          <p className="text-gray-600 dark:text-gray-400">Manage and distribute uploaded data</p>
         </div>
         
         {/* Action Buttons - FIXED: Allow opening modal even if availableDataCount is 0 */}
         <div className="flex space-x-3">
           <button
             onClick={refreshData}
-            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-800 dark:text-gray-200 rounded-lg disabled:opacity-50"
             title="Refresh Data"
             disabled={loadingData}
           >
@@ -649,33 +686,33 @@ const DistributeDataPage = () => {
 
       {/* Stats Cards - FIXED: Show actual pending data */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
-        <div className="bg-white rounded-xl shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-gray-500 text-sm">Total Uploaded</p>
-              <p className="text-2xl font-bold mt-2">{totalItems}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Uploaded</p>
+              <p className="text-2xl font-bold mt-2 text-gray-900 dark:text-gray-100">{totalItems}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
               <FileText className="text-blue-600" size={24} />
             </div>
           </div>
-          <div className="mt-4 text-sm text-gray-500">
-            Pending: <span className="font-semibold text-blue-600">{actualPendingData}</span>
+          <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+            Pending: <span className="font-semibold text-blue-600 dark:text-blue-400">{actualPendingData}</span>
           </div>
         </div>
         
         {distributionOptions.slice(0, 5).map((option) => (
-          <div key={option.id} className="bg-white rounded-xl shadow p-6">
+          <div key={option.id} className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
             <div className="flex justify-between items-center">
               <div>
-                <p className="text-gray-500 text-sm">{option.title}</p>
-                <p className="text-2xl font-bold mt-2">{option.count}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{option.title}</p>
+                <p className="text-2xl font-bold mt-2 text-gray-900 dark:text-gray-100">{option.count}</p>
               </div>
-              <div className={`w-12 h-12 ${option.color.replace('500', '100')} rounded-full flex items-center justify-center`}>
-                {React.createElement(option.icon, { className: option.color.replace('bg-', 'text-'), size: 24 })}
+              <div className={`w-12 h-12 ${option.color.replace('500', '100')} dark:${option.color.replace('500', '900')} rounded-full flex items-center justify-center`}>
+                {React.createElement(option.icon, { className: `${option.color.replace('bg-', 'text-')} dark:${option.color.replace('bg-', 'text-').replace('600', '400')}`, size: 24 })}
               </div>
             </div>
-            <div className="mt-4 text-sm text-gray-500">
+            <div className="mt-4 text-sm text-gray-500 dark:text-gray-400">
               {option.info}
             </div>
           </div>
@@ -687,20 +724,20 @@ const DistributeDataPage = () => {
       {/* Distribution Modal - FIXED: Show actual pending data count */}
       {showDistributionModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="p-6 border-b">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold text-gray-800">Distribute Data</h2>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100">Distribute Data</h2>
                 <button
                   onClick={() => setShowDistributionModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
                   disabled={loading}
                 >
                   ✕
                 </button>
               </div>
-              <p className="text-gray-600 mt-2">
+              <p className="text-gray-600 dark:text-gray-400 mt-2">
                 {availableDataCount > 0 ? 
                   `You have ${availableDataCount} pending records to distribute` : 
                   'No pending data available. All data may already be distributed.'}
@@ -748,15 +785,15 @@ const DistributeDataPage = () => {
                         <div className="flex-1">
                           <div className="flex justify-between items-start">
                             <div>
-                              <h3 className="font-semibold text-gray-800">{option.title}</h3>
-                              <p className="text-sm text-gray-600 mt-1">{option.description}</p>
+                              <h3 className="font-semibold text-gray-800 dark:text-gray-100">{option.title}</h3>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{option.description}</p>
                             </div>
-                            <div className="bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm font-medium">
+                            <div className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-1 rounded text-sm font-medium">
                               {option.count} {option.id.includes('team') ? 'TLs' : 'users'}
                             </div>
                           </div>
                           {option.info && (
-                            <div className="mt-3 flex items-center text-sm text-gray-500">
+                            <div className="mt-3 flex items-center text-sm text-gray-500 dark:text-gray-400">
                               <Info size={14} className="mr-1" />
                               <span>{option.info}</span>
                             </div>
@@ -776,46 +813,46 @@ const DistributeDataPage = () => {
                 <div className="mt-6 pt-6 border-t">
                   <button
                     onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
-                    className="text-blue-600 hover:text-blue-800 flex items-center"
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center"
                   >
                     <ChevronDown className={`mr-2 transform ${showAdvancedOptions ? 'rotate-180' : ''}`} size={16} />
                     Advanced Options
                   </button>
                   
                   {showAdvancedOptions && (
-                    <div className="mt-4 bg-gray-50 p-4 rounded-lg">
+                    <div className="mt-4 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <h4 className="font-medium text-gray-700 mb-2">Distribution Settings</h4>
+                          <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Distribution Settings</h4>
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">Max per user:</span>
-                              <span className="font-medium">5 (default)</span>
+                              <span className="text-sm text-gray-600 dark:text-gray-400">Max per user:</span>
+                              <span className="font-medium text-gray-900 dark:text-gray-100">5 (default)</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">Round robin:</span>
-                              <span className="font-medium">Enabled</span>
+                              <span className="text-sm text-gray-600 dark:text-gray-400">Round robin:</span>
+                              <span className="font-medium text-gray-900 dark:text-gray-100">Enabled</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">Daily limit per user:</span>
-                              <span className="font-medium">20</span>
+                              <span className="text-sm text-gray-600 dark:text-gray-400">Daily limit per user:</span>
+                              <span className="font-medium text-gray-900 dark:text-gray-100">20</span>
                             </div>
                           </div>
                         </div>
                         <div>
-                          <h4 className="font-medium text-gray-700 mb-2">Statistics</h4>
+                          <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-2">Statistics</h4>
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">Total users:</span>
-                              <span className="font-medium text-blue-600">{users.length}</span>
+                              <span className="text-sm text-gray-600 dark:text-gray-400">Total users:</span>
+                              <span className="font-medium text-blue-600 dark:text-blue-400">{users.length}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">Total TLs:</span>
-                              <span className="font-medium text-green-600">{TLs.length}</span>
+                              <span className="text-sm text-gray-600 dark:text-gray-400">Total TLs:</span>
+                              <span className="font-medium text-green-600 dark:text-green-400">{TLs.length}</span>
                             </div>
                             <div className="flex items-center justify-between">
-                              <span className="text-sm text-gray-600">Pending data:</span>
-                              <span className="font-medium text-purple-600">{availableDataCount}</span>
+                              <span className="text-sm text-gray-600 dark:text-gray-400">Pending data:</span>
+                              <span className="font-medium text-purple-600 dark:text-purple-400">{availableDataCount}</span>
                             </div>
                           </div>
                         </div>
@@ -830,7 +867,7 @@ const DistributeDataPage = () => {
                 {/* Back button */}
                 <button
                   onClick={() => setDistributionType('')}
-                  className="mb-6 text-blue-600 hover:text-blue-800 flex items-center"
+                  className="mb-6 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center"
                   disabled={loading}
                 >
                   ← Back to options
@@ -894,17 +931,17 @@ const DistributeDataPage = () => {
                         const clampedValue = Math.max(1, Math.min(max, value));
                         setCount(clampedValue);
                       }}
-                      className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
+                      className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
                       min="1"
                       max={Math.max(1000, availableDataCount || 1000)}
                     />
                   </div>
-                  <div className="mt-2 flex justify-between text-sm text-gray-500">
-                    <span>Available: <span className="font-medium">{availableDataCount || 'Checking...'}</span> records</span>
-                    <span>Will distribute: <span className="font-medium text-blue-600">{count}</span> records</span>
+                  <div className="mt-2 flex justify-between text-sm text-gray-500 dark:text-gray-400">
+                    <span>Available: <span className="font-medium text-gray-900 dark:text-gray-100">{availableDataCount || 'Checking...'}</span> records</span>
+                    <span>Will distribute: <span className="font-medium text-blue-600 dark:text-blue-400">{count}</span> records</span>
                   </div>
                   {availableDataCount === 0 && (
-                    <div className="mt-2 text-sm text-yellow-600">
+                    <div className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
                       <Info size={14} className="inline mr-1" />
                       You can still attempt distribution, but there may be no data available.
                     </div>
@@ -914,13 +951,13 @@ const DistributeDataPage = () => {
                 {/* Additional Fields for Specific Options */}
                 {distributionType === 'particular_employee' && (
                   <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Select Employee
                     </label>
                     <select
                       value={selectedUser}
                       onChange={(e) => setSelectedUser(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       disabled={users.length === 0 || loading}
                     >
                       <option value="">Select Employee...</option>
@@ -932,12 +969,12 @@ const DistributeDataPage = () => {
                       ))}
                     </select>
                     {selectedUser && (
-                      <div className="mt-2 text-sm text-gray-600">
+                      <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                         Selected: {getUserDisplayInfo(selectedUser)}
                       </div>
                     )}
                     {users.length === 0 && (
-                      <div className="mt-2 text-sm text-red-500">
+                      <div className="mt-2 text-sm text-red-500 dark:text-red-400">
                         No active employees available
                       </div>
                     )}
@@ -946,13 +983,13 @@ const DistributeDataPage = () => {
 
                 {distributionType === 'team_leaders_specific' && (
                   <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Select Team Leader
                     </label>
                     <select
                       value={selectedTL}
                       onChange={(e) => setSelectedTL(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       disabled={TLs.length === 0 || loading}
                     >
                       <option value="">Select Team Leader...</option>
@@ -964,12 +1001,12 @@ const DistributeDataPage = () => {
                       ))}
                     </select>
                     {selectedTL && (
-                      <div className="mt-2 text-sm text-gray-600">
+                      <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
                         Selected: {getTLDisplayInfo(selectedTL)}
                       </div>
                     )}
                     {TLs.length === 0 && (
-                      <div className="mt-2 text-sm text-red-500">
+                      <div className="mt-2 text-sm text-red-500 dark:text-red-400">
                         No active Team Leaders available
                       </div>
                     )}
@@ -977,45 +1014,45 @@ const DistributeDataPage = () => {
                 )}
 
                 {/* Distribution Summary */}
-                <div className="mb-6 bg-gray-50 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-700 mb-3">Distribution Summary</h4>
+                <div className="mb-6 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                  <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Distribution Summary</h4>
                   <div className="space-y-2">
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Distribution Type:</span>
-                      <span className="font-medium">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Distribution Type:</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
                         {distributionOptions.find(opt => opt.id === distributionType)?.title}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Records to distribute:</span>
-                      <span className="font-medium text-blue-600">{count}</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Records to distribute:</span>
+                      <span className="font-medium text-blue-600 dark:text-blue-400">{count}</span>
                     </div>
                     {distributionType === 'particular_employee' && selectedUser && (
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">To Employee:</span>
-                        <span className="font-medium">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">To Employee:</span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">
                           {getUserDisplayInfo(selectedUser)}
                         </span>
                       </div>
                     )}
                     {distributionType === 'team_leaders_specific' && selectedTL && (
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">To Team Leader:</span>
-                        <span className="font-medium">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">To Team Leader:</span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">
                           {getTLDisplayInfo(selectedTL)}
                         </span>
                       </div>
                     )}
                     <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Available data:</span>
-                      <span className="font-medium">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Available data:</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">
                         {availableDataCount} records
                       </span>
                     </div>
                     {availableDataCount > 0 && (
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Remaining after distribution:</span>
-                        <span className="font-medium">
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Remaining after distribution:</span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100">
                           {Math.max(0, availableDataCount - count)} records
                         </span>
                       </div>
@@ -1047,7 +1084,7 @@ const DistributeDataPage = () => {
                   
                   <button
                     onClick={() => setShowDistributionModal(false)}
-                    className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                     disabled={loading}
                   >
                     Cancel
@@ -1057,25 +1094,25 @@ const DistributeDataPage = () => {
                 {/* Result Display */}
                 {result && (
                   <div className={`mt-6 rounded-lg p-4 ${
-                    result.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                    result.success ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
                   }`}>
                     <div className="flex items-center">
                       {result.success ? (
-                        <CheckCircle className="text-green-600 mr-3" size={24} />
+                        <CheckCircle className="text-green-600 dark:text-green-400 mr-3" size={24} />
                       ) : (
-                        <XCircle className="text-red-600 mr-3" size={24} />
+                        <XCircle className="text-red-600 dark:text-red-400 mr-3" size={24} />
                       )}
                       <div className="flex-1">
                         <p className={`font-medium ${
-                          result.success ? 'text-green-800' : 'text-red-800'
+                          result.success ? 'text-green-800 dark:text-green-200' : 'text-red-800 dark:text-red-200'
                         }`}>
                           {result.success ? 'Success!' : 'Failed'}
                         </p>
-                        <p className={`text-sm ${result.success ? 'text-green-700' : 'text-red-700'}`}>
+                        <p className={`text-sm ${result.success ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
                           {result.message || result.error || 'Distribution completed'}
                         </p>
                         {result.data && (
-                          <div className="mt-2 text-xs ${result.success ? 'text-green-600' : 'text-red-600'}">
+                          <div className={`mt-2 text-xs ${result.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                             {result.data.dataCount && `Records: ${result.data.dataCount}`}
                             {result.data.userName && ` • User: ${result.data.userName}`}
                             {result.data.distributedCount && ` • Distributed: ${result.data.distributedCount}`}

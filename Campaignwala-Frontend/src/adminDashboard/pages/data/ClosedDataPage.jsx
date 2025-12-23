@@ -8,8 +8,9 @@ import {
 } from 'lucide-react';
 import dataService from '../../../services/dataService';
 import userService from '../../../services/userService';
+import toast, { Toaster } from 'react-hot-toast';
 
-const ClosedDataPage = () => {
+const ClosedDataPage = ({ darkMode = false, setDarkMode }) => {
   const [closedData, setClosedData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({
@@ -123,12 +124,16 @@ const ClosedDataPage = () => {
         }));
       } else {
         console.error('Failed to fetch closed data:', result.error);
-        setApiError(result.error || 'Failed to fetch closed data');
+        const errorMsg = result.error || 'Failed to fetch closed data';
+        setApiError(errorMsg);
+        toast.error(errorMsg);
         setClosedData([]);
       }
     } catch (error) {
       console.error('Error fetching closed data:', error);
-      setApiError(error.message || 'Error fetching data');
+      const errorMsg = error.message || 'Error fetching data';
+      setApiError(errorMsg);
+      toast.error(errorMsg);
       setClosedData([]);
     }
     setLoading(false);
@@ -249,6 +254,7 @@ const ClosedDataPage = () => {
       
       if (result.success) {
         console.log('Export successful');
+        toast.success('Export successful! Download started.');
         // If the API returns a download URL or blob
         if (result.data?.url) {
           window.open(result.data.url, '_blank');
@@ -264,11 +270,11 @@ const ClosedDataPage = () => {
           document.body.removeChild(a);
         }
       } else {
-        alert(`Export failed: ${result.error}`);
+        toast.error(result.error || 'Export failed');
       }
     } catch (error) {
       console.error('Export error:', error);
-      alert('Failed to export data');
+      toast.error('Failed to export data');
     }
     setExporting(false);
   };
@@ -411,23 +417,55 @@ const ClosedDataPage = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: darkMode ? {
+            background: '#1F2937',
+            color: '#fff',
+            border: '1px solid #374151'
+          } : {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: darkMode ? {
+              background: '#065F46',
+              border: '1px solid #047857'
+            } : {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: darkMode ? {
+              background: '#7F1D1D',
+              border: '1px solid #991B1B'
+            } : {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Closed Data</h1>
-        <p className="text-gray-600">View all data records that have been closed by users (Converted, Rejected, Not Reachable)</p>
+        <h1 className="text-2xl font-bold mb-2 text-gray-800 dark:text-gray-100">Closed Data</h1>
+        <p className="text-gray-600 dark:text-gray-400">View all data records that have been closed by users (Converted, Rejected, Not Reachable)</p>
       </div>
      
       {/* Controls */}
-      <div className="bg-white rounded-xl shadow p-6 mb-8">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0 mb-6">
           <div className="flex items-center space-x-4">
-            <h3 className="font-semibold text-gray-800">Closed Data Records</h3>
+            <h3 className="font-semibold text-gray-800 dark:text-gray-100">Closed Data Records</h3>
           </div>
           
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg flex items-center"
             >
               <Filter size={18} className="mr-2" />
               Filters
@@ -446,7 +484,7 @@ const ClosedDataPage = () => {
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="p-2 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg disabled:opacity-50"
             >
               <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
             </button>
@@ -455,10 +493,10 @@ const ClosedDataPage = () => {
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="border-t pt-6 mt-6">
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Search
                 </label>
                 <div className="relative">
@@ -468,19 +506,19 @@ const ClosedDataPage = () => {
                     placeholder="Search by name, phone..."
                     value={filters.search}
                     onChange={(e) => handleFilterChange('search', e.target.value)}
-                    className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="pl-10 w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Closed Type
                 </label>
                 <select
                   value={filters.closedType}
                   onChange={(e) => handleFilterChange('closedType', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="all">All Types</option>
                   <option value="converted">Converted</option>
@@ -490,7 +528,7 @@ const ClosedDataPage = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Batch Number
                 </label>
                 <input
@@ -498,18 +536,18 @@ const ClosedDataPage = () => {
                   placeholder="Batch number"
                   value={filters.batchNumber}
                   onChange={(e) => handleFilterChange('batchNumber', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Assigned To
                 </label>
                 <select
                   value={filters.assignedTo}
                   onChange={(e) => handleFilterChange('assignedTo', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={usersLoading || usersError}
                 >
                   <option value="">All Users</option>
@@ -530,37 +568,37 @@ const ClosedDataPage = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Start Date
                 </label>
                 <input
                   type="date"
                   value={filters.startDate}
                   onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   End Date
                 </label>
                 <input
                   type="date"
                   value={filters.endDate}
                   onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Sort By
                 </label>
                 <select
                   value={filters.sortBy}
                   onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="closedAt">Closed Time</option>
                   <option value="name">Name</option>
@@ -572,7 +610,7 @@ const ClosedDataPage = () => {
               <div className="flex items-end">
                 <button
                   onClick={clearFilters}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 w-full"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg w-full"
                 >
                   Clear Filters
                 </button>
@@ -583,12 +621,12 @@ const ClosedDataPage = () => {
       </div>
 
       {/* Data Table */}
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-        <div className="p-6 border-b">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-lg font-semibold">Closed Data List</h2>
-              <p className="text-gray-600 text-sm">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Closed Data List</h2>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
                 Showing {closedData.length} of {pagination.total} closed records
                 {filters.closedType !== 'all' && ` • Type: ${filters.closedType}`}
               </p>
@@ -613,58 +651,58 @@ const ClosedDataPage = () => {
         <div className="overflow-x-auto">
           {loading ? (
             <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-500">Loading closed data...</p>
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+              <p className="text-gray-500 dark:text-gray-400">Loading closed data...</p>
             </div>
           ) : apiError ? (
-            <div className="text-center py-12 text-red-500">
+            <div className="text-center py-12 text-red-500 dark:text-red-400">
               <AlertCircle className="mx-auto mb-4" size={48} />
-              <p className="text-lg mb-2">Error Loading Data</p>
-              <p className="text-sm mb-4">{apiError}</p>
+              <p className="text-lg mb-2 text-gray-900 dark:text-gray-100">Error Loading Data</p>
+              <p className="text-sm mb-4 text-gray-600 dark:text-gray-400">{apiError}</p>
               <button
                 onClick={handleRefresh}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600"
               >
                 Retry
               </button>
             </div>
           ) : closedData.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <FileText className="mx-auto mb-4 text-gray-400" size={48} />
-              <p className="text-lg mb-2">No closed data found</p>
-              <p className="text-sm">No records have been closed yet or match your filters</p>
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <FileText className="mx-auto mb-4 text-gray-400 dark:text-gray-500" size={48} />
+              <p className="text-lg mb-2 text-gray-900 dark:text-gray-100">No closed data found</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">No records have been closed yet or match your filters</p>
             </div>
           ) : (
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">
                     Date
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Name
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Phone Number
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Closed By
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     User Contact
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Assigned Date
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Closed Date
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {closedData.map((item) => {
                   const statusConfig = getStatusConfig(item.status);
                   const StatusIcon = statusConfig.icon;
@@ -681,39 +719,39 @@ const ClosedDataPage = () => {
                                       (item.teamAssignments && item.teamAssignments.find?.(ta => !ta.withdrawn)?.assignedAt);
 
                   return (
-                    <tr key={item._id} className="hover:bg-gray-50">
+                    <tr key={item._id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="py-4 px-6">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-gray-100">
                           {formatDate(closedDate)}
                         </div>
                       </td>
                       <td className="py-4 px-6">
                         <div>
-                          <div className="font-medium text-gray-900">{item.name || 'Unknown'}</div>
+                          <div className="font-medium text-gray-900 dark:text-gray-100">{item.name || 'Unknown'}</div>
                           {item.email && (
-                            <div className="text-sm text-gray-500 truncate flex items-center">
+                            <div className="text-sm truncate flex items-center text-gray-500 dark:text-gray-400">
                               <Mail size={12} className="mr-1" />
                               {item.email}
                             </div>
                           )}
                           {item.batchNumber && (
-                            <div className="text-xs text-gray-400 mt-1">
+                            <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                               Batch: {item.batchNumber}
                             </div>
                           )}
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="font-mono text-gray-900">{item.contact || 'N/A'}</div>
+                        <div className="font-mono text-gray-900 dark:text-gray-100">{item.contact || 'N/A'}</div>
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center">
                           <StatusIcon size={14} className="mr-2" />
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusConfig.color}`}>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusConfig.color} dark:${statusConfig.color.replace('100', '900').replace('800', '200')}`}>
                             {statusConfig.label}
                           </span>
                           {item.responseType && (
-                            <span className="ml-2 text-xs text-gray-600">
+                            <span className="ml-2 text-xs text-gray-600 dark:text-gray-400">
                               ({getResponseTypeText(item.responseType)})
                             </span>
                           )}
@@ -721,22 +759,22 @@ const ClosedDataPage = () => {
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center">
-                          <User size={14} className="mr-2 text-gray-400" />
-                          <span className="font-medium text-gray-900">{closedByUser.name}</span>
+                          <User size={14} className="mr-2 text-gray-400 dark:text-gray-500" />
+                          <span className="font-medium text-gray-900 dark:text-gray-100">{closedByUser.name}</span>
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
                           {userFromList ? (userFromList.phoneNumber || userFromList.email || 'N/A') : closedByUser.contact}
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
                           {formatDate(assignedDate)}
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
                           {formatDateTime(closedDate)}
                         </div>
                         {item.calledAt && (
@@ -756,10 +794,10 @@ const ClosedDataPage = () => {
         
         {/* Pagination */}
         {closedData.length > 0 && pagination.totalPages > 1 && (
-          <div className="p-6 border-t bg-gray-50">
+          <div className="p-6 border-t bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="mb-4 md:mb-0">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   Page {pagination.page} of {pagination.totalPages} • 
                   Showing {closedData.length} of {pagination.total} records
                 </p>
@@ -769,7 +807,7 @@ const ClosedDataPage = () => {
                 <button
                   onClick={() => handlePageChange(pagination.page - 1)}
                   disabled={pagination.page === 1}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Previous
                 </button>
@@ -793,7 +831,7 @@ const ClosedDataPage = () => {
                       className={`w-10 h-10 rounded-lg ${
                         pagination.page === pageNum
                           ? 'bg-blue-600 text-white'
-                          : 'border border-gray-300 hover:bg-gray-50'
+                          : 'border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200'
                       }`}
                     >
                       {pageNum}
@@ -804,7 +842,7 @@ const ClosedDataPage = () => {
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
                   disabled={pagination.page === pagination.totalPages}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>

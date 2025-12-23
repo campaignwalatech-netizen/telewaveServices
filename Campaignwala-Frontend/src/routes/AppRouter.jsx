@@ -189,11 +189,11 @@ export default function AppRouter() {
             path="data"
             element={<Navigate to="data/dashboard" replace />}
           />
-          <Route path="data/dashboard" element={<DataDashboard />} />
-          <Route path="data/distribute" element={<DistributeDataPage />} />
-          <Route path="data/upload" element={<UploadDataPage />} />
-          <Route path="data/called" element={<CalledDataPage />} />
-          <Route path="data/closed" element={<ClosedDataPage />} />
+          <Route path="data/dashboard" element={<DataDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} /> 
+          <Route path="data/distribute" element={<DistributeDataPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
+          <Route path="data/upload" element={<UploadDataPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
+          <Route path="data/called" element={<CalledDataPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
+          <Route path="data/closed" element={<ClosedDataPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
 
           {/* Manage Account routes */}
           <Route

@@ -79,7 +79,7 @@ export default function AdminSidebar({
   type: "section",
   badge: dashboardStats.pendingData > 0 ? dashboardStats.pendingData : null,
   items: [
-    // { id: "data-dashboard", label: "Data Dashboard", icon: BarChart3, path: "/admin/data/dashboard" },
+    { id: "data-dashboard", label: "Data Dashboard", icon: BarChart3, path: "/admin/data/dashboard" },
     { id: "distribute-data", label: "Distribute Data", icon: TrendingUp, path: "/admin/data/distribute" },
     { id: "upload-data", label: "Upload Fresh data", icon: Upload, path: "/admin/data/upload" },
     { id: "not-used", label: "Not Used", icon: Filter, path: "/admin/data/not-used" },

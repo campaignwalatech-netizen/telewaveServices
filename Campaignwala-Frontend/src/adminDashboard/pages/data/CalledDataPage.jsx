@@ -7,8 +7,9 @@ import {
 } from 'lucide-react';
 import dataService from '../../../services/dataService';
 import userService from '../../../services/userService';
+import toast, { Toaster } from 'react-hot-toast';
 
-const CalledDataPage = () => {
+const CalledDataPage = ({ darkMode = false, setDarkMode }) => {
   const [calledData, setCalledData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({
@@ -122,12 +123,16 @@ const CalledDataPage = () => {
         }));
       } else {
         console.error('Failed to fetch called data:', result.error);
-        setApiError(result.error || 'Failed to fetch called data');
+        const errorMsg = result.error || 'Failed to fetch called data';
+        setApiError(errorMsg);
+        toast.error(errorMsg);
         setCalledData([]);
       }
     } catch (error) {
       console.error('Error fetching called data:', error);
-      setApiError(error.message || 'Error fetching data');
+      const errorMsg = error.message || 'Error fetching data';
+      setApiError(errorMsg);
+      toast.error(errorMsg);
       setCalledData([]);
     }
     setLoading(false);
@@ -251,6 +256,7 @@ const CalledDataPage = () => {
       
       if (result.success) {
         console.log('Export successful');
+        toast.success('Export successful! Download started.');
         // Handle download
         if (result.data?.url) {
           window.open(result.data.url, '_blank');
@@ -265,11 +271,11 @@ const CalledDataPage = () => {
           document.body.removeChild(a);
         }
       } else {
-        alert(`Export failed: ${result.error}`);
+        toast.error(result.error || 'Export failed');
       }
     } catch (error) {
       console.error('Export error:', error);
-      alert('Failed to export data');
+      toast.error('Failed to export data');
     }
     setExporting(false);
   };
@@ -414,25 +420,57 @@ const CalledDataPage = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: darkMode ? {
+            background: '#1F2937',
+            color: '#fff',
+            border: '1px solid #374151'
+          } : {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: darkMode ? {
+              background: '#065F46',
+              border: '1px solid #047857'
+            } : {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: darkMode ? {
+              background: '#7F1D1D',
+              border: '1px solid #991B1B'
+            } : {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Called Data</h1>
-        <p className="text-gray-600">View all data records that have been contacted by users (Clicked on the call button)</p>
+        <h1 className="text-2xl font-bold mb-2 text-gray-800 dark:text-gray-100">Called Data</h1>
+        <p className="text-gray-600 dark:text-gray-400">View all data records that have been contacted by users (Clicked on the call button)</p>
       </div>
 
       {/* Stats Overview */}
       
       {/* Controls */}
-      <div className="bg-white rounded-xl shadow p-6 mb-8">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6 mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0 mb-6">
           <div className="flex items-center space-x-4">
-            <h3 className="font-semibold text-gray-800">Called Data Records</h3>
+            <h3 className="font-semibold text-gray-800 dark:text-gray-100">Called Data Records</h3>
           </div>
           
           <div className="flex items-center space-x-3">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg flex items-center"
             >
               <Filter size={18} className="mr-2" />
               Filters
@@ -451,7 +489,7 @@ const CalledDataPage = () => {
             <button
               onClick={handleRefresh}
               disabled={loading}
-              className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+              className="p-2 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg disabled:opacity-50"
             >
               <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
             </button>
@@ -460,10 +498,10 @@ const CalledDataPage = () => {
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="border-t pt-6 mt-6">
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Search
                 </label>
                 <div className="relative">
@@ -473,19 +511,19 @@ const CalledDataPage = () => {
                     placeholder="Search by name, phone..."
                     value={filters.search}
                     onChange={(e) => handleFilterChange('search', e.target.value)}
-                    className="pl-10 w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="pl-10 w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                 </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Response Type
                 </label>
                 <select
                   value={filters.responseType}
                   onChange={(e) => handleFilterChange('responseType', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="all">All Responses</option>
                   <option value="interested">Interested</option>
@@ -496,7 +534,7 @@ const CalledDataPage = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Batch Number
                 </label>
                 <input
@@ -504,18 +542,18 @@ const CalledDataPage = () => {
                   placeholder="Batch number"
                   value={filters.batchNumber}
                   onChange={(e) => handleFilterChange('batchNumber', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Called By
                 </label>
                 <select
                   value={filters.assignedTo}
                   onChange={(e) => handleFilterChange('assignedTo', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={usersLoading || usersError}
                 >
                   <option value="">All Users</option>
@@ -536,37 +574,37 @@ const CalledDataPage = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Start Date
                 </label>
                 <input
                   type="date"
                   value={filters.startDate}
                   onChange={(e) => handleFilterChange('startDate', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   End Date
                 </label>
                 <input
                   type="date"
                   value={filters.endDate}
                   onChange={(e) => handleFilterChange('endDate', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Sort By
                 </label>
                 <select
                   value={filters.sortBy}
                   onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="teamAssignments.contactedAt">Contacted Time</option>
                   <option value="name">Name</option>
@@ -579,7 +617,7 @@ const CalledDataPage = () => {
               <div className="flex items-end">
                 <button
                   onClick={clearFilters}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 w-full"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg w-full"
                 >
                   Clear Filters
                 </button>
@@ -590,12 +628,12 @@ const CalledDataPage = () => {
       </div>
 
       {/* Data Table */}
-      <div className="bg-white rounded-xl shadow overflow-hidden">
-        <div className="p-6 border-b">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-lg font-semibold">Called Data List</h2>
-              <p className="text-gray-600 text-sm">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Called Data List</h2>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
                 Showing {calledData.length} of {pagination.total} contacted records
                 {filters.responseType !== 'all' && ` • Response: ${getResponseTypeText(filters.responseType)}`}
               </p>
@@ -636,42 +674,42 @@ const CalledDataPage = () => {
               </button>
             </div>
           ) : calledData.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <FileText className="mx-auto mb-4 text-gray-400" size={48} />
-              <p className="text-lg mb-2">No called data found</p>
-              <p className="text-sm">No records have been contacted yet or match your filters</p>
+            <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+              <FileText className="mx-auto mb-4 text-gray-400 dark:text-gray-500" size={48} />
+              <p className="text-lg mb-2 text-gray-900 dark:text-gray-100">No called data found</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">No records have been contacted yet or match your filters</p>
             </div>
           ) : (
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">
                     Date
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Name
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Phone Number
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Response
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Call Count
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Called By
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     User Contact
                   </th>
-                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Contacted Date
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {calledData.map((item) => {
                   const responseConfig = getResponseTypeConfig(item.responseType);
                   const ResponseIcon = responseConfig.icon;
@@ -685,17 +723,19 @@ const CalledDataPage = () => {
                   const assignedDate = item.assignedAt;
 
                   return (
-                    <tr key={item._id} className="hover:bg-gray-50">
+                    <tr key={item._id} className={darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}>
                       <td className="py-4 px-6">
-                        <div className="text-sm text-gray-900">
+                        <div className={`text-sm ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
                           {formatDate(contactedDate)}
                         </div>
                       </td>
                       <td className="py-4 px-6">
                         <div>
-                          <div className="font-medium text-gray-900">{item.name || 'Unknown'}</div>
+                          <div className={`font-medium ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>{item.name || 'Unknown'}</div>
                           {item.email && (
-                            <div className="text-sm text-gray-500 truncate flex items-center">
+                            <div className={`text-sm truncate flex items-center ${
+                              darkMode ? 'text-gray-400' : 'text-gray-500'
+                            }`}>
                               <Mail size={12} className="mr-1" />
                               {item.email}
                             </div>
@@ -708,7 +748,7 @@ const CalledDataPage = () => {
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="font-mono text-gray-900">{item.contact || 'N/A'}</div>
+                        <div className="font-mono text-gray-900 dark:text-gray-100">{item.contact || 'N/A'}</div>
                         {item.priority && (
                           <div className={`text-xs px-2 py-0.5 mt-1 rounded-full inline-block ${
                             item.priority === 'high' ? 'bg-red-100 text-red-800' :
@@ -728,36 +768,36 @@ const CalledDataPage = () => {
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-gray-900 dark:text-gray-100">
                           <div className="flex items-center">
-                            <Phone size={14} className="mr-1 text-gray-400" />
+                            <Phone size={14} className="mr-1 text-gray-400 dark:text-gray-500" />
                             {item.callCount || 1}
                           </div>
                         </div>
                       </td>
                       <td className="py-4 px-6">
                         <div className="flex items-center">
-                          <User size={14} className="mr-2 text-gray-400" />
-                          <span className="font-medium text-gray-900">{contactedByUser.name}</span>
+                          <User size={14} className="mr-2 text-gray-400 dark:text-gray-500" />
+                          <span className="font-medium text-gray-900 dark:text-gray-100">{contactedByUser.name}</span>
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
                           {userFromList ? (userFromList.phoneNumber || userFromList.email || 'N/A') : contactedByUser.contact}
                         </div>
                       </td>
                       <td className="py-4 px-6">
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
                           {formatDateTime(contactedDate)}
                         </div>
                         {item.followUpDate && (
-                          <div className="text-xs text-blue-600 flex items-center mt-1">
+                          <div className="text-xs text-blue-600 dark:text-blue-400 flex items-center mt-1">
                             <Calendar size={12} className="mr-1" />
                             Follow-up: {formatDate(item.followUpDate)}
                           </div>
                         )}
                         {item.callNotes && (
-                          <div className="text-xs text-gray-500 mt-1 truncate max-w-xs" title={item.callNotes}>
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate max-w-xs" title={item.callNotes}>
                             <MessageSquare size={12} className="inline mr-1" />
                             {item.callNotes.length > 30 ? `${item.callNotes.substring(0, 30)}...` : item.callNotes}
                           </div>
@@ -773,10 +813,10 @@ const CalledDataPage = () => {
         
         {/* Pagination */}
         {calledData.length > 0 && pagination.totalPages > 1 && (
-          <div className="p-6 border-t bg-gray-50">
+          <div className={`p-6 border-t ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50'}`}>
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="mb-4 md:mb-0">
-                <p className="text-sm text-gray-600">
+                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   Page {pagination.page} of {pagination.totalPages} • 
                   Showing {calledData.length} of {pagination.total} records
                 </p>
@@ -786,7 +826,11 @@ const CalledDataPage = () => {
                 <button
                   onClick={() => handlePageChange(pagination.page - 1)}
                   disabled={pagination.page === 1}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`px-4 py-2 border rounded-lg disabled:opacity-50 disabled:cursor-not-allowed ${
+                    darkMode 
+                      ? 'border-gray-700 hover:bg-gray-700 text-gray-200' 
+                      : 'border-gray-300 hover:bg-gray-50'
+                  }`}
                 >
                   Previous
                 </button>
@@ -810,7 +854,7 @@ const CalledDataPage = () => {
                       className={`w-10 h-10 rounded-lg ${
                         pagination.page === pageNum
                           ? 'bg-blue-600 text-white'
-                          : 'border border-gray-300 hover:bg-gray-50'
+                          : 'border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200'
                       }`}
                     >
                       {pageNum}
@@ -821,7 +865,7 @@ const CalledDataPage = () => {
                 <button
                   onClick={() => handlePageChange(pagination.page + 1)}
                   disabled={pagination.page === pagination.totalPages}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Next
                 </button>

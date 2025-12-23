@@ -117,7 +117,7 @@ const {
 
 
 
-router.get('/tl/team-users-with-stats', authenticateToken, authorize('TL', 'admin'), getTeamUsersWithStats);
+router.get('/tl/team-users-with-stats', protect, authorize('TL', 'admin'), getTeamUsersWithStats);
 
 router.get('/details', protect, authorize('admin','TL'), getUserStats);
 
