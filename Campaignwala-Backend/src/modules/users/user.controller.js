@@ -59,39 +59,41 @@ const getTeamUsersWithStats = async (req, res) => {
         const skip = (page - 1) * limit;
         const total = await User.countDocuments(query);
         
-        // Fetch users with only the fields you need (no populate for embedded fields)
+        // Fetch users WITHOUT problematic populate calls
+        // Only populate reportingTo since that's a valid reference
         const users = await User.find(query)
             .skip(skip)
             .limit(parseInt(limit))
             .select('name email phoneNumber status createdAt attendance rollback financials statistics leadDistribution reportingTo')
-            .populate('reportingTo', 'name email phoneNumber'); // Only populate reportingTo
+            .populate('reportingTo', 'name email phoneNumber');
+            // Removed: .populate('attendance').populate('rollback').populate('financials').populate('statistics').populate('leadDistribution')
         
-        // Transform the data to include calculated fields
+        // Transform the data to include necessary information
         const transformedUsers = users.map(user => {
             const userObj = user.toObject();
             
-            // Calculate attendance percentage
+            // Extract attendance data
             const attendance = userObj.attendance || {};
             const monthlyStats = attendance.monthlyStats || {};
-            const totalWorkingDays = (monthlyStats.present || 0) + (monthlyStats.absent || 0) + (monthlyStats.late || 0);
-            const attendancePresent = monthlyStats.present || 0;
+            const totalPresent = monthlyStats.present || 0;
+            const totalAbsent = monthlyStats.absent || 0;
+            const totalLate = monthlyStats.late || 0;
+            const totalWorkingDays = totalPresent + totalAbsent + totalLate || 30;
             
-            // Rollback data
-            const rollback = userObj.rollback || {};
+            // Extract rollback data (assuming it's an embedded array)
+            const rollback = userObj.rollback || [];
             const rollbackTotal = Array.isArray(rollback) ? rollback.length : 0;
-            const rollbackLastDate = rollback.lastDate || null;
             
-            // Statistics
+            // Extract statistics
             const statistics = userObj.statistics || {};
-            const called = statistics.calledLeads || 0;
-            const closed = statistics.closedLeads || 0;
-            const conversion = called > 0 ? ((closed / called) * 100).toFixed(2) : '0.00';
+            const calledLeads = statistics.calledLeads || 0;
+            const closedLeads = statistics.closedLeads || 0;
             
-            // Lead distribution
-            const leadDistribution = userObj.leadDistribution || {};
-            
-            // Financials
+            // Extract financials
             const financials = userObj.financials || {};
+            
+            // Extract lead distribution
+            const leadDistribution = userObj.leadDistribution || {};
             
             return {
                 _id: userObj._id,
@@ -102,35 +104,39 @@ const getTeamUsersWithStats = async (req, res) => {
                 createdAt: userObj.createdAt,
                 reportingTo: userObj.reportingTo,
                 
-                // Attendance
+                // Attendance data
                 attendance: {
                     ...attendance,
-                    attendancePresent,
-                    attendanceTotal: totalWorkingDays || 30,
-                    percentage: totalWorkingDays > 0 ? ((attendancePresent / totalWorkingDays) * 100).toFixed(2) : '0.00'
+                    monthlyStats: {
+                        present: totalPresent,
+                        absent: totalAbsent,
+                        late: totalLate
+                    },
+                    totalPresent,
+                    totalWorkingDays
                 },
                 
-                // Rollback
+                // Rollback data
                 rollback: {
+                    data: rollback,
                     total: rollbackTotal,
-                    lastDate: rollbackLastDate
+                    lastDate: rollback.length > 0 ? rollback[rollback.length - 1].date : null
                 },
                 
                 // Statistics
                 statistics: {
                     ...statistics,
-                    called,
-                    closed,
-                    conversion
+                    calledLeads,
+                    closedLeads
                 },
-                
-                // Lead distribution
-                leadDistribution,
                 
                 // Financials
                 financials,
                 
-                // Withdraw data (same as rollback for now)
+                // Lead distribution
+                leadDistribution,
+                
+                // For backward compatibility
                 withdraw: {
                     total: rollbackTotal
                 }

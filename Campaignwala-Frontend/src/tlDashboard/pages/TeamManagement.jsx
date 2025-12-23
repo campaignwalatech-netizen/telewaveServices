@@ -91,22 +91,34 @@ export default function TeamManagement() {
       const res = await userService.getTeamUsersWithStats(params)
 
       if (res.success) {
-        // 🔥 CALCULATED FIELDS with all requested columns
+        // Handle embedded data structure
         const enriched = res.data.users.map((u) => {
-          const called = u.statistics?.calledLeads || 0
-          const closed = u.statistics?.closedLeads || 0
+          // Handle embedded attendance
+          const attendanceData = u.attendance || {}
+          const monthlyStats = attendanceData.monthlyStats || {}
+          const totalWorkingDays = (monthlyStats.present || 0) + (monthlyStats.absent || 0) + (monthlyStats.late || 0) || 30
+          const totalPresent = monthlyStats.present || 0
+          
+          // Handle rollback data
+          const rollbackData = u.rollback || {}
+          const rollbackTotal = rollbackData.total || 0
+          const rollbackLastDate = rollbackData.lastDate
+          
+          // Handle statistics
+          const stats = u.statistics || {}
+          const called = stats.calledLeads || stats.called || 0
+          const closed = stats.closedLeads || stats.closed || 0
           const conversion = called > 0 ? ((closed / called) * 100).toFixed(2) : '0.00'
           
-          // Attendance data
-          const totalPresent = u.attendance?.totalPresent || 0
-          const totalWorkingDays = u.attendance?.totalWorkingDays || 30 // default to 30 days if not available
+          // Handle financials
+          const financials = u.financials || {}
           
-          // Rollback data
-          const rollbackTotal = u.rollback?.total || 0
-          const rollbackLastDate = u.rollback?.lastDate
+          // Handle lead distribution
+          const leadDist = u.leadDistribution || {}
           
-          // Withdraw data
-          const withdrawTotal = u.withdraw?.total || u.rollback?.total || 0 // fallback to rollback if withdraw not available
+          // Handle withdraw data (might come from separate field or use rollback)
+          const withdrawData = u.withdraw || {}
+          const withdrawTotal = withdrawData.total || rollbackTotal
           
           return {
             ...u,
@@ -116,7 +128,7 @@ export default function TeamManagement() {
             phoneNumber: u.phoneNumber,
             status: u.status,
             
-            // Attendance
+            // Attendance - use the calculated values
             attendancePresent: totalPresent,
             attendanceTotal: totalWorkingDays,
             
@@ -125,15 +137,15 @@ export default function TeamManagement() {
             rollbackDate: formatDate(rollbackLastDate),
             
             // Lead data
-            lastData: formatDate(u.leadDistribution?.lastLeadDate),
+            lastData: formatDate(leadDist.lastLeadDate),
             called,
             closed,
             conversion,
-            dateAssigned: formatDate(u.leadDistribution?.lastAssignedDate),
+            dateAssigned: formatDate(leadDist.lastAssignedDate),
             
             // Additional
             totalPresent,
-            salary: u.financials?.salary || '-',
+            salary: financials.salary || '-',
             email: u.email,
             withdrawData: withdrawTotal,
           }
@@ -143,6 +155,8 @@ export default function TeamManagement() {
         setTotalUsers(res.data.pagination?.total || 0)
         setPagination(res.data.pagination || { page: 1, limit: 20, pages: 1 })
       }
+    } catch (error) {
+      console.error('Error fetching team users:', error)
     } finally {
       setLoading(false)
     }
@@ -152,17 +166,21 @@ export default function TeamManagement() {
   // EXPORT EXCEL
   // --------------------
   const exportExcel = async () => {
-    const blob = await userService.exportUsers({
-      format: 'excel',
-      ...filters,
-    })
+    try {
+      const blob = await userService.exportUsers({
+        format: 'excel',
+        ...filters,
+      })
 
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'team-management.xlsx'
-    a.click()
-    window.URL.revokeObjectURL(url)
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'team-management.xlsx'
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error exporting Excel:', error)
+    }
   }
 
   // --------------------
@@ -221,7 +239,7 @@ export default function TeamManagement() {
         <div className="flex gap-2">
           <button
             onClick={exportExcel}
-            className="border px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-50"
+            className="border px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-50 transition-colors"
           >
             <Download size={16} />
             Export Excel
@@ -229,10 +247,15 @@ export default function TeamManagement() {
 
           <button
             onClick={fetchTeamUsers}
-            className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700"
+            disabled={loading}
+            className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <RefreshCw size={16} />
-            Refresh
+            {loading ? (
+              <RefreshCw size={16} className="animate-spin" />
+            ) : (
+              <RefreshCw size={16} />
+            )}
+            {loading ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
       </div>
@@ -243,7 +266,7 @@ export default function TeamManagement() {
           <Search className="absolute left-3 top-3 text-gray-400" size={16} />
           <input
             placeholder="Search name / phone / email"
-            className="pl-10 border rounded w-full h-10 px-3"
+            className="pl-10 border rounded w-full h-10 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             value={filters.search}
             onChange={(e) =>
               setFilters((p) => ({ ...p, search: e.target.value, page: 1 }))
@@ -252,7 +275,7 @@ export default function TeamManagement() {
         </div>
 
         <select
-          className="border rounded h-10 px-3"
+          className="border rounded h-10 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           value={filters.status}
           onChange={(e) =>
             setFilters((p) => ({ ...p, status: e.target.value, page: 1 }))
@@ -309,7 +332,7 @@ export default function TeamManagement() {
               </tr>
             ) : (
               users.map((u) => (
-                <tr key={u._id} className="hover:bg-gray-50">
+                <tr key={u._id} className="hover:bg-gray-50 transition-colors">
                   {/* Joined On */}
                   <td className="p-3">{u.joinedOn}</td>
                   
@@ -408,32 +431,35 @@ export default function TeamManagement() {
                   
                   {/* Action */}
                   <td>
-                    <div className="relative">
-                      <button className="p-1 hover:bg-gray-100 rounded">
+                    <div className="relative group">
+                      <button className="p-1 hover:bg-gray-100 rounded transition-colors">
                         <MoreVertical size={18} />
                       </button>
-                      <div className="absolute right-0 mt-1 w-48 bg-white border rounded shadow-lg hidden group-hover:block z-10">
+                      <div className="absolute right-0 mt-1 w-48 bg-white border rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
                         <button
                           onClick={() => handleViewDetails(u._id)}
-                          className="block w-full text-left px-4 py-2 hover:bg-gray-100"
+                          className="block w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
                         >
                           View Details
                         </button>
                         <button
                           onClick={() => handleStatusChange(u._id, 'active')}
-                          className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-green-600"
+                          className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-green-600 transition-colors"
+                          disabled={u.status === 'active'}
                         >
                           Mark as Active
                         </button>
                         <button
                           onClick={() => handleStatusChange(u._id, 'hold')}
-                          className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-yellow-600"
+                          className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-yellow-600 transition-colors"
+                          disabled={u.status === 'hold'}
                         >
                           Mark as Hold
                         </button>
                         <button
                           onClick={() => handleStatusChange(u._id, 'dead')}
-                          className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600"
+                          className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600 transition-colors"
+                          disabled={u.status === 'dead'}
                         >
                           Mark as Dead
                         </button>
@@ -456,7 +482,7 @@ export default function TeamManagement() {
               <button
                 onClick={() => handlePageChange(pagination.page - 1)}
                 disabled={pagination.page === 1}
-                className={`px-3 py-1 border rounded ${pagination.page === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                className={`px-3 py-1 border rounded ${pagination.page === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 transition-colors'}`}
               >
                 Previous
               </button>
@@ -477,7 +503,7 @@ export default function TeamManagement() {
                   <button
                     key={pageNum}
                     onClick={() => handlePageChange(pageNum)}
-                    className={`px-3 py-1 border rounded ${pagination.page === pageNum ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'}`}
+                    className={`px-3 py-1 border rounded transition-colors ${pagination.page === pageNum ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'}`}
                   >
                     {pageNum}
                   </button>
@@ -487,7 +513,7 @@ export default function TeamManagement() {
               <button
                 onClick={() => handlePageChange(pagination.page + 1)}
                 disabled={pagination.page === pagination.pages}
-                className={`px-3 py-1 border rounded ${pagination.page === pagination.pages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                className={`px-3 py-1 border rounded ${pagination.page === pagination.pages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 transition-colors'}`}
               >
                 Next
               </button>
