@@ -154,7 +154,7 @@ export default function Sidebar() {
             </span>
             <h1 className="text-xl font-bold text-sidebar-foreground tracking-tight">
             <span className="font-bold text-lg">
-                Freelancer<span className="text-yellow-500"> Wala</span>
+                Freelancer Wala
               </span></h1>
           </div>
           <nav className="space-y-1 flex-1">

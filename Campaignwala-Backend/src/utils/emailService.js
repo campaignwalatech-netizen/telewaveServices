@@ -120,58 +120,8 @@ const sendRegistrationTestEmail = async (email, userName, otp) => {
  */
 const generateOTPEmailHTML = (userName, otp, purpose) => {
   const purposeMessages = {
-    registration: "Complete your registration",
-    login: "Complete your login",
-    "password-reset": "Reset your password",
-    verification: "Verify your account",
-  };
-
-  const actionMessage = purposeMessages[purpose] || "verify your account";
-
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OTP Verification - Freelancer Wala</title> <!-- Updated -->
-    <style>
-        /* Keep all your CSS */
-    </style>
-</head>
-<body>
-    <div class="email-container">
-        <div class="header">
-            <h1>Freelancer Wala</h1> <!-- Updated -->
-            <h2>Hello ${userName}, </h2> <!-- Updated -->
-            <p>${
-              actionMessage.charAt(0).toUpperCase() + actionMessage.slice(1)
-            }</p>
-        </div>
-        
-        <!-- Content remains same -->
-        
-        <div class="security-alert">
-          
-            <strong>🔒 Security Notice:</strong> Never share this OTP: ${otp} with anyone. 
-            <strong>Freelancer Wala</strong> will never ask for your OTP, password, or other sensitive information. <!-- Updated -->
-        </div>
-        
-        <p>Best regards,<br>
-        <strong>The Freelancer Wala Team</strong></p> <!-- Updated -->
-    </div>
-</body>
-</html>
-`;
-};
-
-/**
- * Generate plain text email for OTP
- */
-const generateOTPEmailText = (userName, otp, purpose) => {
-  const purposeMessages = {
     registration: "complete your registration",
-    login: "complete your login",
+    login: "securely sign in to your account",
     "password-reset": "reset your password",
     verification: "verify your account",
   };
@@ -179,34 +129,185 @@ const generateOTPEmailText = (userName, otp, purpose) => {
   const actionMessage = purposeMessages[purpose] || "verify your account";
 
   return `
-Freelancer Wala - OTP Verification
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OTP Verification | Freelancer Wala</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background: #f4f6fb;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrapper {
+    padding: 40px 15px;
+  }
+  .card {
+    max-width: 520px;
+    margin: auto;
+    background: #ffffff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 20px 45px rgba(0,0,0,0.08);
+  }
+  .header {
+    background: linear-gradient(135deg, #ff7a18, #ff3d00);
+    padding: 30px 20px;
+    text-align: center;
+    color: #ffffff;
+  }
+  .header h1 {
+    margin: 0;
+    font-size: 26px;
+    letter-spacing: 0.5px;
+  }
+  .content {
+    padding: 30px 28px;
+    color: #333;
+    line-height: 1.7;
+  }
+  .content p {
+    margin: 0 0 16px;
+    font-size: 15px;
+  }
+  .otp-box {
+    margin: 30px 0;
+    padding: 18px;
+    background: linear-gradient(135deg, #f5f7ff, #eef1ff);
+    border-radius: 10px;
+    text-align: center;
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: 8px;
+    color: #1a237e;
+  }
+  .expiry {
+    font-size: 13px;
+    color: #555;
+    text-align: center;
+  }
+  .security {
+    margin-top: 25px;
+    padding: 16px;
+    background: #fff5f5;
+    border-left: 5px solid #ff4d4f;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #333;
+  }
+  .footer {
+    background: #fafafa;
+    padding: 18px;
+    text-align: center;
+    font-size: 12px;
+    color: #888;
+  }
+</style>
+</head>
+
+<body>
+  <div class="wrapper">
+    <div class="card">
+
+      <div class="header">
+        <h1>Freelancer Wala</h1>
+      </div>
+
+      <div class="content">
+        <p>Hello <strong>${userName}</strong>,</p>
+
+        <p>
+          We received a request to <strong>${actionMessage}</strong>.
+          Please use the One-Time Password (OTP) below to continue.
+        </p>
+
+        <div class="otp-box">${otp}</div>
+
+        <p class="expiry">
+          ⏳ This OTP is valid for <strong>10 minutes</strong>.
+        </p>
+
+        <div class="security">
+          <strong>🔐 Security Alert</strong><br />
+          Never share this OTP with anyone.
+          <strong>Freelancer Wala</strong> will never ask for your OTP, password,
+          or any sensitive details.
+        </div>
+
+        <p style="margin-top: 22px;">
+          If you did not request this OTP, you can safely ignore this email.
+        </p>
+
+        <p>
+          Warm regards,<br />
+          <strong>The Freelancer Wala Team</strong>
+        </p>
+      </div>
+
+      <div class="footer">
+        © ${new Date().getFullYear()} Freelancer Wala • All rights reserved
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
+`;
+};
+
+
+
+/**
+ * Generate plain text email for OTP
+ */
+const generateOTPEmailText = (userName, otp, purpose) => {
+  const purposeMessages = {
+    registration: "complete your registration",
+    login: "sign in to your account",
+    "password-reset": "reset your password",
+    verification: "verify your account",
+  };
+
+  const actionMessage = purposeMessages[purpose] || "verify your account";
+
+  return `
+Freelancer Wala — OTP Verification
 =================================
 
 Hello ${userName},
 
-Use the following One-Time Password (OTP) to ${actionMessage}:
+We received a request to ${actionMessage}.
+Please use the One-Time Password (OTP below):
 
+---------------------------------
 OTP: ${otp}
+---------------------------------
 
-⏰ This OTP is valid for 10 minutes.
+⏳ This OTP is valid for 10 minutes.
 
-🔒 SECURITY NOTICE: Never share this OTP with anyone. 
-Freelancer Wala will never ask for your OTP, password, or other sensitive information.
+🔐 Security Notice:
+Never share this OTP with anyone.
+Freelancer Wala will never ask for your OTP,
+password, or any sensitive information.
 
-If you didn't request this OTP, please ignore this email or contact our support team.
+If you didn’t request this OTP, you can safely ignore this email.
 
-Need help? Contact: ${RESEND_CONFIG.SUPPORT_EMAIL}
+Need help?
+Contact us at: ${RESEND_CONFIG.SUPPORT_EMAIL}
 
 =================================
-Best regards,
+Warm regards,
 The Freelancer Wala Team
 
-© ${new Date().getFullYear()} ${
-    RESEND_CONFIG.COMPANY_NAME
-  }. All rights reserved.
-This is an automated message, please do not reply.
-    `;
+© ${new Date().getFullYear()} ${RESEND_CONFIG.COMPANY_NAME}
+This is an automated email. Please do not reply.
+`;
 };
+
+
 
 /**
  * Send Welcome Email

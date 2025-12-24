@@ -81,7 +81,7 @@ export default function TLSidebar() {
             />
             {(
               <span className="font-bold text-lg">
-                Freelancer<span className="text-yellow-500"> Wala</span>
+                Freelancer wala
               </span>
             )}
           </div>

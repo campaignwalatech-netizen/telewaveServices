@@ -184,10 +184,10 @@ export default function LoginPage() {
             <span className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-card border-2 border-gray-400 overflow-hidden mb-2">
               <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
             </span>
-            <h2 className="text-3xl font-bold text-foreground">
-            <span className="font-bold text-lg">
-                Freelancer<span className="text-yellow-500"> Wala</span>
-              </span></h2>
+            <h1 className="text-5xl font-bold text-foreground">
+            <span className="font-bold text-3xl">
+                Freelancer Wala
+              </span></h1>
           </div>
 
           {/* Image */}
@@ -229,7 +229,7 @@ export default function LoginPage() {
             </span>
             <h1 className="text-3xl font-bold text-foreground mb-2">
             <span className="font-bold text-lg">
-                Freelancer<span className="text-yellow-500"> Wala</span>
+                Freelancer Wala
               </span>
             </h1>
             <div className="flex items-center justify-center gap-2">
