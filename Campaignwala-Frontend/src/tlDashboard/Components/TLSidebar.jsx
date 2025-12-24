@@ -126,22 +126,7 @@ export default function TLSidebar({ darkMode, isSidebarOpen, toggleSidebar }) {
         )}
       </nav>
 
-      {/* User Profile Section */}
-      {isSidebarOpen && (
-        <div className={`p-4 border-t ${darkMode ? "border-gray-700" : "border-gray-200"}`}>
-          <div className={`flex items-center space-x-3 p-3 rounded-lg ${
-            darkMode ? "bg-gray-800/50" : "bg-gray-50"
-          }`}>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-              <span className="font-bold text-white">TL</span>
-            </div>
-            <div className="flex-1">
-              <p className={`font-medium ${darkMode ? "text-white" : "text-gray-800"}`}>Team Leader</p>
-              <p className={`text-sm ${darkMode ? "text-gray-400" : "text-gray-500"}`}>Manage Team & Leads</p>
-            </div>
-          </div>
-        </div>
-      )}
+      
     </aside>
   );
 }
