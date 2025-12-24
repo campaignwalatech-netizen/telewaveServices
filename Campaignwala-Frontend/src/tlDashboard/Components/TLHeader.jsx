@@ -14,7 +14,9 @@ import {
   BarChart3,
   Users,
   TrendingUp,
-  Loader2
+  Loader2,
+  Menu,
+  X
 } from "lucide-react";
 import {
   selectUser,
@@ -27,7 +29,7 @@ import notificationService from "../../services/notificationService";
  * TL Header Component
  * Header for Team Leader dashboard
  */
-export default function TLHeader({ isDark, onThemeToggle, onLogout }) {
+export default function TLHeader({ isDark, onThemeToggle, onLogout, onSidebarToggle, sidebarOpen = true }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
@@ -200,13 +202,36 @@ export default function TLHeader({ isDark, onThemeToggle, onLogout }) {
   }, [onLogout, dispatch, navigate, clearClientAuthStorage]);
 
   return (
-    <header className="sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <header className="fixed top-0 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Left Section - Quick Stats */}
-          <div className="flex items-center space-x-6">
-            <div className="hidden md:flex items-center space-x-4">
-              
+          {/* Left Section - Logo, Name & Sidebar Toggle */}
+          <div className="flex items-center space-x-4">
+            {/* Sidebar Toggle Button */}
+            {onSidebarToggle && (
+              <button
+                onClick={onSidebarToggle}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                aria-label={sidebarOpen ? "Hide sidebar" : "Show sidebar"}
+              >
+                {sidebarOpen ? (
+                  <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                ) : (
+                  <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                )}
+              </button>
+            )}
+            
+            {/* Logo and Name */}
+            <div className="flex items-center gap-2">
+              <img
+                src="/logo.jpeg"
+                alt="Logo"
+                className="w-8 h-8 rounded-full object-cover border-2 border-gray-400"
+              />
+              <span className="font-bold text-lg text-gray-900 dark:text-white">
+                Freelancer wala
+              </span>
             </div>
           </div>
 
@@ -293,7 +318,7 @@ export default function TLHeader({ isDark, onThemeToggle, onLogout }) {
                                 </p>
                               </div>
                               {!notification.read && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 flex-shrink-0"></div>
+                                <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 shrink-0"></div>
                               )}
                             </div>
                           </div>

@@ -109,6 +109,9 @@ import ClosedDataPage from "../adminDashboard/pages/data/ClosedDataPage";
 
 // TL Data Management Pages
 import TLDistributeDataPage from "../tlDashboard/pages/data/TLDistributeDataPage";
+import TLDataDashboard from "../tlDashboard/pages/data/TLDataDashboard";
+import TLWithdrawnDataPage from "../tlDashboard/pages/data/TLWithdrawnDataPage";
+import TLDataAnalytics from "../tlDashboard/pages/data/TLDataAnalytics";
 
 // User Data Management Pages
 import UserTodayDataPage from "../userDashboard/pages/data/UserTodayDataPage";
@@ -301,7 +304,10 @@ export default function AppRouter() {
           <Route path="dashboard" element={<TLDashboard />} />
 
           {/* ==================== TL DATA MANAGEMENT ROUTES ==================== */}
+          <Route path="data/dashboard" element={<TLDataDashboard />} />
           <Route path="data/distribute" element={<TLDistributeDataPage />} />
+          <Route path="data/withdrawn" element={<TLWithdrawnDataPage />} />
+          <Route path="data/analytics" element={<TLDataAnalytics />} />
           <Route path="teamList" element={<TeamManagement />} />
           <Route path="performance" element={<TLPerformance />} />
           <Route path="reports" element={<TLReports />} />

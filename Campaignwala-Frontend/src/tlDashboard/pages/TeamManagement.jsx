@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useOutletContext } from 'react-router-dom'
 import {
   Users,
   Search,
@@ -21,8 +22,14 @@ import userService from '../../services/userService'
 // --------------------
 // UI HELPERS
 // --------------------
-const Badge = ({ children, variant = 'default' }) => {
-  const map = {
+const Badge = ({ children, variant = 'default', darkMode = false }) => {
+  const map = darkMode ? {
+    default: 'bg-gray-700 text-gray-300',
+    success: 'bg-green-900/30 text-green-400',
+    warning: 'bg-yellow-900/30 text-yellow-400',
+    danger: 'bg-red-900/30 text-red-400',
+    info: 'bg-blue-900/30 text-blue-400',
+  } : {
     default: 'bg-gray-100 text-gray-700',
     success: 'bg-green-100 text-green-700',
     warning: 'bg-yellow-100 text-yellow-700',
@@ -39,7 +46,7 @@ const Badge = ({ children, variant = 'default' }) => {
 const formatDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-IN') : '-'
 
-const AttendanceBadge = ({ present, total }) => {
+const AttendanceBadge = ({ present, total, darkMode = false }) => {
   const percentage = total > 0 ? ((present / total) * 100).toFixed(0) : 0
   
   let variant = 'default'
@@ -48,7 +55,7 @@ const AttendanceBadge = ({ present, total }) => {
   else variant = 'danger'
   
   return (
-    <Badge variant={variant}>
+    <Badge variant={variant} darkMode={darkMode}>
       {present}/{total} ({percentage}%)
     </Badge>
   )
@@ -58,6 +65,7 @@ const AttendanceBadge = ({ present, total }) => {
 // MAIN COMPONENT
 // --------------------
 export default function TeamManagement() {
+  const { darkMode } = useOutletContext() || { darkMode: false }
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(false)
   const [totalUsers, setTotalUsers] = useState(0)
@@ -223,15 +231,15 @@ export default function TeamManagement() {
   // RENDER
   // --------------------
   return (
-    <div className="p-6 space-y-6">
+    <div className={`p-6 space-y-6 ${darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <Users className="text-blue-600" />
+          <h1 className={`text-3xl font-bold flex items-center gap-2 ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <Users className="text-blue-600 dark:text-blue-400" />
             Team Management
           </h1>
-          <p className="text-gray-600">
+          <p className={darkMode ? 'text-gray-300' : 'text-gray-600'}>
             Manage your team members and track their performance
           </p>
         </div>
@@ -239,7 +247,11 @@ export default function TeamManagement() {
         <div className="flex gap-2">
           <button
             onClick={exportExcel}
-            className="border px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-50 transition-colors"
+            className={`border px-4 py-2 rounded flex items-center gap-2 transition-colors ${
+              darkMode 
+                ? 'border-gray-700 hover:bg-gray-800 text-gray-300' 
+                : 'border-gray-300 hover:bg-gray-50 text-gray-700'
+            }`}
           >
             <Download size={16} />
             Export Excel
@@ -261,12 +273,16 @@ export default function TeamManagement() {
       </div>
 
       {/* FILTERS */}
-      <div className="bg-white p-4 rounded shadow flex gap-4 flex-wrap">
+      <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} p-4 rounded shadow flex gap-4 flex-wrap border`}>
         <div className="relative flex-1 min-w-[220px]">
-          <Search className="absolute left-3 top-3 text-gray-400" size={16} />
+          <Search className={`absolute left-3 top-3 ${darkMode ? 'text-gray-500' : 'text-gray-400'}`} size={16} />
           <input
             placeholder="Search name / phone / email"
-            className="pl-10 border rounded w-full h-10 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={`pl-10 border rounded w-full h-10 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              darkMode 
+                ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}
             value={filters.search}
             onChange={(e) =>
               setFilters((p) => ({ ...p, search: e.target.value, page: 1 }))
@@ -275,7 +291,11 @@ export default function TeamManagement() {
         </div>
 
         <select
-          className="border rounded h-10 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className={`border rounded h-10 px-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+            darkMode 
+              ? 'bg-gray-700 border-gray-600 text-white' 
+              : 'bg-white border-gray-300 text-gray-900'
+          }`}
           value={filters.status}
           onChange={(e) =>
             setFilters((p) => ({ ...p, status: e.target.value, page: 1 }))
@@ -287,15 +307,15 @@ export default function TeamManagement() {
           <option value="dead">Dead</option>
         </select>
 
-        <div className="text-gray-600 flex items-center">
+        <div className={darkMode ? 'text-gray-300 flex items-center' : 'text-gray-600 flex items-center'}>
           Total Members: <span className="font-bold ml-1">{totalUsers}</span>
         </div>
       </div>
 
       {/* TABLE */}
-      <div className="bg-white rounded shadow overflow-x-auto">
+      <div className={`${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white'} rounded shadow overflow-x-auto border`}>
         <table className="w-full min-w-max">
-          <thead className="bg-gray-100 text-sm">
+          <thead className={darkMode ? 'bg-gray-700 text-sm' : 'bg-gray-100 text-sm'}>
             <tr>
               <th className="p-3 text-left">Joined On</th>
               <th className="text-left">Name</th>
@@ -326,13 +346,13 @@ export default function TeamManagement() {
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan="16" className="text-center p-8 text-gray-500">
+                <td colSpan="16" className={`text-center p-8 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   No team members found
                 </td>
               </tr>
             ) : (
               users.map((u) => (
-                <tr key={u._id} className="hover:bg-gray-50 transition-colors">
+                <tr key={u._id} className={darkMode ? 'hover:bg-gray-700 transition-colors border-b border-gray-700' : 'hover:bg-gray-50 transition-colors border-b border-gray-200'}>
                   {/* Joined On */}
                   <td className="p-3">{u.joinedOn}</td>
                   
@@ -357,6 +377,7 @@ export default function TeamManagement() {
                           ? 'warning'
                           : 'danger'
                       }
+                      darkMode={darkMode}
                     >
                       {u.status}
                     </Badge>
@@ -366,13 +387,14 @@ export default function TeamManagement() {
                   <td>
                     <AttendanceBadge 
                       present={u.attendancePresent} 
-                      total={u.attendanceTotal} 
+                      total={u.attendanceTotal}
+                      darkMode={darkMode}
                     />
                   </td>
                   
                   {/* RollBack Data */}
                   <td>
-                    <Badge variant="danger">{u.rollbackData}</Badge>
+                    <Badge variant="danger" darkMode={darkMode}>{u.rollbackData}</Badge>
                   </td>
                   
                   {/* RollBack Date */}
@@ -409,7 +431,7 @@ export default function TeamManagement() {
                   </td>
                   
                   {/* Salary */}
-                  <td className="font-semibold text-green-600">
+                  <td className={`font-semibold ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
                     {u.salary === '-' ? '-' : `₹${u.salary}`}
                   </td>
                   
@@ -435,30 +457,50 @@ export default function TeamManagement() {
                       <button className="p-1 hover:bg-gray-100 rounded transition-colors">
                         <MoreVertical size={18} />
                       </button>
-                      <div className="absolute right-0 mt-1 w-48 bg-white border rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                      <div className={`absolute right-0 mt-1 w-48 border rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10 ${
+                        darkMode 
+                          ? 'bg-gray-800 border-gray-700' 
+                          : 'bg-white border-gray-200'
+                      }`}>
                         <button
                           onClick={() => handleViewDetails(u._id)}
-                          className="block w-full text-left px-4 py-2 hover:bg-gray-100 transition-colors"
+                          className={`block w-full text-left px-4 py-2 transition-colors ${
+                            darkMode 
+                              ? 'hover:bg-gray-700 text-gray-300' 
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
                         >
                           View Details
                         </button>
                         <button
                           onClick={() => handleStatusChange(u._id, 'active')}
-                          className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-green-600 transition-colors"
+                          className={`block w-full text-left px-4 py-2 transition-colors ${
+                            darkMode 
+                              ? 'hover:bg-gray-700 text-green-400' 
+                              : 'hover:bg-gray-100 text-green-600'
+                          }`}
                           disabled={u.status === 'active'}
                         >
                           Mark as Active
                         </button>
                         <button
                           onClick={() => handleStatusChange(u._id, 'hold')}
-                          className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-yellow-600 transition-colors"
+                          className={`block w-full text-left px-4 py-2 transition-colors ${
+                            darkMode 
+                              ? 'hover:bg-gray-700 text-yellow-400' 
+                              : 'hover:bg-gray-100 text-yellow-600'
+                          }`}
                           disabled={u.status === 'hold'}
                         >
                           Mark as Hold
                         </button>
                         <button
                           onClick={() => handleStatusChange(u._id, 'dead')}
-                          className="block w-full text-left px-4 py-2 hover:bg-gray-100 text-red-600 transition-colors"
+                          className={`block w-full text-left px-4 py-2 transition-colors ${
+                            darkMode 
+                              ? 'hover:bg-gray-700 text-red-400' 
+                              : 'hover:bg-gray-100 text-red-600'
+                          }`}
                           disabled={u.status === 'dead'}
                         >
                           Mark as Dead
@@ -474,15 +516,21 @@ export default function TeamManagement() {
 
         {/* PAGINATION */}
         {pagination.pages > 1 && (
-          <div className="p-4 border-t flex justify-between items-center">
-            <div className="text-sm text-gray-600">
+          <div className={`p-4 border-t flex justify-between items-center ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+            <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
               Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, totalUsers)} of {totalUsers} entries
             </div>
             <div className="flex gap-1">
               <button
                 onClick={() => handlePageChange(pagination.page - 1)}
                 disabled={pagination.page === 1}
-                className={`px-3 py-1 border rounded ${pagination.page === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 transition-colors'}`}
+                className={`px-3 py-1 border rounded transition-colors ${
+                  pagination.page === 1 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : darkMode 
+                      ? 'border-gray-600 hover:bg-gray-700 text-gray-300' 
+                      : 'border-gray-300 hover:bg-gray-50'
+                }`}
               >
                 Previous
               </button>
@@ -503,7 +551,13 @@ export default function TeamManagement() {
                   <button
                     key={pageNum}
                     onClick={() => handlePageChange(pageNum)}
-                    className={`px-3 py-1 border rounded transition-colors ${pagination.page === pageNum ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'}`}
+                    className={`px-3 py-1 border rounded transition-colors ${
+                      pagination.page === pageNum 
+                        ? 'bg-blue-600 text-white border-blue-600' 
+                        : darkMode 
+                          ? 'border-gray-600 hover:bg-gray-700 text-gray-300' 
+                          : 'border-gray-300 hover:bg-gray-50'
+                    }`}
                   >
                     {pageNum}
                   </button>
@@ -513,7 +567,13 @@ export default function TeamManagement() {
               <button
                 onClick={() => handlePageChange(pagination.page + 1)}
                 disabled={pagination.page === pagination.pages}
-                className={`px-3 py-1 border rounded ${pagination.page === pagination.pages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 transition-colors'}`}
+                className={`px-3 py-1 border rounded transition-colors ${
+                  pagination.page === pagination.pages 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : darkMode 
+                      ? 'border-gray-600 hover:bg-gray-700 text-gray-300' 
+                      : 'border-gray-300 hover:bg-gray-50'
+                }`}
               >
                 Next
               </button>
