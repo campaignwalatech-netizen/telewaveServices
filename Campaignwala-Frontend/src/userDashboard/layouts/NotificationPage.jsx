@@ -26,6 +26,8 @@ const NotificationsPage = ({ darkMode }) => {
       
       if (response.success && response.data.notifications) {
         const transformed = response.data.notifications.map(notif => {
+          const notificationId = notif._id || notif.notificationId;
+          
           // Map notification type to category
           let category = "All";
           if (notif.type === "profile") category = "Profile";
@@ -37,15 +39,18 @@ const NotificationsPage = ({ darkMode }) => {
           if (notif.type === "offer") notificationType = "success";
           else if (notif.status === "failed") notificationType = "warning";
 
+          // Check if notification is read from localStorage
+          const read = notificationService.isNotificationRead(notificationId);
+
           return {
-            id: notif._id || notif.notificationId,
+            id: notificationId,
             category,
             title: notif.title,
             message: notif.message,
             time: formatDate(notif.sentDate || notif.createdAt),
             type: notificationType,
-            read: false, // Backend doesn't track read status yet
-            notificationId: notif.notificationId,
+            read: read,
+            notificationId: notificationId,
             offerDetails: notif.offerDetails
           };
         });
@@ -87,8 +92,8 @@ const NotificationsPage = ({ darkMode }) => {
   const categories = ["All", "Payment", "Profile", "Offer"];
 
   const markAllRead = () => {
-    // Note: Backend doesn't have read status tracking yet
-    // This is a client-side only operation
+    const notificationIds = notifications.map(n => n.id);
+    notificationService.markAllNotificationsAsRead(notificationIds);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     toast.success('All notifications marked as read');
   };

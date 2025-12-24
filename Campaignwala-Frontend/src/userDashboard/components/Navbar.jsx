@@ -178,9 +178,12 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
         });
         
         if (response.success && response.data.notifications) {
-          // Count unread notifications (for now, all are considered unread)
-          // In future, backend can add read status tracking
-          setUnreadNotificationCount(response.data.notifications.length);
+          // Count unread notifications by checking localStorage
+          const unreadCount = response.data.notifications.filter(notif => {
+            const notificationId = notif._id || notif.notificationId;
+            return !notificationService.isNotificationRead(notificationId);
+          }).length;
+          setUnreadNotificationCount(unreadCount);
         }
       } catch (error) {
         console.error("Error fetching notification count:", error);

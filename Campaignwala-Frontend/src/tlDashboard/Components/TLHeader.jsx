@@ -54,13 +54,16 @@ export default function TLHeader({ isDark, onThemeToggle, onLogout }) {
       });
 
       if (response.success && response.data.notifications) {
-        const transformed = response.data.notifications.map(notif => ({
-          id: notif._id || notif.notificationId,
-          title: notif.title,
-          message: notif.message,
-          time: formatDate(notif.sentDate || notif.createdAt),
-          read: false // Backend doesn't track read status yet
-        }));
+        const transformed = response.data.notifications.map(notif => {
+          const notificationId = notif._id || notif.notificationId;
+          return {
+            id: notificationId,
+            title: notif.title,
+            message: notif.message,
+            time: formatDate(notif.sentDate || notif.createdAt),
+            read: notificationService.isNotificationRead(notificationId)
+          };
+        });
         setNotifications(transformed);
       }
     } catch (err) {
@@ -102,6 +105,7 @@ export default function TLHeader({ isDark, onThemeToggle, onLogout }) {
   };
 
   const markNotificationAsRead = (id) => {
+    notificationService.markNotificationAsRead(id);
     setNotifications(prev =>
       prev.map(notif =>
         notif.id === id ? { ...notif, read: true } : notif

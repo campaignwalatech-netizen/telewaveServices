@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Bell, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import notificationService from "../../services/notificationService";
 import toast, { Toaster } from "react-hot-toast";
@@ -8,11 +8,7 @@ export default function TLNotifications() {
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState("all");
 
-  useEffect(() => {
-    fetchNotifications();
-  }, [filterType]);
-
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     try {
       setLoading(true);
       const params = {
@@ -24,15 +20,19 @@ export default function TLNotifications() {
       const response = await notificationService.getUserNotifications(params);
       
       if (response.success && response.data.notifications) {
-        const transformed = response.data.notifications.map(notif => ({
-          id: notif._id || notif.notificationId,
-          title: notif.title,
-          message: notif.message,
-          type: notif.type,
-          sentDate: formatDate(notif.sentDate || notif.createdAt),
-          notificationId: notif.notificationId,
-          offerDetails: notif.offerDetails
-        }));
+        const transformed = response.data.notifications.map(notif => {
+          const notificationId = notif._id || notif.notificationId;
+          return {
+            id: notificationId,
+            title: notif.title,
+            message: notif.message,
+            type: notif.type,
+            sentDate: formatDate(notif.sentDate || notif.createdAt),
+            notificationId: notificationId,
+            offerDetails: notif.offerDetails,
+            read: notificationService.isNotificationRead(notificationId)
+          };
+        });
 
         setNotifications(transformed);
       }
@@ -42,7 +42,11 @@ export default function TLNotifications() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterType]);
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [fetchNotifications]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Unknown';
@@ -87,6 +91,18 @@ export default function TLNotifications() {
     ? notifications 
     : notifications.filter(n => n.type === filterType);
 
+  const markAllRead = () => {
+    const notificationIds = filteredNotifications.map(n => n.id);
+    notificationService.markAllNotificationsAsRead(notificationIds);
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    toast.success('All notifications marked as read');
+  };
+
+  const markAsRead = (id) => {
+    notificationService.markNotificationAsRead(id);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <Toaster
@@ -114,9 +130,19 @@ export default function TLNotifications() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <Bell className="h-8 w-8 text-blue-500" />
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Notifications</h1>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <Bell className="h-8 w-8 text-blue-500" />
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Notifications</h1>
+            </div>
+            {filteredNotifications.length > 0 && (
+              <button
+                onClick={markAllRead}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors"
+              >
+                Mark all as read
+              </button>
+            )}
           </div>
           <p className="text-gray-600 dark:text-gray-400">Stay updated with your account activities</p>
         </div>
@@ -127,7 +153,7 @@ export default function TLNotifications() {
             <button
               key={type}
               onClick={() => setFilterType(type)}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all flex-shrink-0 ${
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all shrink-0 ${
                 filterType === type
                   ? "bg-blue-600 text-white shadow-lg"
                   : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -149,8 +175,11 @@ export default function TLNotifications() {
             filteredNotifications.map((notification, index) => (
               <div
                 key={notification.id}
-                className={`p-6 border-b last:border-b-0 border-gray-200 dark:border-gray-700 ${
-                  index === 0 ? "bg-blue-50 dark:bg-blue-900/20" : ""
+                onClick={() => !notification.read && markAsRead(notification.id)}
+                className={`p-6 border-b last:border-b-0 border-gray-200 dark:border-gray-700 cursor-pointer transition-colors ${
+                  !notification.read 
+                    ? "bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500" 
+                    : index === 0 ? "bg-blue-50 dark:bg-blue-900/20" : ""
                 }`}
               >
                 <div className="flex items-start justify-between gap-4">

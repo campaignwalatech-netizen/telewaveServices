@@ -161,6 +161,64 @@ class NotificationService {
       throw error.response?.data || error.message;
     }
   }
+
+  /**
+   * Mark notification as read (client-side only, using localStorage)
+   * @param {string} notificationId - Notification ID
+   */
+  markNotificationAsRead(notificationId) {
+    try {
+      const readNotifications = this.getReadNotifications();
+      if (!readNotifications.includes(notificationId)) {
+        readNotifications.push(notificationId);
+        localStorage.setItem('readNotifications', JSON.stringify(readNotifications));
+      }
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  }
+
+  /**
+   * Mark all notifications as read (client-side only, using localStorage)
+   * @param {Array} notificationIds - Array of notification IDs
+   */
+  markAllNotificationsAsRead(notificationIds) {
+    try {
+      const readNotifications = this.getReadNotifications();
+      notificationIds.forEach(id => {
+        if (!readNotifications.includes(id)) {
+          readNotifications.push(id);
+        }
+      });
+      localStorage.setItem('readNotifications', JSON.stringify(readNotifications));
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  }
+
+  /**
+   * Get list of read notification IDs from localStorage
+   * @returns {Array} - Array of read notification IDs
+   */
+  getReadNotifications() {
+    try {
+      const stored = localStorage.getItem('readNotifications');
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      console.error('Error reading read notifications:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Check if a notification is read
+   * @param {string} notificationId - Notification ID
+   * @returns {boolean} - True if notification is read
+   */
+  isNotificationRead(notificationId) {
+    const readNotifications = this.getReadNotifications();
+    return readNotifications.includes(notificationId);
+  }
 }
 
 // Export singleton instance
