@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import api from '../../services/api';
 import walletService from '../../services/walletService';
 import leadService from '../../services/leadService';
@@ -13,6 +14,7 @@ const Dashboard = ({ darkMode }) => {
   const [loading, setLoading] = useState(true);
   const [slidesLoading, setSlidesLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
   const [walletData, setWalletData] = useState({
     balance: 0,
     totalEarned: 0,
@@ -58,14 +60,17 @@ const Dashboard = ({ darkMode }) => {
     }
   };
 
-  // Auto-slide effect with smooth transition - Only show 3 slides
+  // Auto-slide effect with smooth transition - Include all slides
   useEffect(() => {
-    const totalSlides = 3; // Only cycle through first 3 slides
+    if (isPaused) return;
+    
+    // Calculate total slides: backend slides + 10 static slides
+    const totalSlides = slides.length > 0 ? slides.length + 10 : 10;
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % totalSlides);
-    }, 9500); // 5 seconds per slide
+    }, 5000); // 5 seconds per slide
     return () => clearInterval(timer);
-  }, []);
+  }, [slides.length, isPaused]);
 
   const fetchUserProfile = async () => {
     try {
@@ -167,9 +172,152 @@ const Dashboard = ({ darkMode }) => {
     }
   };
 
-  const openPopup = (title, img, description) => {
-    alert(`${title}\n\n${description}`);
+  // Static slides configuration
+  const staticSlides = [
+    {
+      id: 1,
+      image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop",
+      alt: "Earn More & More",
+      title: "Earn More & More!!",
+      description: "Grow your skills and earnings with our exclusive programs!",
+      gradient: "from-indigo-600/80 to-purple-600/80",
+      buttonText: ""
+    },
+    {
+      id: 2,
+      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=400&fit=crop",
+      alt: "Big Offers Coming",
+      title: "Big Offers Coming Soon!!",
+      description: "Get ready for amazing deals and exclusive benefits!",
+      gradient: "from-orange-600/80 to-red-600/80",
+      buttonText: ""
+    },
+    {
+      id: 3,
+      image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&h=400&fit=crop",
+      alt: "Savings Account Offers",
+      title: "Saving Offers Are Live Going On!",
+      description: "Don't miss out on exclusive savings account benefits!",
+      gradient: "from-green-600/80 to-teal-600/80",
+      buttonText: ""
+    },
+    {
+      id: 4,
+      image: "https://images.unsplash.com/photo-1642790554815-1ac8d1bb2423?w=1200&h=400&fit=crop",
+      alt: "Demat Account Special Offers",
+      title: "Demat Offers Going On!",
+      description: "Exclusive deals on demat accounts - Limited time only!",
+      gradient: "from-blue-600/80 to-purple-600/80",
+      buttonText: "Explore Now"
+    },
+    {
+      id: 5,
+      image: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&h=400&fit=crop",
+      alt: "Credit Card Special Offers",
+      title: "Credit Card Offers Live!",
+      description: "Get amazing rewards and cashback on premium credit cards!",
+      gradient: "from-amber-600/80 to-orange-600/80",
+      buttonText: "Apply Now"
+    },
+    {
+      id: 6,
+      image: "https://images.unsplash.com/photo-1579621970795-87facc2f976d?w=1200&h=400&fit=crop",
+      alt: "Personal Loan Offers",
+      title: "Personal Loan Offers!",
+      description: "Low interest rates and instant approval available now!",
+      gradient: "from-red-600/80 to-pink-600/80",
+      buttonText: "Get Loan"
+    },
+    {
+      id: 7,
+      image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&h=400&fit=crop",
+      alt: "Investment Opportunities",
+      title: "Investment Offers Live!",
+      description: "Start your investment journey with exclusive bonuses!",
+      gradient: "from-emerald-600/80 to-green-600/80",
+      buttonText: "Invest Now"
+    },
+    {
+      id: 8,
+      image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&h=400&fit=crop",
+      alt: "Saturday Bonus",
+      title: "Saturday Special Bonus!",
+      description: "You will get ₹100 per account on every Saturday!",
+      description2: "Complete your accounts and earn weekly bonuses!",
+      gradient: "from-yellow-600/80 to-amber-600/80",
+      buttonText: "Claim Bonus"
+    },
+    {
+      id: 9,
+      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=400&fit=crop",
+      alt: "Weekly Rewards",
+      title: "Weekly Rewards Program!",
+      description: "Get ₹100 per account every Saturday!",
+      description2: "Join now and start earning weekly bonuses!",
+      gradient: "from-pink-600/80 to-rose-600/80",
+      buttonText: "Join Now"
+    },
+    {
+      id: 10,
+      image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop",
+      alt: "Account Bonus",
+      title: "Account Bonus Every Saturday!",
+      description: "Earn ₹100 per account on every Saturday!",
+      description2: "Don't miss out on your weekly earnings!",
+      gradient: "from-indigo-600/80 to-blue-600/80",
+      buttonText: "Learn More"
+    }
+  ];
+
+  // Calculate total slides
+  const totalSlides = slides.length + staticSlides.length;
+
+  // Navigation functions
+  const goToNextSlide = () => {
+    setCurrentSlide((prev) => (prev + 1) % totalSlides);
   };
+
+  const goToPrevSlide = () => {
+    setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides);
+  };
+
+  const goToSlide = (index) => {
+    setCurrentSlide(index);
+  };
+
+  // Slide Component
+  const SlideItem = ({ slide, slideWidth }) => (
+    <div
+      className="relative shrink-0 h-full"
+      style={{ width: `${slideWidth}%` }}
+    >
+      <img 
+        src={slide.image} 
+        alt={slide.alt} 
+        className="w-full h-full object-cover"
+      />
+      <div className={`absolute inset-0 bg-gradient-to-r ${slide.gradient} flex items-center justify-center`}>
+        <div className="text-center px-3 sm:px-4">
+          <h3 className="text-white text-lg sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2">
+            {slide.title}
+          </h3>
+          <p className="text-white/90 text-xs sm:text-sm md:text-lg mb-2">
+            {slide.description}
+          </p>
+          {slide.description2 && (
+            <p className="text-white/80 text-xs sm:text-sm">
+              {slide.description2}
+            </p>
+          )}
+          {slide.buttonText && (
+            <div className="mt-2 sm:mt-4 bg-gray-400 text-gray-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full font-semibold cursor-not-allowed text-xs sm:text-base">
+              {slide.buttonText}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div
@@ -257,14 +405,41 @@ const Dashboard = ({ darkMode }) => {
 
       {/* Banner Section - Horizontal Sliding Swiper */}
       <section className="relative z-10 rounded-xl sm:rounded-2xl mb-4 sm:mb-6 overflow-hidden shadow-2xl ring-2 ring-blue-300 dark:ring-blue-200">
-        <div className="relative overflow-hidden h-40 sm:h-48 md:h-56 lg:h-64">
+        <div 
+          className="relative overflow-hidden h-40 sm:h-48 md:h-56 lg:h-64"
+          onMouseEnter={() => setIsPaused(true)}
+          onMouseLeave={() => setIsPaused(false)}
+        >
+          {/* Navigation Arrows */}
+          <button
+            onClick={goToPrevSlide}
+            className={`absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 p-2 sm:p-3 rounded-full shadow-lg transition-all hover:scale-110 ${
+              darkMode 
+                ? 'bg-gray-800/80 text-white hover:bg-gray-700/80' 
+                : 'bg-white/80 text-gray-800 hover:bg-white'
+            }`}
+            aria-label="Previous slide"
+          >
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+          <button
+            onClick={goToNextSlide}
+            className={`absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 p-2 sm:p-3 rounded-full shadow-lg transition-all hover:scale-110 ${
+              darkMode 
+                ? 'bg-gray-800/80 text-white hover:bg-gray-700/80' 
+                : 'bg-white/80 text-gray-800 hover:bg-white'
+            }`}
+            aria-label="Next slide"
+          >
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
           <style>{`
             @keyframes slideCarousel {
               0% {
                 transform: translateX(0%);
               }
               100% {
-                transform: translateX(-${slides.length > 0 ? (100 / (slides.length + 7)) : 25}%);
+                transform: translateX(-${100 / totalSlides}%);
               }
             }
           `}</style>
@@ -273,287 +448,67 @@ const Dashboard = ({ darkMode }) => {
             <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-gray-700">
               <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-blue-600"></div>
             </div>
-          ) : slides.length > 0 ? (
+          ) : (
             <div className="relative w-full h-full">
               <div 
                 className="flex h-full transition-transform duration-3500 ease-in-out"
                 style={{ 
-                  transform: `translateX(-${currentSlide * (100 / (slides.length + 7))}%)`,
-                  width: `${(slides.length + 7) * 100}%`
+                  transform: `translateX(-${currentSlide * (100 / totalSlides)}%)`,
+                  width: `${totalSlides * 100}%`
                 }}
               >
-                {/* Additional Earn More Learn More Slide */}
+                {/* Backend slides */}
+                {slides.map((slide, index) => (
                 <div
-                  className="relative flex-shrink-0 h-full"
-                  style={{ width: `${100 / (slides.length + 7)}%` }}
+                    key={`backend-${slide._id || index}`}
+                    className="relative shrink-0 h-full"
+                    style={{ width: `${100 / totalSlides}%` }}
                 >
                   <img 
-                    src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop" 
-                    alt="Earn More & More" 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/80 to-purple-600/80 flex items-center justify-center">
-                    <div className="text-center px-3 sm:px-4">
-                      <h3 className="text-white text-lg sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2">
-                        Earn More & More!!
-                      </h3>
-                      <p className="text-white/90 text-xs sm:text-sm md:text-lg">
-                        Grow your skills and earnings with our exclusive programs!
-                      </p>
-                      <div 
-                        className="mt-2 sm:mt-4 bg-gray-400 text-gray-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full font-semibold cursor-not-allowed text-xs sm:text-base"
-                      >
-                        
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Additional Big Offers Slide */}
-                <div
-                  className="relative flex-shrink-0 h-full"
-                  style={{ width: `${100 / (slides.length + 7)}%` }}
-                >
-                  <img 
-                    src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=400&fit=crop" 
-                    alt="Big Offers Coming" 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-orange-600/80 to-red-600/80 flex items-center justify-center">
-                    <div className="text-center px-3 sm:px-4">
-                      <h3 className="text-white text-lg sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2">
-                        Big Offers Coming Soon!!
-                      </h3>
-                      <p className="text-white/90 text-xs sm:text-sm md:text-lg">
-                        Get ready for amazing deals and exclusive benefits!
-                      </p>
-                      <div 
-                        className="mt-2 sm:mt-4 bg-gray-400 text-gray-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full font-semibold cursor-not-allowed text-xs sm:text-base"
-                      >
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Additional Savings Offers Slide */}
-                <div
-                  className="relative flex-shrink-0 h-full"
-                  style={{ width: `${100 / (slides.length + 7)}%` }}
-                >
-                  <img 
-                    src="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&h=400&fit=crop" 
-                    alt="Savings Account Offers" 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-green-600/80 to-teal-600/80 flex items-center justify-center">
-                    <div className="text-center px-3 sm:px-4">
-                      <h3 className="text-white text-lg sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2">
-                        Saving Offers Are Live Going On!
-                      </h3>
-                      <p className="text-white/90 text-xs sm:text-sm md:text-lg">
-                        Don't miss out on exclusive savings account benefits!
-                      </p>
-                      <div 
-                        className="mt-2 sm:mt-4 bg-gray-400 text-gray-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full font-semibold cursor-not-allowed text-xs sm:text-base"
-                      >
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Additional Demat Offers Slide */}
-                <div
-                  className="relative flex-shrink-0 h-full"
-                  style={{ width: `${100 / (slides.length + 7)}%` }}
-                >
-                  <img 
-                    src="https://images.unsplash.com/photo-1642790554815-1ac8d1bb2423?w=1200&h=400&fit=crop" 
-                    alt="Demat Account Special Offers" 
+                      src={slide.image || slide.imageUrl || "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop"} 
+                      alt={slide.title || slide.name || "Slide"} 
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-600/80 to-purple-600/80 flex items-center justify-center">
                     <div className="text-center px-3 sm:px-4">
                       <h3 className="text-white text-lg sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2">
-                        Demat Offers Going On!
+                          {slide.title || slide.name || "Special Offer"}
                       </h3>
                       <p className="text-white/90 text-xs sm:text-sm md:text-lg">
-                        Exclusive deals on demat accounts - Limited time only!
+                          {slide.description || slide.subtitle || "Check out our amazing deals!"}
                       </p>
-                      <div 
-                        className="mt-2 sm:mt-4 bg-gray-400 text-gray-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full font-semibold cursor-not-allowed text-xs sm:text-base"
-                      >
-                        Explore Now
                       </div>
                     </div>
                   </div>
-                </div>
-
-                {/* NEW SLIDE 1 - Credit Card Special Offers */}
-                <div
-                  className="relative flex-shrink-0 h-full"
-                  style={{ width: `${100 / (slides.length + 7)}%` }}
-                >
-                  <img 
-                    src="https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&h=400&fit=crop" 
-                    alt="Credit Card Special Offers" 
-                    className="w-full h-full object-cover"
+                ))}
+                
+                {/* Static slides */}
+                {staticSlides.map((slide) => (
+                  <SlideItem 
+                    key={`static-${slide.id}`} 
+                    slide={slide} 
+                    slideWidth={100 / totalSlides}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-r from-amber-600/80 to-orange-600/80 flex items-center justify-center">
-                    <div className="text-center px-3 sm:px-4">
-                      <h3 className="text-white text-lg sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2">
-                        Credit Card Offers Live!
-                      </h3>
-                      <p className="text-white/90 text-xs sm:text-sm md:text-lg">
-                        Get amazing rewards and cashback on premium credit cards!
-                      </p>
-                      <div 
-                        className="mt-2 sm:mt-4 bg-gray-400 text-gray-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full font-semibold cursor-not-allowed text-xs sm:text-base"
-                      >
-                        Apply Now
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* NEW SLIDE 2 - Personal Loan Offers */}
-                <div
-                  className="relative flex-shrink-0 h-full"
-                  style={{ width: `${100 / (slides.length + 7)}%` }}
-                >
-                  <img 
-                    src="https://images.unsplash.com/photo-1579621970795-87facc2f976d?w=1200&h=400&fit=crop" 
-                    alt="Personal Loan Offers" 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-red-600/80 to-pink-600/80 flex items-center justify-center">
-                    <div className="text-center px-3 sm:px-4">
-                      <h3 className="text-white text-lg sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2">
-                        Personal Loan Offers!
-                      </h3>
-                      <p className="text-white/90 text-xs sm:text-sm md:text-lg">
-                        Low interest rates and instant approval available now!
-                      </p>
-                      <div 
-                        className="mt-2 sm:mt-4 bg-gray-400 text-gray-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full font-semibold cursor-not-allowed text-xs sm:text-base"
-                      >
-                        Get Loan
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* NEW SLIDE 3 - Investment Opportunities */}
-                <div
-                  className="relative flex-shrink-0 h-full"
-                  style={{ width: `${100 / (slides.length + 7)}%` }}
-                >
-                  <img 
-                    src="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&h=400&fit=crop" 
-                    alt="Investment Opportunities" 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-600/80 to-green-600/80 flex items-center justify-center">
-                    <div className="text-center px-3 sm:px-4">
-                      <h3 className="text-white text-lg sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2">
-                        Investment Offers Live!
-                      </h3>
-                      <p className="text-white/90 text-xs sm:text-sm md:text-lg">
-                        Start your investment journey with exclusive bonuses!
-                      </p>
-                      <div 
-                        className="mt-2 sm:mt-4 bg-gray-400 text-gray-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full font-semibold cursor-not-allowed text-xs sm:text-base"
-                      >
-                        Invest Now
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
-          ) : (
-            // Fallback when no slides from backend - Show seven slides
-            <div className="relative w-full h-full">
-              <div className="flex h-full">
-                {/* First Slide - Earn More Learn More */}
-                <div className="flex-shrink-0 w-1/7 h-full">
-                  <img 
-                    src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop" 
-                    alt="Earn More Learn More" 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/80 to-purple-600/80 flex items-center justify-center">
-                    <div className="text-center px-3 sm:px-4">
-                      <h3 className="text-white text-lg sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2">Earn More Learn More!!</h3>
-                      <p className="text-white/90 text-xs sm:text-sm md:text-lg">Grow your skills and earnings!</p>
-                      <div 
-                        className="mt-2 sm:mt-4 bg-gray-400 text-gray-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full font-semibold cursor-not-allowed text-xs sm:text-base"
-                      >
-                        Start Now
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Second Slide - Big Offers */}
-                <div className="flex-shrink-0 w-1/7 h-full">
-                  <img 
-                    src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=400&fit=crop" 
-                    alt="Big Offers Coming" 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-orange-600/80 to-red-600/80 flex items-center justify-center">
-                    <div className="text-center px-3 sm:px-4">
-                      <h3 className="text-white text-lg sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2">Big Offers Comingg!!</h3>
-                      <p className="text-white/90 text-xs sm:text-sm md:text-lg">Amazing deals are live now!</p>
-                      <div 
-                        className="mt-2 sm:mt-4 bg-gray-400 text-gray-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full font-semibold cursor-not-allowed text-xs sm:text-base"
-                      >
-                        Discover Now
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Third Slide - Savings Offers Live */}
-                <div className="flex-shrink-0 w-1/7 h-full">
-                  <img 
-                    src="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&h=400&fit=crop" 
-                    alt="Savings Special Offers" 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-green-600/80 to-teal-600/80 flex items-center justify-center">
-                    <div className="text-center px-3 sm:px-4">
-                      <h3 className="text-white text-lg sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2">Saving Offers Are Live!</h3>
-                      <p className="text-white/90 text-xs sm:text-sm md:text-lg">Amazing deals available now!</p>
-                      <div 
-                        className="mt-2 sm:mt-4 bg-gray-400 text-gray-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full font-semibold cursor-not-allowed text-xs sm:text-base"
-                      >
-                        Grab Offer
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Seventh Slide - Investment Offers (NEW) */}
-                <div className="flex-shrink-0 w-1/7 h-full">
-                  <img 
-                    src="https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&h=400&fit=crop" 
-                    alt="Investment Offers" 
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-600/80 to-green-600/80 flex items-center justify-center">
-                    <div className="text-center px-3 sm:px-4">
-                      <h3 className="text-white text-lg sm:text-2xl md:text-4xl font-bold mb-1 sm:mb-2">Investment Offers!</h3>
-                      <p className="text-white/90 text-xs sm:text-sm md:text-lg">Start investing with bonuses!</p>
-                      <div 
-                        className="mt-2 sm:mt-4 bg-gray-400 text-gray-600 px-4 sm:px-6 py-1.5 sm:py-2 rounded-full font-semibold cursor-not-allowed text-xs sm:text-base"
-                      >
-                        Invest Now
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          )}
+          
+          {/* Navigation Dots */}
+          {!slidesLoading && (
+            <div className="absolute bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-1.5 sm:gap-2">
+              {Array.from({ length: totalSlides }).map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => goToSlide(index)}
+                  className={`transition-all rounded-full ${
+                    currentSlide === index
+                      ? 'w-6 sm:w-8 h-2 sm:h-2.5 bg-blue-600 dark:bg-blue-400'
+                      : 'w-2 sm:w-2.5 h-2 sm:h-2.5 bg-white/60 dark:bg-gray-600/60 hover:bg-white/80 dark:hover:bg-gray-500/80'
+                  }`}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -654,7 +609,7 @@ const Dashboard = ({ darkMode }) => {
               color: 'from-rose-400 to-pink-500',
               img: 'https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?w=400&h=300&fit=crop',
             },
-          ].map((card, index) => (
+          ].map((card) => (
             <div
               key={card.title}
               onClick={() => {
