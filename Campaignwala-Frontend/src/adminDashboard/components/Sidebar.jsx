@@ -167,6 +167,19 @@ export default function AdminSidebar({
     },
     
     {
+      id: "notifications",
+      label: "Notifications",
+      icon: Bell,
+      type: "section",
+      items: [
+        { id: "notifications", label: "Dashboard", icon: Key, path: "/admin/notifications" },
+        { id: "notifications-incomplete-profile", label: "Incomplete Profile", icon: MoreVertical, path: "/admin/notifications/incomplete-profile" },
+        { id: "notifications-hot-offers", label: "Hot Offers", icon: DollarSign, path: "/admin/notifications/hot-offers" },
+        { id: "notifications-history", label: "History", icon: Activity, path: "/admin/notifications/history" },
+      ]
+    },
+    
+    {
       id: "miscellaneous",
       label: "Miscellaneous",
       icon: Settings,

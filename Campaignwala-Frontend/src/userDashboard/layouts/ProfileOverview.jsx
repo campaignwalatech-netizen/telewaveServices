@@ -458,7 +458,7 @@ const ProfileOverview = ({ darkMode }) => {
                   </div>
                   <div>
                     <h4 className="text-xl font-black text-gray-900 tracking-wide">FREELANCER WALA</h4>
-                    <p className="text-xs text-gray-600 font-semibold mt-1">TELWALIA HR</p>
+                    <p className="text-xs text-gray-600 font-semibold mt-1">TELECALLING HR</p>
                   </div>
                 </div>
                 <div className="text-right">

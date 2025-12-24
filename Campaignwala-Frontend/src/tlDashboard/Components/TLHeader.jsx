@@ -13,13 +13,15 @@ import {
   HelpCircle,
   BarChart3,
   Users,
-  TrendingUp
+  TrendingUp,
+  Loader2
 } from "lucide-react";
 import {
   selectUser,
   logoutUser,
   logoutUserAsync
 } from "../../redux/slices/authSlice";
+import notificationService from "../../services/notificationService";
 
 /**
  * TL Header Component
@@ -32,18 +34,64 @@ export default function TLHeader({ isDark, onThemeToggle, onLogout }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
   const user = useSelector(selectUser);
 
-  // Fetch notifications (simulated)
+  // Fetch notifications from API
   useEffect(() => {
-    const simulatedNotifications = [
-      { id: 1, title: "New lead assigned", message: "You have a new lead from John", time: "5 min ago", read: false },
-      { id: 2, title: "Team member activity", message: "Sarah completed 3 leads today", time: "1 hour ago", read: false },
-      { id: 3, title: "Performance update", message: "Team conversion rate improved by 15%", time: "2 hours ago", read: true },
-      { id: 4, title: "New team member", message: "New member joined your team", time: "1 day ago", read: true },
-    ];
-    setNotifications(simulatedNotifications);
+    fetchNotifications();
+    // Refresh notifications every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      setLoadingNotifications(true);
+      const response = await notificationService.getUserNotifications({
+        page: 1,
+        limit: 10
+      });
+
+      if (response.success && response.data.notifications) {
+        const transformed = response.data.notifications.map(notif => ({
+          id: notif._id || notif.notificationId,
+          title: notif.title,
+          message: notif.message,
+          time: formatDate(notif.sentDate || notif.createdAt),
+          read: false // Backend doesn't track read status yet
+        }));
+        setNotifications(transformed);
+      }
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) {
+      return `${diffMins} ${diffMins === 1 ? 'min' : 'mins'} ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+    } else if (diffDays < 7) {
+      return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+    } else {
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric' 
+      });
+    }
+  };
 
   const unreadNotifications = notifications.filter(n => !n.read).length;
 
@@ -216,7 +264,12 @@ export default function TLHeader({ isDark, onThemeToggle, onLogout }) {
                       <h3 className="font-semibold text-gray-900 dark:text-white">Notifications</h3>
                     </div>
                     <div className="max-h-96 overflow-y-auto">
-                      {notifications.length > 0 ? (
+                      {loadingNotifications ? (
+                        <div className="p-4 text-center">
+                          <Loader2 className="h-5 w-5 animate-spin text-blue-500 mx-auto" />
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Loading notifications...</p>
+                        </div>
+                      ) : notifications.length > 0 ? (
                         notifications.map((notification) => (
                           <div
                             key={notification.id}
@@ -224,7 +277,7 @@ export default function TLHeader({ isDark, onThemeToggle, onLogout }) {
                             onClick={() => markNotificationAsRead(notification.id)}
                           >
                             <div className="flex items-start justify-between">
-                              <div>
+                              <div className="flex-1">
                                 <p className="font-medium text-gray-900 dark:text-white">
                                   {notification.title}
                                 </p>
@@ -236,7 +289,7 @@ export default function TLHeader({ isDark, onThemeToggle, onLogout }) {
                                 </p>
                               </div>
                               {!notification.read && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                                <div className="w-2 h-2 bg-blue-500 rounded-full ml-2 flex-shrink-0"></div>
                               )}
                             </div>
                           </div>
@@ -248,7 +301,13 @@ export default function TLHeader({ isDark, onThemeToggle, onLogout }) {
                       )}
                     </div>
                     <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-                      <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 w-full text-center">
+                      <button 
+                        onClick={() => {
+                          setShowNotifications(false);
+                          navigate("/tl/notifications");
+                        }}
+                        className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 w-full text-center"
+                      >
                         View all notifications
                       </button>
                     </div>

@@ -318,11 +318,12 @@ const getUserNotifications = async (req, res) => {
       limit = 20
     } = req.query;
 
-    // Build query - find notifications where user is in recipients or recipients is 'all'
+    // Build query - find notifications where user is in recipients or recipients is 'all' or empty
     const query = {
       $or: [
-        { recipients: userId },
-        { recipients: 'all' },
+        { recipients: { $in: [userId] } }, // User ID in recipients array
+        { recipients: 'all' }, // All users notification
+        { recipients: [] }, // Empty array means all users
         { recipients: { $size: 0 } } // Empty array means all users
       ]
     };

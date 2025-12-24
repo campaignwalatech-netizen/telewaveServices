@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { protect, requireAdmin, authorize } = require('../../middleware/user.middleware');
 const {
   sendNotification,
   getAllNotifications,
@@ -181,7 +182,7 @@ const {
  *       500:
  *         description: Server error
  */
-router.post('/send', sendNotification);
+router.post('/send', protect, requireAdmin, sendNotification);
 
 /**
  * @swagger
@@ -266,7 +267,7 @@ router.post('/send', sendNotification);
  *       500:
  *         description: Server error
  */
-router.get('/', getAllNotifications);
+router.get('/', protect, requireAdmin, getAllNotifications);
 
 /**
  * @swagger
@@ -303,7 +304,7 @@ router.get('/', getAllNotifications);
  *       500:
  *         description: Server error
  */
-router.get('/stats', getNotificationStats);
+router.get('/stats', protect, requireAdmin, getNotificationStats);
 
 /**
  * @swagger
@@ -337,7 +338,7 @@ router.get('/stats', getNotificationStats);
  *       500:
  *         description: Server error
  */
-router.get('/user', getUserNotifications);
+router.get('/user', protect, getUserNotifications);
 
 /**
  * @swagger
@@ -372,7 +373,7 @@ router.get('/user', getUserNotifications);
  *       500:
  *         description: Server error
  */
-router.get('/:id', getNotificationById);
+router.get('/:id', protect, requireAdmin, getNotificationById);
 
 /**
  * @swagger
@@ -407,7 +408,7 @@ router.get('/:id', getNotificationById);
  *       500:
  *         description: Server error
  */
-router.delete('/:id', deleteNotification);
+router.delete('/:id', protect, requireAdmin, deleteNotification);
 
 /**
  * @swagger
@@ -437,6 +438,6 @@ router.delete('/:id', deleteNotification);
  *       500:
  *         description: Server error
  */
-router.post('/bulk-delete', bulkDeleteNotifications);
+router.post('/bulk-delete', protect, requireAdmin, bulkDeleteNotifications);
 
 module.exports = router;

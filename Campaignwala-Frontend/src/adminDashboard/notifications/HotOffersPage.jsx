@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { ArrowLeft, Send, Zap, Target, Users } from "lucide-react"
 import notificationService from "../../services/notificationService"
 import userService from "../../services/userService"
+import toast, { Toaster } from "react-hot-toast"
 
 const Button = ({ children, className = "", onClick, variant = "default", disabled, ...props }) => {
   const baseClasses = "px-4 py-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring flex items-center gap-2"
@@ -86,7 +87,7 @@ export default function HotOffersPage() {
       }
     } catch (err) {
       console.error('Error fetching users:', err)
-      alert('Failed to fetch users')
+      toast.error('Failed to fetch users')
     } finally {
       setLoadingUsers(false)
     }
@@ -187,14 +188,14 @@ export default function HotOffersPage() {
 
   const handleSend = async () => {
     if (!offerTitle.trim() || !discount.trim() || !description.trim()) {
-      alert("Please fill in all required fields")
+      toast.error("Please fill in all required fields")
       return
     }
 
     const usersToSend = selectedUsers.length > 0 ? selectedUsers : getFilteredUsers().map(u => u.id)
     
     if (usersToSend.length === 0) {
-      alert("Please select at least one segment or user to send notification")
+      toast.error("Please select at least one segment or user to send notification")
       return
     }
 
@@ -219,7 +220,7 @@ export default function HotOffersPage() {
       
       if (response.success) {
         setSent(true)
-        alert(`Hot offer sent successfully to ${usersToSend.length} users!`)
+        toast.success(`Hot offer sent successfully to ${usersToSend.length} users!`)
         
         setTimeout(() => {
           setOfferTitle("")
@@ -233,7 +234,7 @@ export default function HotOffersPage() {
       }
     } catch (err) {
       console.error('Error sending notification:', err)
-      alert(err.message || 'Failed to send notification')
+      toast.error(err.message || 'Failed to send notification')
     } finally {
       setIsLoading(false)
     }
@@ -241,6 +242,28 @@ export default function HotOffersPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="mx-auto max-w-6xl px-3 sm:px-6 py-4 sm:py-6">

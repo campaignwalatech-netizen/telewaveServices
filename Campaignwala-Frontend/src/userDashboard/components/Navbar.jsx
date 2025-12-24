@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { createPortal } from "react-dom";
 import walletService from "../../services/walletService";
 import userService from "../../services/userService";
+import notificationService from "../../services/notificationService";
 import { useSelector } from "react-redux";
 import { selectUser } from "../../redux/slices/authSlice";
 
@@ -28,6 +29,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
   const [attendanceLoading, setAttendanceLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [isWithinTimeRange, setIsWithinTimeRange] = useState(true); // Track if within allowed time
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const profileRef = useRef(null);
   const avatarRef = useRef(null);
@@ -163,6 +165,35 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
   }, []);
 
   // ---------------------------
+  // FETCH NOTIFICATION COUNT
+  // ---------------------------
+  useEffect(() => {
+    if (!user?._id) return;
+
+    const fetchNotificationCount = async () => {
+      try {
+        const response = await notificationService.getUserNotifications({
+          page: 1,
+          limit: 100
+        });
+        
+        if (response.success && response.data.notifications) {
+          // Count unread notifications (for now, all are considered unread)
+          // In future, backend can add read status tracking
+          setUnreadNotificationCount(response.data.notifications.length);
+        }
+      } catch (error) {
+        console.error("Error fetching notification count:", error);
+      }
+    };
+
+    fetchNotificationCount();
+    // Refresh notification count every 30 seconds
+    const interval = setInterval(fetchNotificationCount, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  // ---------------------------
   // UPDATE DROPDOWN POSITION
   // ---------------------------
   useEffect(() => {
@@ -280,10 +311,10 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
       <div className="flex items-center justify-between px-3 md:px-4 py-2 md:py-3 w-full max-w-[100vw] overflow-x-hidden">
         
         {/* LEFT SECTION */}
-        <div className="flex items-center gap-2 md:gap-4 flex-shrink-0">
+        <div className="flex items-center gap-2 md:gap-4 shrink-0">
           {/* Menu toggle */}
           <button
-            className="p-1.5 md:p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 flex-shrink-0"
+            className="p-1.5 md:p-2 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700 shrink-0"
             onClick={toggleSidebar}
           >
             <Menu className={`w-4 h-4 md:w-5 md:h-5 ${darkMode ? "text-gray-300" : "text-gray-700"}`} />
@@ -310,7 +341,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
           <button
             onClick={handleAttendanceToggle}
             disabled={attendanceLoading || !isWithinTimeRange || isPresent}
-            className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full flex items-center gap-1 md:gap-2 font-semibold shadow-md transition-all border flex-shrink-0 ${
+            className={`px-3 py-1 md:px-4 md:py-1.5 rounded-full flex items-center gap-1 md:gap-2 font-semibold shadow-md transition-all border shrink-0 ${
               !isWithinTimeRange && !isPresent
                 ? darkMode
                   ? "bg-gray-600 border-gray-500 text-gray-400 cursor-not-allowed"
@@ -337,7 +368,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
             ) : (
               <>
                 <span
-                  className={`w-2 h-2 md:w-3 md:h-3 rounded-full flex-shrink-0 ${
+                  className={`w-2 h-2 md:w-3 md:h-3 rounded-full shrink-0 ${
                     !isWithinTimeRange && !isPresent
                       ? "bg-gray-400"
                       : isPresent
@@ -354,7 +385,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
           {/* WALLET */}
           <button
             onClick={handleWalletClick}
-            className={`px-2 py-1 md:px-3 md:py-1.5 rounded-md flex items-center gap-1 md:gap-2 hover:scale-105 transition flex-shrink-0 ${
+            className={`px-2 py-1 md:px-3 md:py-1.5 rounded-md flex items-center gap-1 md:gap-2 hover:scale-105 transition shrink-0 ${
               darkMode ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-800"
             }`}
           >
@@ -367,7 +398,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
           {/* THEME TOGGLE */}
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className={`p-1.5 md:p-2 rounded-md border flex-shrink-0 ${
+            className={`p-1.5 md:p-2 rounded-md border shrink-0 ${
               darkMode ? "bg-gray-700 border-gray-600 text-yellow-400" : "bg-white border-gray-300"
             }`}
           >
@@ -381,16 +412,20 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
           {/* NOTIFICATIONS */}
           <button
             onClick={() => navigate("/user/notification-page")}
-            className={`relative p-1.5 md:p-2 rounded-full flex-shrink-0 ${
+            className={`relative p-1.5 md:p-2 rounded-full shrink-0 ${
               darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
             }`}
           >
             <Bell className={`w-4 h-4 md:w-5 md:h-5 ${darkMode ? "text-gray-300" : "text-gray-600"}`} />
-            <span className="absolute top-0.5 right-0.5 md:top-1 md:right-1 w-1.5 h-1.5 md:w-2 md:h-2 bg-red-500 rounded-full"></span>
+            {unreadNotificationCount > 0 && (
+              <span className="absolute top-0.5 right-0.5 md:top-1 md:right-1 w-4 h-4 md:w-5 md:h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] md:text-xs font-bold">
+                {unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}
+              </span>
+            )}
           </button>
 
           {/* PROFILE ICON */}
-          <div ref={profileRef} className="flex-shrink-0">
+          <div ref={profileRef} className="shrink-0">
             <div
               ref={avatarRef}
               onClick={() => setShowProfileMenu(!showProfileMenu)}

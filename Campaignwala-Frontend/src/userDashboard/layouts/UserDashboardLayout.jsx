@@ -3,47 +3,61 @@ import { Outlet } from "react-router-dom";
 import Sidebar from "./../components/Sidebar";
 import Navbar from "./../components/Navbar";
 import Footer from "./../components/Footer";
+import notificationService from "../../services/notificationService";
 
 function UserDashboardLayout({ darkMode, setDarkMode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [showNotification, setShowNotification] = useState(false);
   const [currentNotification, setCurrentNotification] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationIndex, setNotificationIndex] = useState(0);
 
   const toggleSidebar = () => setIsSidebarOpen((prev) => !prev);
 
-  // Sample notifications
-  const notifications = [
-    {
-      id: 1,
-      title: "Withdrawal Approved",
-      message: "Your withdrawal request has been approved!",
-      type: "success",
-    },
-    {
-      id: 2,
-      title: "New Offer Available",
-      message: "Check out our latest offer with 20% cashback!",
-      type: "info",
-    },
-    {
-      id: 3,
-      title: "KYC Pending",
-      message: "Please complete your KYC verification.",
-      type: "warning",
-    },
-    {
-      id: 4,
-      title: "Lead Approved",
-      message: "Congratulations! Your lead has been approved.",
-      type: "success",
-    },
-  ];
+  // Fetch notifications from API
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await notificationService.getUserNotifications({
+        page: 1,
+        limit: 10
+      });
+
+      if (response.success && response.data.notifications) {
+        const transformed = response.data.notifications.map(notif => {
+          // Determine type based on notification type
+          let notificationType = "info";
+          if (notif.type === "offer") notificationType = "success";
+          else if (notif.type === "profile") notificationType = "warning";
+          else if (notif.status === "failed") notificationType = "warning";
+
+          return {
+            id: notif._id || notif.notificationId,
+            title: notif.title,
+            message: notif.message,
+            type: notificationType,
+            sentDate: notif.sentDate || notif.createdAt
+          };
+        });
+
+        setNotifications(transformed);
+      }
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    }
+  };
 
   useEffect(() => {
-    let notificationIndex = 0;
+    if (notifications.length === 0) return;
 
     const showNotificationPopup = () => {
-      setCurrentNotification(notifications[notificationIndex]);
+      if (notifications.length === 0) return;
+      
+      const current = notifications[notificationIndex];
+      setCurrentNotification(current);
       setShowNotification(true);
 
       // Auto-hide after 5 seconds
@@ -52,7 +66,7 @@ function UserDashboardLayout({ darkMode, setDarkMode }) {
       }, 5000);
 
       // Move to next notification
-      notificationIndex = (notificationIndex + 1) % notifications.length;
+      setNotificationIndex((prev) => (prev + 1) % notifications.length);
     };
 
     // Show first notification after 2 seconds
@@ -65,7 +79,7 @@ function UserDashboardLayout({ darkMode, setDarkMode }) {
       clearTimeout(initialTimeout);
       clearInterval(interval);
     };
-  }, []);
+  }, [notifications, notificationIndex]);
 
   const getNotificationStyles = () => {
     if (!currentNotification) return "";

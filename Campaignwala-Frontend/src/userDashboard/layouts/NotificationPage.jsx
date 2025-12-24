@@ -1,85 +1,96 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import notificationService from "../../services/notificationService";
+import toast, { Toaster } from "react-hot-toast";
 
 const NotificationsPage = ({ darkMode }) => {
   const [activeCategory, setActiveCategory] = useState("All");
   const navigate = useNavigate();
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [notifications, setNotifications] = useState([
-    // Payment notifications
-    {
-      id: 1,
-      category: "Payment",
-      title: "Withdrawal Request Approved",
-      message: "Your withdrawal request of ₹5,000 has been approved and will be credited soon.",
-      time: "1 hour ago",
-      type: "success",
-      read: false,
-    },
-    {
-      id: 2,
-      category: "Payment",
-      title: "Withdrawal Request Pending",
-      message: "Your withdrawal request of ₹2,000 is pending approval.",
-      time: "2 hours ago",
-      type: "warning",
-      read: false,
-    },
+  useEffect(() => {
+    fetchNotifications();
+  }, [activeCategory]);
 
-    // Profile notifications
-    {
-      id: 3,
-      category: "Profile",
-      title: "KYC Confirmed",
-      message: "Your KYC details have been confirmed by the system.",
-      time: "1 day ago",
-      type: "info",
-      read: true,
-    },
-    {
-      id: 4,
-      category: "Profile",
-      title: "KYC Approved",
-      message: "Your KYC has been approved by admin. You can now make transactions.",
-      time: "2 days ago",
-      type: "success",
-      read: false,
-    },
-    {
-      id: 5,
-      category: "Profile",
-      title: "KYC Rejected",
-      message: "Your KYC documents were rejected. Please resubmit correct documents.",
-      time: "3 days ago",
-      type: "warning",
-      read: false,
-    },
-    {
-      id: 7,
-      category: "Payment",
-      title: "KYC Verification Pending",
-      message: "Your KYC verification is pending. Please upload your documents for review.",
-      time: "4 hours ago",
-      type: "warning",
-      read: false,
-    },
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const params = {
+        page: 1,
+        limit: 100,
+        ...(activeCategory !== "All" && { type: activeCategory.toLowerCase() })
+      };
 
-    // Offer notifications
-    {
-      id: 6,
-      category: "Offer",
-      title: "New Offer Available!",
-      message: "Get 20% cashback on your next transaction.",
-      time: "3 days ago",
-      type: "success",
-      read: false,
-    },
-  ]);
+      const response = await notificationService.getUserNotifications(params);
+      
+      if (response.success && response.data.notifications) {
+        const transformed = response.data.notifications.map(notif => {
+          // Map notification type to category
+          let category = "All";
+          if (notif.type === "profile") category = "Profile";
+          else if (notif.type === "offer") category = "Offer";
+          else if (notif.type === "system") category = "Payment"; // Map system to Payment for UI
+
+          // Determine type based on notification type and status
+          let notificationType = "info";
+          if (notif.type === "offer") notificationType = "success";
+          else if (notif.status === "failed") notificationType = "warning";
+
+          return {
+            id: notif._id || notif.notificationId,
+            category,
+            title: notif.title,
+            message: notif.message,
+            time: formatDate(notif.sentDate || notif.createdAt),
+            type: notificationType,
+            read: false, // Backend doesn't track read status yet
+            notificationId: notif.notificationId,
+            offerDetails: notif.offerDetails
+          };
+        });
+
+        setNotifications(transformed);
+      }
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+      toast.error('Failed to load notifications');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Unknown';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) {
+      return `${diffMins} ${diffMins === 1 ? 'minute' : 'minutes'} ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} ${diffHours === 1 ? 'hour' : 'hours'} ago`;
+    } else if (diffDays < 7) {
+      return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`;
+    } else {
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+    }
+  };
 
   const categories = ["All", "Payment", "Profile", "Offer"];
 
   const markAllRead = () => {
+    // Note: Backend doesn't have read status tracking yet
+    // This is a client-side only operation
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    toast.success('All notifications marked as read');
   };
 
   const typeColors = {
@@ -115,6 +126,28 @@ const NotificationsPage = ({ darkMode }) => {
         darkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"
       }`}
     >
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: darkMode ? '#1f2937' : '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       <div className="w-full px-4 sm:px-6 lg:px-8">
         {/* Header with Back Button */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -201,7 +234,14 @@ const NotificationsPage = ({ darkMode }) => {
               : "bg-white border border-gray-200"
           }`}
         >
-          {filteredNotifications.length > 0 ? (
+          {loading ? (
+            <div className="text-center py-12 sm:py-16">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+              <h3 className={`text-lg sm:text-xl font-semibold mb-2 ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                Loading notifications...
+              </h3>
+            </div>
+          ) : filteredNotifications.length > 0 ? (
             filteredNotifications.map((notification) => (
               <div
                 key={notification.id}

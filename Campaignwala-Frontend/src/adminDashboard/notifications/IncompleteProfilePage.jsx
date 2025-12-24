@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { ArrowLeft, Send, Users, Search, Filter, CheckCircle, XCircle, Eye, Mail, Phone, Calendar } from "lucide-react"
 import notificationService from "../../services/notificationService"
 import userService from "../../services/userService"
+import toast, { Toaster } from "react-hot-toast"
 
 const Button = ({ children, className = "", onClick, disabled, ...props }) => {
   const baseClasses = "px-4 py-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring flex items-center gap-2"
@@ -86,7 +87,7 @@ export default function IncompleteProfilePage() {
       }
     } catch (err) {
       console.error('Error fetching users:', err)
-      alert('Failed to fetch users')
+      toast.error('Failed to fetch users')
     } finally {
       setLoadingUsers(false)
     }
@@ -184,12 +185,12 @@ export default function IncompleteProfilePage() {
 
   const handleSend = async () => {
     if (!title.trim() || !message.trim()) {
-      alert("Please fill in both title and message")
+      toast.error("Please fill in both title and message")
       return
     }
 
     if (selectedUsers.length === 0) {
-      alert("Please select at least one user to send notification")
+      toast.error("Please select at least one user to send notification")
       return
     }
 
@@ -210,7 +211,7 @@ export default function IncompleteProfilePage() {
       
       if (response.success) {
         setSent(true)
-        alert(`Notification sent successfully to ${selectedUsers.length} users!`)
+        toast.success(`Notification sent successfully to ${selectedUsers.length} users!`)
         
         // Reset form after 3 seconds
         setTimeout(() => {
@@ -222,7 +223,7 @@ export default function IncompleteProfilePage() {
       }
     } catch (err) {
       console.error('Error sending notification:', err)
-      alert(err.message || 'Failed to send notification')
+      toast.error(err.message || 'Failed to send notification')
     } finally {
       setIsLoading(false)
     }
@@ -230,6 +231,28 @@ export default function IncompleteProfilePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#363636',
+            color: '#fff',
+          },
+          success: {
+            duration: 3000,
+            style: {
+              background: '#059669',
+            },
+          },
+          error: {
+            duration: 5000,
+            style: {
+              background: '#DC2626',
+            },
+          },
+        }}
+      />
       {/* Header */}
       <header className="border-b border-border bg-card">
         <div className="mx-auto max-w-4xl px-3 sm:px-6 py-4 sm:py-6">
