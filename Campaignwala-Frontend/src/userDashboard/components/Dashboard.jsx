@@ -203,7 +203,7 @@ const Dashboard = ({ darkMode }) => {
     },
     {
       id: 4,
-      image: "https://images.unsplash.com/photo-1642790554815-1ac8d1bb2423?w=1200&h=400&fit=crop",
+      image: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&h=400&fit=crop",
       alt: "Demat Account Special Offers",
       title: "Demat Offers Going On!",
       description: "Exclusive deals on demat accounts - Limited time only!",
