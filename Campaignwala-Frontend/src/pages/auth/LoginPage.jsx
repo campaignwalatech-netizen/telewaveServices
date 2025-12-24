@@ -182,7 +182,7 @@ export default function LoginPage() {
         <div className="max-w-md text-center">
           <div className="flex flex-col items-center justify-center gap-2 mb-8">
             <span className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-card border-2 border-gray-400 overflow-hidden mb-2">
-              <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" />
+              <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
             </span>
             <h2 className="text-3xl font-bold text-foreground">
             <span className="font-bold text-lg">
@@ -225,7 +225,7 @@ export default function LoginPage() {
           {/* Mobile Header */}
           <div className="md:hidden text-center mb-8">
             <span className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-card border-2 border-primary overflow-hidden mx-auto mb-4">
-              <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" />
+              <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
             </span>
             <h1 className="text-3xl font-bold text-foreground mb-2">
             <span className="font-bold text-lg">
