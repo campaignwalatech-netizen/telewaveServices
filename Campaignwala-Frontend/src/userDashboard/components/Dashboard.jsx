@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Play, Pause, Volume2 } from 'lucide-react';
 import api from '../../services/api';
 import walletService from '../../services/walletService';
 import leadService from '../../services/leadService';
@@ -27,6 +27,8 @@ const Dashboard = ({ darkMode }) => {
     rejected: 0
   });
   const [userName, setUserName] = useState('#user');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef(null);
 
   // Enhanced colors for categories with better gradients
   const categoryColors = [
@@ -48,6 +50,7 @@ const Dashboard = ({ darkMode }) => {
     fetchLeadsStats();
     fetchUserProfile();
     fetchSlides();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const checkRegistrationStatus = () => {
@@ -332,10 +335,55 @@ const Dashboard = ({ darkMode }) => {
 
       {/* Welcome Section - UPDATED TEXT */}
       <section className="relative z-10 mb-6 sm:mb-8 px-2">
-        <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 sm:mb-3 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent text-center">
-          Welcome Back, <span className="capitalize font-semibold">{userName}</span>! 🌟
-        </h2>
-        <p className="text-xs sm:text-sm md:text-base text-gray-500 text-center max-w-2xl mx-auto px-4">
+        <div className="flex items-center justify-center gap-3 sm:gap-4 mb-2 sm:mb-3">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent text-center">
+            Welcome, <span className="capitalize font-semibold">{userName}</span>! 🌟
+          </h2>
+          
+          {/* Audio Player */}
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-full shadow-lg transition-all hover:scale-105 ${
+            darkMode 
+              ? 'bg-gray-800/80 border border-gray-700' 
+              : 'bg-white/90 border border-gray-200'
+          }`}>
+            <audio
+              ref={audioRef}
+              src="/sample-audio.mp3"
+              onPlay={() => setIsPlaying(true)}
+              onPause={() => setIsPlaying(false)}
+              onEnded={() => setIsPlaying(false)}
+            />
+            <button
+              onClick={() => {
+                if (audioRef.current) {
+                  if (isPlaying) {
+                    audioRef.current.pause();
+                  } else {
+                    audioRef.current.play();
+                  }
+                }
+              }}
+              className={`p-2 rounded-full transition-colors ${
+                darkMode
+                  ? 'hover:bg-gray-700 text-white'
+                  : 'hover:bg-gray-100 text-gray-700'
+              }`}
+              aria-label={isPlaying ? "Pause audio" : "Play audio"}
+            >
+              {isPlaying ? (
+                <Pause className="w-4 h-4 sm:w-5 sm:h-5" />
+              ) : (
+                <Play className="w-4 h-4 sm:w-5 sm:h-5" />
+              )}
+            </button>
+            <Volume2 className={`w-4 h-4 sm:w-5 sm:h-5 ${
+              darkMode ? 'text-gray-400' : 'text-gray-600'
+            }`} />
+          </div>
+        </div>
+        <p className={`text-xs sm:text-sm md:text-base text-center max-w-2xl mx-auto px-4 ${
+          darkMode ? 'text-gray-400' : 'text-gray-500'
+        }`}>
           Here's a quick overview of your campaign performance and available opportunities.
         </p>
       </section>
