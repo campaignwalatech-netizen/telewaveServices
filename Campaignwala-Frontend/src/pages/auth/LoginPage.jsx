@@ -28,6 +28,34 @@ export default function LoginPage() {
   const [sendingOtp, setSendingOtp] = useState(false);
   const [developmentOTP, setDevelopmentOTP] = useState("");
   const [formError, setFormError] = useState("");
+  const [darkMode, setDarkMode] = useState(() => {
+    // Check localStorage first
+    const savedDarkMode = localStorage.getItem("darkMode");
+    if (savedDarkMode !== null) {
+      return savedDarkMode === "true";
+    }
+    // Check if document has dark class
+    if (document.documentElement.classList.contains("dark")) {
+      return true;
+    }
+    // Fallback to system preference
+    return window.matchMedia("(prefers-color-scheme: dark)").matches;
+  });
+
+  // Sync with document class changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const isDark = document.documentElement.classList.contains("dark");
+      setDarkMode(isDark);
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   // Redirect if already authenticated AND approved
   useEffect(() => {
@@ -364,7 +392,7 @@ export default function LoginPage() {
         onResend={handleResendOTP}
         email={userEmail}
         purpose="login"
-        darkMode={false}
+        darkMode={darkMode}
         developmentOTP={developmentOTP}
       />
     </main>

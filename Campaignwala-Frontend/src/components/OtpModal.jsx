@@ -144,23 +144,41 @@ export default function OtpModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className={`w-full max-w-sm ${darkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'} rounded-xl shadow-2xl border ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+      <div className={`w-full max-w-sm rounded-xl shadow-2xl border ${
+        darkMode 
+          ? 'bg-gray-900 text-white border-gray-700' 
+          : 'bg-white text-gray-900 border-gray-200'
+      }`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+        <div className={`flex items-center justify-between p-6 border-b ${
+          darkMode ? 'border-gray-700' : 'border-gray-200'
+        }`}>
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${darkMode ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
-              <Mail className={`w-5 h-5 ${darkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+            <div className={`p-2 rounded-lg ${
+              darkMode ? 'bg-blue-500/20' : 'bg-blue-100'
+            }`}>
+              <Mail className={`w-5 h-5 ${
+                darkMode ? 'text-blue-400' : 'text-blue-600'
+              }`} />
             </div>
             <div>
-              <h3 className="font-semibold text-lg">{getPurposeText()}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <h3 className={`font-semibold text-lg ${
+                darkMode ? 'text-white' : 'text-gray-900'
+              }`}>{getPurposeText()}</h3>
+              <p className={`text-sm ${
+                darkMode ? 'text-gray-400' : 'text-gray-500'
+              }`}>
                 Enter verification code
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-gray-800 text-gray-400 hover:text-gray-300' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'}`}
+            className={`p-2 rounded-lg transition-colors ${
+              darkMode 
+                ? 'hover:bg-gray-800 text-gray-400 hover:text-gray-300' 
+                : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'
+            }`}
           >
             <X className="w-5 h-5" />
           </button>
@@ -168,9 +186,13 @@ export default function OtpModal({
 
         {/* Body */}
         <div className="p-6">
-          <p className="text-center text-sm mb-6 text-gray-600 dark:text-gray-300">
+          <p className={`text-center text-sm mb-6 ${
+            darkMode ? 'text-gray-300' : 'text-gray-600'
+          }`}>
             We sent a 4-digit code to<br />
-            <span className="font-semibold text-gray-900 dark:text-white">{email}</span>
+            <span className={`font-semibold ${
+              darkMode ? 'text-white' : 'text-gray-900'
+            }`}>{email}</span>
           </p>
 
           {/* OTP Inputs */}
@@ -186,8 +208,13 @@ export default function OtpModal({
                 onChange={(e) => handleChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
                 className={`w-12 h-12 text-center text-xl font-bold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
-                  digit ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 
-                  darkMode ? 'border-gray-600 bg-gray-800 text-white' : 'border-gray-300 bg-white text-gray-900'
+                  digit 
+                    ? darkMode
+                      ? 'border-blue-500 bg-blue-900/20 text-white'
+                      : 'border-blue-500 bg-blue-50 text-gray-900'
+                    : darkMode
+                      ? 'border-gray-600 bg-gray-800 text-white'
+                      : 'border-gray-300 bg-white text-gray-900'
                 }`}
                 disabled={isLoading}
               />
@@ -196,8 +223,14 @@ export default function OtpModal({
 
           {/* Error Message */}
           {error && (
-            <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400 text-center">{error}</p>
+            <div className={`mb-4 p-3 border rounded-lg ${
+              darkMode 
+                ? 'bg-red-900/20 border-red-800' 
+                : 'bg-red-50 border-red-200'
+            }`}>
+              <p className={`text-sm text-center ${
+                darkMode ? 'text-red-400' : 'text-red-600'
+              }`}>{error}</p>
             </div>
           )}
 
@@ -220,14 +253,20 @@ export default function OtpModal({
 
             <div className="text-center">
               {resendTimer > 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className={`text-sm ${
+                  darkMode ? 'text-gray-400' : 'text-gray-500'
+                }`}>
                   Resend code in <span className="font-semibold">{resendTimer}s</span>
                 </p>
               ) : (
                 <button
                   onClick={handleResend}
                   disabled={isLoading}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold transition-colors flex items-center justify-center gap-2 mx-auto"
+                  className={`text-sm font-semibold transition-colors flex items-center justify-center gap-2 mx-auto ${
+                    darkMode
+                      ? 'text-blue-400 hover:text-blue-300'
+                      : 'text-blue-600 hover:text-blue-700'
+                  }`}
                 >
                   <RotateCcw className="w-4 h-4" />
                   Resend Code
@@ -238,8 +277,14 @@ export default function OtpModal({
 
           {/* Development Note */}
           { import.meta.env.NODE_ENV === 'production' && (
-            <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-              <p className="text-xs text-yellow-700 dark:text-yellow-400 text-center">
+            <div className={`mt-4 p-3 border rounded-lg ${
+              darkMode 
+                ? 'bg-yellow-900/20 border-yellow-800' 
+                : 'bg-yellow-50 border-yellow-200'
+            }`}>
+              <p className={`text-xs text-center ${
+                darkMode ? 'text-yellow-400' : 'text-yellow-700'
+              }`}>
                 💡 Development: Check console for OTP or use email fallback
               </p>
             </div>
