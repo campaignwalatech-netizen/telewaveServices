@@ -33,6 +33,7 @@ import ForgotPasswordPage from "../pages/auth/ForgotPasswordPage";
 // Admin Components
 import App from "../App";
 import MainDashboard from "../adminDashboard/forms/Dashboard";
+import AdminProfile from "../adminDashboard/pages/AdminProfile";
 
 // Manage Account
 import AllOffersTable from "../adminDashboard/forms/AllProductsTable";
@@ -192,6 +193,7 @@ export default function AppRouter() {
             path="data"
             element={<Navigate to="data/dashboard" replace />}
           />
+          <Route path="profile" element={<AdminProfile darkMode={darkMode} setDarkMode={setDarkMode} />} /> 
           <Route path="data/dashboard" element={<DataDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} /> 
           <Route path="data/distribute" element={<DistributeDataPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
           <Route path="data/upload" element={<UploadDataPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
