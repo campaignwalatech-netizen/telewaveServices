@@ -27,7 +27,7 @@ const debounce = (func, wait) => {
   };
 };
 
-const DistributeDataPage = ({ darkMode = false, setDarkMode }) => {
+const DistributeDataPage = ({ darkMode = false }) => {
   // State for data table
   const [uploadedData, setUploadedData] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
@@ -164,7 +164,8 @@ const DistributeDataPage = ({ darkMode = false, setDarkMode }) => {
       console.log('Calculated counts:', counts);
 
       setDistributionCounts(counts);
-      setAvailableDataCount(pendingDataCount);
+      // availableDataCount should be set from totalItems in fetchUploadedData
+      // This is just for the pending_data count in distributionCounts
       
     } catch (error) {
       console.error('Error fetching distribution counts:', error);
@@ -177,7 +178,7 @@ const DistributeDataPage = ({ darkMode = false, setDarkMode }) => {
         pending_data: 0
       };
       setDistributionCounts(defaultCounts);
-      setAvailableDataCount(0);
+      // Don't reset availableDataCount here - let it come from totalItems
     }
   };
 
@@ -204,31 +205,25 @@ const DistributeDataPage = ({ darkMode = false, setDarkMode }) => {
       console.log('Uploaded data result:', result);
       
       if (result.success) {
+        const totalUploaded = result.pagination?.total || result.data?.length || 0;
         setUploadedData(result.data || []);
-        setTotalItems(result.pagination?.total || result.data?.length || 0);
+        setTotalItems(totalUploaded);
         setCurrentPage(page);
         
-        // Update available data count from the uploaded data
-        // This is a fallback if getDistributionCounts doesn't work
-        if (result.data && result.data.length > 0) {
-          // Count only pending data
-          const pendingData = result.data.filter(item => 
-            item.distributionStatus === 'pending' || 
-            !item.distributionStatus
-          );
-          if (pendingData.length > 0 && availableDataCount === 0) {
-            console.log('Setting available data count from uploaded data:', pendingData.length);
-            setAvailableDataCount(pendingData.length);
-            setDistributionCounts(prev => ({
-              ...prev,
-              pending_data: pendingData.length
-            }));
-          }
-        }
+        // Set available data count to total uploaded data (not just pending)
+        setAvailableDataCount(totalUploaded);
+        console.log('Setting available data count to total uploaded:', totalUploaded);
+        
+        // Also update distribution counts with total uploaded data
+        setDistributionCounts(prev => ({
+          ...prev,
+          pending_data: totalUploaded
+        }));
       } else {
         console.error('Failed to fetch data:', result.error);
         setUploadedData([]);
         setTotalItems(0);
+        setAvailableDataCount(0);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -237,7 +232,7 @@ const DistributeDataPage = ({ darkMode = false, setDarkMode }) => {
     } finally {
       setLoadingData(false);
     }
-  }, [searchTerm, batchFilter, statusFilter, dateFilter, itemsPerPage, availableDataCount]);
+  }, [searchTerm, batchFilter, statusFilter, dateFilter, itemsPerPage]);
 
   // Fetch available batches
   const fetchAvailableBatches = async () => {
@@ -337,6 +332,19 @@ const DistributeDataPage = ({ darkMode = false, setDarkMode }) => {
   useEffect(() => {
     fetchUploadedData(1);
   }, [searchTerm, batchFilter, statusFilter, dateFilter, itemsPerPage]);
+
+  // Sync availableDataCount with totalItems (Total Uploaded Data)
+  useEffect(() => {
+    // Always keep availableDataCount equal to totalItems
+    if (totalItems > 0 && availableDataCount !== totalItems) {
+      setAvailableDataCount(totalItems);
+      setDistributionCounts(prev => ({
+        ...prev,
+        pending_data: totalItems
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalItems]);
 
   // Handle search input with debounce
   const handleSearchChange = (value) => {
@@ -907,43 +915,148 @@ const DistributeDataPage = ({ darkMode = false, setDarkMode }) => {
                   )}
                 </div>
 
-                {/* Count Input - FIXED: Allow manual input even if count is 0 */}
+                {/* Distribution Statistics - Enhanced */}
+                <div className="mb-6 bg-blue-50 dark:bg-gray-800 rounded-lg p-6 border border-blue-200 dark:border-gray-600" style={{ background: darkMode ? '#1F2937' : 'linear-gradient(to right, #EFF6FF, #EEF2FF)' }}>
+                  <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Distribution Statistics</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Total Available Data */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-blue-200 dark:border-gray-600">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Total Available Data</p>
+                          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
+                            {availableDataCount || 0}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">records to distribute</p>
+                        </div>
+                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                          <FileText className="text-blue-600 dark:text-blue-400" size={24} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Remaining After Distribution */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-green-200 dark:border-gray-600">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Remaining After Distribution</p>
+                          <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
+                            {Math.max(0, availableDataCount - count)}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">records will remain</p>
+                        </div>
+                        <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                          <RefreshCw className="text-green-600 dark:text-green-400" size={24} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Available Users/HR in Category */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-purple-200 dark:border-gray-600">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Available {distributionType === 'team_leaders' || distributionType === 'team_leaders_specific' ? 'Team Leaders' : 'HR Users'}
+                          </p>
+                          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1">
+                            {getAvailableCountForType()}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            in selected category
+                          </p>
+                        </div>
+                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                          {distributionType === 'team_leaders' || distributionType === 'team_leaders_specific' ? (
+                            <Crown className="text-purple-600 dark:text-purple-400" size={24} />
+                          ) : (
+                            <Users className="text-purple-600 dark:text-purple-400" size={24} />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Records to Distribute */}
+                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-orange-200 dark:border-gray-600">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Records to Distribute</p>
+                          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-1">
+                            {count}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">in this distribution</p>
+                        </div>
+                        <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center">
+                          <ArrowRight className="text-orange-600 dark:text-orange-400" size={24} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Count Input - Allow 0 to infinite */}
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Number of Data Records to Distribute
                   </label>
                   <div className="flex items-center space-x-4">
                     <input
                       type="range"
                       value={count}
-                      onChange={(e) => setCount(parseInt(e.target.value))}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value) || 0;
+                        setCount(value);
+                      }}
                       className="w-full"
-                      min="1"
-                      max={Math.max(1000, availableDataCount || 1000)} // Minimum range of 1-1000
-                      disabled={availableDataCount === 0}
+                      min="0"
+                      max={Math.max(1000, availableDataCount || 1000)}
+                      step="1"
                     />
                     <input
                       type="number"
                       value={count}
                       onChange={(e) => {
-                        const value = parseInt(e.target.value) || 1;
-                        const max = Math.max(1000, availableDataCount || 1000);
-                        const clampedValue = Math.max(1, Math.min(max, value));
-                        setCount(clampedValue);
+                        const value = parseInt(e.target.value);
+                        // Allow any positive number, including 0
+                        if (isNaN(value) || value < 0) {
+                          setCount(0);
+                        } else {
+                          setCount(value);
+                        }
                       }}
-                      className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                      min="1"
-                      max={Math.max(1000, availableDataCount || 1000)}
+                      className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center text-lg font-semibold"
+                      min="0"
+                      placeholder="0"
                     />
                   </div>
-                  <div className="mt-2 flex justify-between text-sm text-gray-500 dark:text-gray-400">
-                    <span>Available: <span className="font-medium text-gray-900 dark:text-gray-100">{availableDataCount || 'Checking...'}</span> records</span>
-                    <span>Will distribute: <span className="font-medium text-blue-600 dark:text-blue-400">{count}</span> records</span>
+                  <div className="mt-3 flex justify-between items-center text-sm">
+                    <div className="flex items-center space-x-4">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Min: <span className="font-medium text-gray-900 dark:text-gray-100">0</span>
+                      </span>
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Max: <span className="font-medium text-gray-900 dark:text-gray-100">∞ (Unlimited)</span>
+                      </span>
                   </div>
+                    <div className="text-right">
+                      <span className="text-gray-600 dark:text-gray-400">Current: </span>
+                      <span className="font-bold text-blue-600 dark:text-blue-400 text-lg">{count}</span>
+                    </div>
+                  </div>
+                  {availableDataCount > 0 && count > availableDataCount && (
+                    <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                        <Info size={14} className="inline mr-1" />
+                        You're distributing {count} records, but only {availableDataCount} are available. 
+                        The system will distribute what's available.
+                      </p>
+                    </div>
+                  )}
                   {availableDataCount === 0 && (
-                    <div className="mt-2 text-sm text-yellow-600 dark:text-yellow-400">
+                    <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
                       <Info size={14} className="inline mr-1" />
-                      You can still attempt distribution, but there may be no data available.
+                        No pending data available. You can still attempt distribution, but there may be no data to distribute.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -1013,48 +1126,84 @@ const DistributeDataPage = ({ darkMode = false, setDarkMode }) => {
                   </div>
                 )}
 
-                {/* Distribution Summary */}
-                <div className="mb-6 bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-                  <h4 className="font-medium text-gray-700 dark:text-gray-300 mb-3">Distribution Summary</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Distribution Type:</span>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">
+                {/* Distribution Summary - Enhanced */}
+                <div className="mb-6 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-lg p-6">
+                  <h4 className="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center">
+                    <FileText className="mr-2 text-blue-600 dark:text-blue-400" size={20} />
+                    Distribution Summary
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Distribution Type:</span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100">
                         {distributionOptions.find(opt => opt.id === distributionType)?.title}
                       </span>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Records to distribute:</span>
-                      <span className="font-medium text-blue-600 dark:text-blue-400">{count}</span>
+                    
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Available Data:</span>
+                      <span className="font-bold text-blue-600 dark:text-blue-400 text-lg">
+                        {availableDataCount || 0} records
+                      </span>
                     </div>
+                    
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Records to Distribute:</span>
+                      <span className="font-bold text-orange-600 dark:text-orange-400 text-lg">
+                        {count} records
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Remaining After Distribution:</span>
+                      <span className="font-bold text-green-600 dark:text-green-400 text-lg">
+                        {Math.max(0, availableDataCount - count)} records
+                      </span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                        Available {distributionType === 'team_leaders' || distributionType === 'team_leaders_specific' ? 'Team Leaders' : 'HR Users'}:
+                      </span>
+                      <span className="font-bold text-purple-600 dark:text-purple-400 text-lg">
+                        {getAvailableCountForType()} {distributionType === 'team_leaders' || distributionType === 'team_leaders_specific' ? 'TLs' : 'users'}
+                      </span>
+                    </div>
+                    
                     {distributionType === 'particular_employee' && selectedUser && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">To Employee:</span>
-                        <span className="font-medium text-gray-900 dark:text-gray-100">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Selected Employee:</span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100 text-right max-w-xs truncate">
                           {getUserDisplayInfo(selectedUser)}
                         </span>
                       </div>
                     )}
+                    
                     {distributionType === 'team_leaders_specific' && selectedTL && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">To Team Leader:</span>
-                        <span className="font-medium text-gray-900 dark:text-gray-100">
+                      <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Selected Team Leader:</span>
+                        <span className="font-semibold text-gray-900 dark:text-gray-100 text-right max-w-xs truncate">
                           {getTLDisplayInfo(selectedTL)}
                         </span>
                       </div>
                     )}
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Available data:</span>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">
-                        {availableDataCount} records
+                    
+                    {count > 0 && getAvailableCountForType() > 0 && (
+                      <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <div className="flex items-center">
+                          <Info className="text-blue-600 dark:text-blue-400 mr-2" size={18} />
+                          <div className="text-sm text-blue-700 dark:text-blue-300">
+                            <p className="font-medium">Distribution Calculation:</p>
+                            <p className="mt-1">
+                              {count} records will be distributed among {getAvailableCountForType()} {distributionType === 'team_leaders' || distributionType === 'team_leaders_specific' ? 'Team Leaders' : 'HR users'}.
+                              {getAvailableCountForType() > 0 && (
+                                <span className="block mt-1">
+                                  Average: ~{Math.ceil(count / getAvailableCountForType())} records per {distributionType === 'team_leaders' || distributionType === 'team_leaders_specific' ? 'TL' : 'user'}.
                       </span>
+                              )}
+                            </p>
                     </div>
-                    {availableDataCount > 0 && (
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600 dark:text-gray-400">Remaining after distribution:</span>
-                        <span className="font-medium text-gray-900 dark:text-gray-100">
-                          {Math.max(0, availableDataCount - count)} records
-                        </span>
+                        </div>
                       </div>
                     )}
                   </div>
