@@ -91,19 +91,7 @@ const Sidebar = ({ darkMode, isSidebarOpen, toggleSidebar }) => {
       border-r shadow-lg`}
     >
       {/* Collapse Button - Hidden on mobile */}
-      <div
-        className={`p-3 border-b hidden md:flex items-center justify-end 
-        ${darkMode ? "border-gray-700 bg-gradient-to-r from-blue-900/20 to-purple-900/20" : "border-blue-200 bg-gradient-to-r from-blue-100 to-purple-100"}`}
-      >
-        <button
-          onClick={handleCollapse}
-          className={`p-2 rounded-md transition-colors 
-          ${darkMode ? "text-blue-400 hover:bg-gray-800" : "text-blue-600 hover:bg-blue-200"}`}
-        >
-          {isSidebarOpen ? <ChevronLeft size={15} /> : <ChevronRight size={15} />}
-        </button>
-      </div>
-
+      
       {/* Menu */}
       <nav className="p-2 space-y-2 overflow-y-auto h-[calc(100%-64px)] md:h-[calc(100%-64px)]">
         {isSidebarOpen ? (

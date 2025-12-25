@@ -28,6 +28,7 @@ const Dashboard = ({ darkMode }) => {
   });
   const [userName, setUserName] = useState('#user');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [audioError, setAudioError] = useState(false);
   const audioRef = useRef(null);
 
   // Enhanced colors for categories with better gradients
@@ -51,6 +52,53 @@ const Dashboard = ({ darkMode }) => {
     fetchUserProfile();
     fetchSlides();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Separate effect for audio setup after component mounts
+  useEffect(() => {
+    // Wait for audio element to be available
+    const setupAudio = () => {
+      if (audioRef.current) {
+        const audio = audioRef.current;
+        
+        const handleCanPlay = () => {
+          setAudioError(false);
+        };
+        
+        const handleError = (e) => {
+          console.error('Audio error:', e);
+          setAudioError(true);
+          setIsPlaying(false);
+        };
+        
+        const handleLoadStart = () => {
+          setAudioError(false);
+        };
+        
+        audio.addEventListener('canplay', handleCanPlay);
+        audio.addEventListener('error', handleError);
+        audio.addEventListener('loadstart', handleLoadStart);
+        
+        // Try to load the audio
+        audio.load().catch((error) => {
+          console.error('Error loading audio:', error);
+          setAudioError(true);
+        });
+        
+        return () => {
+          audio.removeEventListener('canplay', handleCanPlay);
+          audio.removeEventListener('error', handleError);
+          audio.removeEventListener('loadstart', handleLoadStart);
+        };
+      }
+    };
+    
+    // Small delay to ensure audio element is mounted
+    const timer = setTimeout(setupAudio, 100);
+    
+    return () => {
+      clearTimeout(timer);
+    };
   }, []);
 
   const checkRegistrationStatus = () => {
@@ -341,45 +389,88 @@ const Dashboard = ({ darkMode }) => {
           </h2>
           
           {/* Audio Player */}
-          <div className={`flex items-center gap-2 px-3 py-2 rounded-full shadow-lg transition-all hover:scale-105 ${
-            darkMode 
-              ? 'bg-gray-800/80 border border-gray-700' 
-              : 'bg-white/90 border border-gray-200'
-          }`}>
-            <audio
-              ref={audioRef}
-              src="/sample-audio.mp3"
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-              onEnded={() => setIsPlaying(false)}
-            />
-            <button
-              onClick={() => {
-                if (audioRef.current) {
-                  if (isPlaying) {
-                    audioRef.current.pause();
-                  } else {
-                    audioRef.current.play();
+          {!audioError && (
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-full shadow-lg transition-all hover:scale-105 ${
+              darkMode 
+                ? 'bg-gray-800/80 border border-gray-700' 
+                : 'bg-white/90 border border-gray-200'
+            }`}>
+              <audio
+                ref={audioRef}
+                src="/sample-audio.mp3"
+                preload="metadata"
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                onEnded={() => setIsPlaying(false)}
+                onError={(e) => {
+                  console.error('Audio playback error:', e);
+                  setAudioError(true);
+                  setIsPlaying(false);
+                }}
+                onLoadedData={() => {
+                  setAudioError(false);
+                }}
+                onCanPlay={() => {
+                  setAudioError(false);
+                }}
+              />
+              <button
+                onClick={async () => {
+                  if (!audioRef.current || audioError) return;
+                  
+                  try {
+                    if (isPlaying) {
+                      audioRef.current.pause();
+                      setIsPlaying(false);
+                    } else {
+                      // Ensure audio is loaded
+                      if (audioRef.current.readyState === 0) {
+                        audioRef.current.load();
+                      }
+                      
+                      // Play the audio - handle the promise
+                      const playPromise = audioRef.current.play();
+                      
+                      if (playPromise !== undefined) {
+                        playPromise
+                          .then(() => {
+                            setIsPlaying(true);
+                          })
+                          .catch((error) => {
+                            console.error('Error playing audio:', error);
+                            setAudioError(true);
+                            setIsPlaying(false);
+                          });
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Error with audio:', error);
+                    setAudioError(true);
+                    setIsPlaying(false);
                   }
-                }
-              }}
-              className={`p-2 rounded-full transition-colors ${
-                darkMode
-                  ? 'hover:bg-gray-700 text-white'
-                  : 'hover:bg-gray-100 text-gray-700'
-              }`}
-              aria-label={isPlaying ? "Pause audio" : "Play audio"}
-            >
-              {isPlaying ? (
-                <Pause className="w-4 h-4 sm:w-5 sm:h-5" />
-              ) : (
-                <Play className="w-4 h-4 sm:w-5 sm:h-5" />
-              )}
-            </button>
-            <Volume2 className={`w-4 h-4 sm:w-5 sm:h-5 ${
-              darkMode ? 'text-gray-400' : 'text-gray-600'
-            }`} />
-          </div>
+                }}
+                disabled={audioError}
+                className={`p-2 rounded-full transition-colors ${
+                  audioError
+                    ? 'opacity-50 cursor-not-allowed'
+                    : darkMode
+                    ? 'hover:bg-gray-700 text-white'
+                    : 'hover:bg-gray-100 text-gray-700'
+                }`}
+                aria-label={isPlaying ? "Pause audio" : "Play audio"}
+                title={audioError ? "Audio not available" : isPlaying ? "Pause audio" : "Play audio"}
+              >
+                {isPlaying ? (
+                  <Pause className="w-4 h-4 sm:w-5 sm:h-5" />
+                ) : (
+                  <Play className="w-4 h-4 sm:w-5 sm:h-5" />
+                )}
+              </button>
+              <Volume2 className={`w-4 h-4 sm:w-5 sm:h-5 ${
+                darkMode ? 'text-gray-400' : 'text-gray-600'
+              }`} />
+            </div>
+          )}
         </div>
         <p className={`text-xs sm:text-sm md:text-base text-center max-w-2xl mx-auto px-4 ${
           darkMode ? 'text-gray-400' : 'text-gray-500'
