@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../services/api";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 const ProfileOverview = ({ darkMode }) => {
   const navigate = useNavigate();
@@ -15,13 +17,11 @@ const ProfileOverview = ({ darkMode }) => {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
 
-  // Generate unique code from user ID
   const generateUniqueCodeFromId = useCallback((userId) => {
     if (!userId || userId === 'unknown') {
       return 'FW' + Math.random().toString(36).substr(2, 8).toUpperCase();
     }
     
-    // Convert user ID to a consistent, readable format
     const hash = userId.toString().split('').reduce((a, b) => {
       a = ((a << 5) - a) + b.charCodeAt(0);
       return a & a;
@@ -38,8 +38,6 @@ const ProfileOverview = ({ darkMode }) => {
       const response = await api.get('/users/profile');
       if (response.data.success) {
         const user = response.data.data.user;
-        
-        // Generate unique code from user ID
         const uniqueCode = generateUniqueCodeFromId(user._id || user.id);
         
         setUserData({
@@ -116,441 +114,252 @@ const ProfileOverview = ({ darkMode }) => {
     return statusConfig[kycStatus?.toLowerCase()] || statusConfig['not_submitted'];
   };
 
-  // Helper function to convert any color value to hex (handles oklch, rgb, rgba, etc.)
-  const convertToHex = (colorValue) => {
-    if (!colorValue || typeof colorValue !== 'string') return null;
-    
-    // If it's already hex, return it
-    if (colorValue.startsWith('#')) {
-      return colorValue;
-    }
-    
-    // If it contains oklch, convert to safe fallback
-    if (colorValue.includes('oklch')) {
-      // Try to determine the color from oklch values
-      const lightnessMatch = colorValue.match(/oklch\(([\d.]+)/);
-      if (lightnessMatch) {
-        const lightness = parseFloat(lightnessMatch[1]);
-        if (lightness > 0.8) return '#ffffff';
-        if (lightness < 0.2) return '#000000';
-      }
-      // Default fallback
-      return '#000000';
-    }
-    
-    // If it's rgb/rgba, convert to hex
-    if (colorValue.startsWith('rgb')) {
-      const rgbMatch = colorValue.match(/\d+/g);
-      if (rgbMatch && rgbMatch.length >= 3) {
-        const r = parseInt(rgbMatch[0]);
-        const g = parseInt(rgbMatch[1]);
-        const b = parseInt(rgbMatch[2]);
-        return `#${[r, g, b].map(x => {
-          const hex = x.toString(16);
-          return hex.length === 1 ? '0' + hex : hex;
-        }).join('')}`;
-      }
-    }
-    
-    return null;
-  };
-
-
-  // Download card as image with improved quality
   const handleDownloadCard = async () => {
     try {
       setDownloading(true);
-      const cardElement = cardRef.current;
       
-      if (!cardElement) {
-        alert('Card element not found');
-        setDownloading(false);
-        return;
-      }
-
-      // Wait for any images to load
+      // Create a completely static HTML template with no CSS references
+      const htmlTemplate = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            @page { margin: 0; }
+            body { 
+              margin: 0; 
+              padding: 0; 
+              font-family: Arial, sans-serif; 
+              background: white;
+              width: 400px;
+              height: 500px;
+            }
+            .card {
+              width: 100%;
+              height: 100%;
+              background: white;
+              border: 1px solid #e5e7eb;
+              border-radius: 8px;
+              overflow: hidden;
+              position: relative;
+              box-sizing: border-box;
+            }
+            .top-bar {
+              width: 100%;
+              height: 4px;
+              background: #667eea;
+            }
+            .content {
+              padding: 16px;
+              box-sizing: border-box;
+            }
+            .header {
+              display: flex;
+              align-items: flex-start;
+              margin-bottom: 16px;
+              padding-bottom: 12px;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .logo {
+              width: 48px;
+              height: 48px;
+              border: 2px solid #667eea;
+              border-radius: 8px;
+              margin-right: 12px;
+              background: white;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: bold;
+              color: #667eea;
+            }
+            .header-text h4 {
+              margin: 0;
+              color: #1f2937;
+              font-size: 16px;
+              font-weight: 900;
+            }
+            .header-text p {
+              margin: 2px 0 0 0;
+              color: #6b7280;
+              font-size: 11px;
+              font-weight: 600;
+            }
+            .section {
+              margin-bottom: 16px;
+              padding-bottom: 12px;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .label {
+              color: #9ca3af;
+              margin: 0 0 4px 0;
+              font-size: 9px;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              text-transform: uppercase;
+            }
+            .name {
+              color: #1f2937;
+              margin: 0;
+              font-size: 18px;
+              font-weight: 900;
+              text-transform: uppercase;
+            }
+            .code-box {
+              background: #667eea;
+              padding: 10px 20px;
+              border-radius: 8px;
+              text-align: center;
+            }
+            .code {
+              color: white;
+              font-size: 22px;
+              font-weight: 900;
+              letter-spacing: 3px;
+            }
+            .contact-item {
+              background: #f9fafb;
+              padding: 8px 12px;
+              border-radius: 6px;
+              margin-bottom: 8px;
+              display: flex;
+              align-items: center;
+            }
+            .icon {
+              width: 32px;
+              height: 32px;
+              border-radius: 6px;
+              margin-right: 12px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              color: white;
+              font-weight: bold;
+            }
+            .contact-text {
+              color: #1f2937;
+              font-size: 12px;
+              font-weight: 600;
+              flex: 1;
+            }
+            .footer {
+              text-align: center;
+              padding-top: 8px;
+            }
+            .footer-title {
+              color: #6b7280;
+              margin: 0 0 2px 0;
+              font-size: 9px;
+              font-weight: 700;
+              letter-spacing: 0.5px;
+              text-transform: uppercase;
+            }
+            .footer-subtitle {
+              color: #9ca3af;
+              margin: 0;
+              font-size: 9px;
+              font-weight: 500;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="top-bar"></div>
+            <div class="content">
+              <div class="header">
+                <div class="logo">FW</div>
+                <div class="header-text">
+                  <h4>FREELANCER WALA</h4>
+                  <p>TELECALLING HR</p>
+                </div>
+              </div>
+              
+              <div class="section">
+                <div class="label">MEMBER NAME</div>
+                <div class="name">${userData.name.toUpperCase()}</div>
+              </div>
+              
+              <div class="section">
+                <div class="label">UNIQUE IDENTIFICATION CODE</div>
+                <div class="code-box">
+                  <div class="code">${userData.uniqueCode}</div>
+                </div>
+              </div>
+              
+              <div class="section">
+                <div class="contact-item">
+                  <div class="icon" style="background: #3b82f6;">E</div>
+                  <div class="contact-text">${userData.email}</div>
+                </div>
+                <div class="contact-item">
+                  <div class="icon" style="background: #10b981;">P</div>
+                  <div class="contact-text">${userData.phoneNumber}</div>
+                </div>
+              </div>
+              
+              <div class="footer">
+                <div class="footer-title">OFFICIAL DIGITAL IDENTITY CARD</div>
+                <div class="footer-subtitle">VALID ACROSS ALL PLATFORMS</div>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+      
+      // Create a hidden iframe with the template
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'absolute';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '0';
+      iframe.style.width = '400px';
+      iframe.style.height = '500px';
+      iframe.style.border = 'none';
+      document.body.appendChild(iframe);
+      
+      // Write HTML to iframe
+      iframe.contentDocument.write(htmlTemplate);
+      iframe.contentDocument.close();
+      
+      // Wait for iframe to render
       await new Promise(resolve => setTimeout(resolve, 500));
-
+      
+      // Use html2canvas on the iframe content
       const html2canvas = (await import('html2canvas')).default;
-      
-      // Create a clone of the card element
-      const clonedElement = cardElement.cloneNode(true);
-      clonedElement.style.position = 'absolute';
-      clonedElement.style.left = '-9999px';
-      clonedElement.style.top = '0';
-      clonedElement.style.transform = 'none';
-      clonedElement.style.opacity = '1';
-      clonedElement.style.visibility = 'visible';
-      clonedElement.style.display = 'block';
-      document.body.appendChild(clonedElement);
-
-      // AGGRESSIVE: Remove ALL class attributes to prevent any CSS class from generating oklch colors
-      const allElements = [clonedElement, ...clonedElement.querySelectorAll('*')];
-      allElements.forEach(el => {
-        // Remove all class attributes - this prevents Tailwind from generating oklch colors
-        if (el.hasAttribute('class')) {
-          el.removeAttribute('class');
-        }
-        
-        // Remove animations and transitions
-        el.style.transform = 'none';
-        el.style.transition = 'none';
-        el.style.animation = 'none';
-        el.style.animationDelay = '0s';
-        el.style.filter = el.style.filter?.replace('blur', '') || 'none';
-        
-        // Convert ALL computed styles to explicit inline hex colors
-        try {
-          const computedStyle = window.getComputedStyle(el);
-          
-          // CRITICAL: Handle ALL background-related properties first
-          const backgroundProperties = [
-            'backgroundColor',
-            'background',
-            'backgroundImage'
-          ];
-          
-          backgroundProperties.forEach(prop => {
-            try {
-              const value = computedStyle.getPropertyValue(prop);
-              if (value && value !== 'none' && value !== 'transparent' && 
-                  value !== 'initial' && value !== 'inherit' && value.trim() !== '') {
-                // If it contains oklch, gradient, or url, replace with solid color
-                if (value.includes('oklch') || value.includes('gradient') || value.includes('url')) {
-                  el.style.setProperty('backgroundColor', '#ffffff', 'important');
-                  el.style.setProperty('background', 'none', 'important');
-                  el.style.setProperty('backgroundImage', 'none', 'important');
-                } else if (!value.startsWith('#') && !value.startsWith('rgb')) {
-                  const hexColor = convertToHex(value);
-                  if (hexColor) {
-                    el.style.setProperty('backgroundColor', hexColor, 'important');
-                  } else {
-                    el.style.setProperty('backgroundColor', '#ffffff', 'important');
-                  }
-                  el.style.setProperty('background', 'none', 'important');
-                  el.style.setProperty('backgroundImage', 'none', 'important');
-                } else if (value.startsWith('rgb')) {
-                  const hexColor = convertToHex(value);
-                  if (hexColor) {
-                    el.style.setProperty('backgroundColor', hexColor, 'important');
-                  }
-                  el.style.setProperty('background', 'none', 'important');
-                  el.style.setProperty('backgroundImage', 'none', 'important');
-                }
-              }
-            } catch {
-              // Ignore errors
-            }
-          });
-          
-          // Convert all other color-related properties to hex
-          const colorProperties = [
-            'color', 'borderColor', 'borderTopColor', 
-            'borderRightColor', 'borderBottomColor', 'borderLeftColor',
-            'outlineColor', 'textDecorationColor', 'columnRuleColor',
-            'fill', 'stroke'
-          ];
-          
-          colorProperties.forEach(prop => {
-            try {
-              const value = computedStyle.getPropertyValue(prop);
-              if (value && value !== 'none' && value !== 'transparent' && 
-                  value !== 'initial' && value !== 'inherit' && value.trim() !== '') {
-                // Always convert to hex, even if it's already rgb
-                const hexColor = convertToHex(value);
-                if (hexColor) {
-                  el.style.setProperty(prop, hexColor, 'important');
-                } else {
-                  // Safe fallback
-                  const fallback = prop === 'backgroundColor' ? '#ffffff' : 
-                                  prop === 'color' ? '#000000' : 
-                                  prop.includes('border') ? '#e5e7eb' : '#000000';
-                  el.style.setProperty(prop, fallback, 'important');
-                }
-              }
-            } catch {
-              // Ignore errors
-            }
-          });
-          
-          // Also copy important layout properties
-          const layoutProperties = [
-            'width', 'height', 'padding', 'paddingTop', 'paddingRight', 
-            'paddingBottom', 'paddingLeft', 'margin', 'marginTop', 
-            'marginRight', 'marginBottom', 'marginLeft', 'border', 
-            'borderWidth', 'borderStyle', 'borderRadius', 'display', 
-            'flexDirection', 'justifyContent', 'alignItems', 'gap',
-            'fontSize', 'fontWeight', 'fontFamily', 'lineHeight',
-            'textAlign', 'position', 'top', 'right', 'bottom', 'left',
-            'zIndex', 'overflow', 'objectFit'
-          ];
-          
-          layoutProperties.forEach(prop => {
-            try {
-              const value = computedStyle.getPropertyValue(prop);
-              if (value && value !== 'initial' && value !== 'inherit' && value.trim() !== '') {
-                el.style.setProperty(prop, value, 'important');
-              }
-            } catch {
-              // Ignore errors
-            }
-          });
-        } catch {
-          // Ignore errors
-        }
-        
-        // CRITICAL: Clean up inline styles that might contain oklch in background
-        if (el.style.cssText) {
-          let cssText = el.style.cssText;
-          // Replace any oklch in background properties
-          cssText = cssText.replace(/background[^:]*:\s*[^;]*oklch[^;]*/gi, 'background: none; backgroundColor: #ffffff;');
-          cssText = cssText.replace(/oklch\([^)]+\)/g, '#ffffff');
-          el.style.cssText = cssText;
-        }
-        
-        // Special handling for SVG elements
-        if (el.tagName === 'svg' || el.tagName === 'path' || el.tagName === 'circle' || 
-            el.tagName === 'rect' || el.tagName === 'polyline' || el.tagName === 'polygon') {
-          // Convert SVG fill and stroke attributes to explicit hex
-          const fillAttr = el.getAttribute('fill');
-          const strokeAttr = el.getAttribute('stroke');
-          
-          if (fillAttr === 'currentColor' || fillAttr === 'none' || !fillAttr) {
-            const computedColor = window.getComputedStyle(el).color;
-            const hexColor = convertToHex(computedColor) || '#000000';
-            el.setAttribute('fill', hexColor);
-          } else if (fillAttr && fillAttr.includes('oklch')) {
-            const hexColor = convertToHex(fillAttr) || '#000000';
-            el.setAttribute('fill', hexColor);
-          }
-          
-          if (strokeAttr === 'currentColor' || strokeAttr === 'none' || !strokeAttr) {
-            const computedColor = window.getComputedStyle(el).color;
-            const hexColor = convertToHex(computedColor) || '#000000';
-            el.setAttribute('stroke', hexColor);
-          } else if (strokeAttr && strokeAttr.includes('oklch')) {
-            const hexColor = convertToHex(strokeAttr) || '#000000';
-            el.setAttribute('stroke', hexColor);
-          }
-        }
-      });
-
-      // Force a reflow to ensure all style changes are applied
-      void clonedElement.offsetHeight;
-      
-      // Wait for styles to apply
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Force another reflow
-      void clonedElement.offsetHeight;
-
-      const canvas = await html2canvas(clonedElement, {
+      const canvas = await html2canvas(iframe.contentDocument.body, {
         backgroundColor: '#ffffff',
-        scale: 4, // Higher scale for better quality
-        logging: false,
+        scale: 3,
         useCORS: true,
-        allowTaint: true,
-        removeContainer: true,
-        imageTimeout: 20000,
-        width: clonedElement.offsetWidth,
-        height: clonedElement.offsetHeight,
-        windowWidth: clonedElement.scrollWidth,
-        windowHeight: clonedElement.scrollHeight,
-        pixelRatio: 4,
-        foreignObjectRendering: false, // Disable foreign object rendering which can cause oklch issues
-        ignoreElements: () => {
-          // Skip elements that might have problematic styles
-          return false; // We want to render everything, just with converted colors
-        },
-        onclone: (clonedDoc) => {
-          // CRITICAL: Remove ALL stylesheets and style tags to prevent html2canvas from reading oklch colors
-          const styleSheets = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-          styleSheets.forEach(sheet => sheet.remove());
-          
-          // Helper function to convert colors to hex (inline for onclone context)
-          const convertColorToHex = (colorValue) => {
-            if (!colorValue || typeof colorValue !== 'string') return null;
-            if (colorValue.startsWith('#')) return colorValue;
-            
-            // If it contains oklch, immediately return fallback
-            if (colorValue.includes('oklch')) {
-              return '#ffffff'; // Default to white for backgrounds
-            }
-            
-            if (colorValue.startsWith('rgb')) {
-              const rgbMatch = colorValue.match(/\d+/g);
-              if (rgbMatch && rgbMatch.length >= 3) {
-                const r = parseInt(rgbMatch[0]);
-                const g = parseInt(rgbMatch[1]);
-                const b = parseInt(rgbMatch[2]);
-                return `#${[r, g, b].map(x => {
-                  const hex = x.toString(16);
-                  return hex.length === 1 ? '0' + hex : hex;
-                }).join('')}`;
-              }
-            }
-            
-            return null;
-          };
-          
-          // Convert all styles in the cloned document to hex colors
-          const allClonedElements = [clonedDoc.documentElement, ...clonedDoc.querySelectorAll('*')];
-          allClonedElements.forEach(el => {
-            // Remove animations
-            el.style.transform = 'none';
-            el.style.transition = 'none';
-            el.style.animation = 'none';
-            el.style.animationDelay = '0s';
-            
-            // Convert all color styles to hex (removes oklch)
-            try {
-              const computedStyle = window.getComputedStyle(el);
-              
-              // CRITICAL: Handle ALL background-related properties
-              const backgroundProperties = [
-                'backgroundColor',
-                'background',
-                'backgroundImage',
-                'backgroundColor'
-              ];
-              
-              backgroundProperties.forEach(prop => {
-                try {
-                  const value = computedStyle.getPropertyValue(prop);
-                  if (value && value !== 'none' && value !== 'transparent' && 
-                      value !== 'initial' && value !== 'inherit' && value.trim() !== '') {
-                    // If it contains oklch or is not a simple color, replace it
-                    if (value.includes('oklch') || value.includes('gradient') || value.includes('url')) {
-                      // For backgrounds, always use white
-                      el.style.setProperty('backgroundColor', '#ffffff', 'important');
-                      el.style.setProperty('background', 'none', 'important');
-                      el.style.setProperty('backgroundImage', 'none', 'important');
-                    } else if (!value.startsWith('#') && !value.startsWith('rgb')) {
-                      const hexColor = convertColorToHex(value);
-                      if (hexColor) {
-                        el.style.setProperty('backgroundColor', hexColor, 'important');
-                      } else {
-                        el.style.setProperty('backgroundColor', '#ffffff', 'important');
-                      }
-                      el.style.setProperty('background', 'none', 'important');
-                      el.style.setProperty('backgroundImage', 'none', 'important');
-                    } else if (value.startsWith('rgb')) {
-                      const hexColor = convertColorToHex(value);
-                      if (hexColor) {
-                        el.style.setProperty('backgroundColor', hexColor, 'important');
-                      }
-                      el.style.setProperty('background', 'none', 'important');
-                      el.style.setProperty('backgroundImage', 'none', 'important');
-                    }
-                  }
-                } catch {
-                  // Ignore errors
-                }
-              });
-              
-              const colorProperties = [
-                'color',
-                'borderColor',
-                'borderTopColor',
-                'borderRightColor',
-                'borderBottomColor',
-                'borderLeftColor',
-                'outlineColor',
-                'textDecorationColor',
-                'columnRuleColor',
-                'fill',
-                'stroke'
-              ];
-              
-              colorProperties.forEach(prop => {
-                try {
-                  const value = computedStyle.getPropertyValue(prop);
-                  if (value && value !== 'none' && value !== 'transparent' && 
-                      value !== 'initial' && value !== 'inherit' && value.trim() !== '') {
-                    if (value.includes('oklch') || (!value.startsWith('#') && !value.startsWith('rgb') && value.trim() !== '')) {
-                      const hexColor = convertColorToHex(value);
-                      if (hexColor) {
-                        el.style.setProperty(prop, hexColor, 'important');
-                      } else {
-                        const fallback = prop === 'color' ? '#000000' : 
-                                        prop.includes('border') ? '#e5e7eb' : '#000000';
-                        el.style.setProperty(prop, fallback, 'important');
-                      }
-                    } else if (value.startsWith('rgb')) {
-                      const hexColor = convertColorToHex(value);
-                      if (hexColor) {
-                        el.style.setProperty(prop, hexColor, 'important');
-                      }
-                    }
-                  }
-                } catch {
-                  // Ignore errors
-                }
-              });
-              
-              // Fix inline styles - replace all oklch with hex
-              if (el.style.cssText) {
-                el.style.cssText = el.style.cssText.replace(/oklch\([^)]+\)/g, '#ffffff');
-                el.style.cssText = el.style.cssText.replace(/background[^:]*:\s*[^;]*oklch[^;]*/gi, 'background: none; backgroundColor: #ffffff;');
-              }
-            } catch {
-              // Ignore errors
-            }
-          });
-        }
+        logging: false,
       });
-
-      // Remove cloned element
-      document.body.removeChild(clonedElement);
-
-      // Convert to blob with high quality
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          alert('Failed to create image. Please try again.');
-          setDownloading(false);
-          return;
-        }
-
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        const fileName = `${userData.name.replace(/[^a-zA-Z0-9]/g, '_')}_Digital_Card.png`;
-        link.download = fileName;
-        link.href = url;
-        link.style.display = 'none';
-        
-        document.body.appendChild(link);
-        link.click();
-        
-        setTimeout(() => {
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          setDownloading(false);
-        }, 100);
-
-      }, 'image/png', 1.0);
-
+      
+      // Remove iframe
+      document.body.removeChild(iframe);
+      
+      // Create PDF
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      const pdf = new jsPDF({
+        orientation: imgHeight > imgWidth ? 'portrait' : 'landscape',
+        unit: 'mm',
+        format: [imgWidth, imgHeight]
+      });
+      
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+      
+      const fileName = `${userData.name.replace(/[^a-zA-Z0-9]/g, '_')}_Digital_Card.pdf`;
+      pdf.save(fileName);
+      
+      setDownloading(false);
+      
     } catch (error) {
       console.error('Download error:', error);
-      console.error('Error details:', {
-        message: error.message,
-        stack: error.stack,
-        name: error.name
-      });
-      
-      // More specific error message
-      let errorMessage = 'Download failed. ';
-      if (error.message && error.message.includes('oklch')) {
-        errorMessage += 'Color format issue detected. Please try again or contact support.';
-      } else {
-        errorMessage += error.message || 'Unknown error occurred.';
-      }
-      
-      alert(errorMessage);
+      alert('Failed to generate PDF. Please take a screenshot instead.');
       setDownloading(false);
     }
   };
 
-  // Share card
   const handleShareCard = async () => {
     const shareText = `Freelancer Wala Digital Card\n\nName: ${userData.name}\nUnique ID: ${userData.uniqueCode}\nEmail: ${userData.email}\nPhone: ${userData.phoneNumber}`;
     
@@ -742,130 +551,223 @@ const ProfileOverview = ({ darkMode }) => {
           Your unique digital identity for seamless access to exclusive campaigns and earnings
         </p>
 
-        {/* Digital Card - Simple Clean Design */}
+        {/* Digital Card - This will be captured for PDF */}
         <div className="flex justify-center items-center mb-8">
-          <div className="w-full max-w-2xl relative">
+          <div className="w-full max-w-md relative">
             <div 
-              ref={cardRef} 
-              data-card-element
-              className="bg-white rounded-xl p-8 relative"
+              ref={cardRef}
+              className="bg-white rounded-lg relative overflow-hidden"
               style={{
                 backgroundColor: '#ffffff',
-                border: '2px solid #e5e7eb',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                border: '1px solid #e5e7eb',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                width: '100%',
+                maxWidth: '400px',
+                margin: '0 auto',
+                fontFamily: 'Arial, sans-serif'
               }}
             >
-              {/* Top Accent Bar - Simple Solid Color */}
+              {/* Top Accent Bar */}
               <div 
-                className="absolute top-0 left-0 w-full h-2"
+                className="absolute top-0 left-0 w-full h-1"
                 style={{ backgroundColor: '#667eea' }}
               ></div>
               
-              <div className="pt-4">
+              <div style={{ padding: '16px' }}>
                 {/* Header Section */}
-                <div className="flex items-center justify-between mb-6 pb-6" style={{ borderBottom: '2px solid #e5e7eb' }}>
-                  <div className="flex items-center gap-4">
-                    <div className="relative">
-                      <div 
-                        className="inline-flex items-center justify-center h-16 w-16 rounded-lg overflow-hidden"
+                <div className="flex items-start mb-4" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
+                  <div className="flex items-center gap-3 flex-1">
+                    <div 
+                      className="shrink-0"
+                      style={{ 
+                        width: '48px',
+                        height: '48px',
+                        border: '2px solid #667eea',
+                        borderRadius: '8px',
+                        overflow: 'hidden',
+                        backgroundColor: '#ffffff'
+                      }}
+                    >
+                      <img 
+                        src="/logo.jpeg" 
+                        alt="Logo" 
                         style={{ 
-                          border: '2px solid #667eea',
-                          backgroundColor: '#ffffff'
-                        }}
-                      >
-                        <img src="/logo.jpeg" alt="Logo" className="h-full w-full object-cover" />
-                      </div>
+                          width: '100%', 
+                          height: '100%', 
+                          objectFit: 'cover',
+                          display: 'block'
+                        }} 
+                      />
                     </div>
-                    <div>
-                      <h4 className="text-xl font-black" style={{ color: '#1f2937' }}>
+                    <div className="flex-1 min-w-0">
+                      <h4 style={{ 
+                        color: '#1f2937', 
+                        margin: 0, 
+                        fontSize: '16px',
+                        fontWeight: '900',
+                        fontFamily: 'Arial, sans-serif',
+                        lineHeight: '1.2'
+                      }}>
                         FREELANCER WALA
                       </h4>
-                      <p className="text-xs font-semibold mt-1" style={{ color: '#6b7280' }}>
+                      <p style={{ 
+                        color: '#6b7280', 
+                        margin: '2px 0 0 0', 
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        fontFamily: 'Arial, sans-serif'
+                      }}>
                         TELECALLING HR
                       </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div 
-                      className="w-3 h-3 rounded-full mb-1 mx-auto"
-                      style={{ backgroundColor: '#10b981' }}
-                    ></div>
-                    <span className="text-xs font-bold uppercase" style={{ color: '#10b981' }}>
-                      ACTIVE
-                    </span>
-                  </div>
                 </div>
 
                 {/* Member Name Section */}
-                <div className="mb-6 pb-6" style={{ borderBottom: '2px solid #e5e7eb' }}>
+                <div className="mb-4" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
                   <p 
-                    className="text-xs font-bold mb-2 uppercase"
-                    style={{ color: '#9ca3af' }}
+                    style={{ 
+                      color: '#9ca3af', 
+                      margin: 0, 
+                      fontSize: '9px', 
+                      fontWeight: '700',
+                      fontFamily: 'Arial, sans-serif',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      marginBottom: '4px'
+                    }}
                   >
                     MEMBER NAME
                   </p>
-                  <h3 className="text-3xl sm:text-4xl font-black uppercase" style={{ color: '#1f2937' }}>
+                  <h3 style={{ 
+                    color: '#1f2937', 
+                    margin: 0, 
+                    fontSize: '18px', 
+                    fontWeight: '900',
+                    fontFamily: 'Arial, sans-serif',
+                    textTransform: 'uppercase',
+                    lineHeight: '1.2',
+                    wordBreak: 'break-word'
+                  }}>
                     {userData.name}
                   </h3>
                 </div>
 
-                {/* Unique Code Section - Simple Design */}
-                <div className="text-center mb-6">
-                  <div 
-                    className="inline-flex flex-col items-center gap-3 rounded-lg p-6"
+                {/* Unique Code Section */}
+                <div className="mb-4" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
+                  <p 
                     style={{ 
-                      backgroundColor: '#667eea',
-                      border: '2px solid #667eea'
+                      color: '#9ca3af', 
+                      margin: 0, 
+                      fontSize: '9px', 
+                      fontWeight: '700',
+                      fontFamily: 'Arial, sans-serif',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      marginBottom: '8px'
                     }}
                   >
-                    <span className="text-white text-xs font-bold uppercase">
-                      UNIQUE IDENTIFICATION CODE
-                    </span>
-                    <span className="text-white text-4xl sm:text-5xl font-black">
+                    UNIQUE IDENTIFICATION CODE
+                  </p>
+                  <div 
+                    style={{ 
+                      backgroundColor: '#667eea',
+                      padding: '10px 20px',
+                      borderRadius: '8px',
+                      width: '100%',
+                      textAlign: 'center'
+                    }}
+                  >
+                    <span style={{ 
+                      color: '#ffffff',
+                      fontSize: '22px',
+                      fontWeight: '900',
+                      fontFamily: 'Arial, sans-serif',
+                      letterSpacing: '3px',
+                      display: 'block'
+                    }}>
                       {userData.uniqueCode}
                     </span>
                   </div>
                 </div>
 
-                {/* Contact Info - Simple Cards */}
-                <div className="space-y-3 max-w-md mx-auto">
+                {/* Contact Info */}
+                <div className="space-y-2 mb-4" style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: '12px' }}>
                   <div 
-                    className="flex items-center gap-4 p-4 rounded-lg border-l-4"
                     style={{ 
-                      backgroundColor: '#f3f4f6',
-                      borderLeftColor: '#3b82f6'
+                      backgroundColor: '#f9fafb',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px'
                     }}
                   >
                     <div 
-                      className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: '#3b82f6' }}
+                      style={{ 
+                        width: '32px',
+                        height: '32px',
+                        backgroundColor: '#3b82f6',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}
                     >
-                      <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg style={{ width: '16px', height: '16px', color: '#ffffff' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
                         <polyline points="22,6 12,13 2,6"></polyline>
                       </svg>
                     </div>
-                    <span className="font-semibold text-base" style={{ color: '#1f2937' }}>
+                    <span style={{ 
+                      fontWeight: '600',
+                      fontSize: '12px',
+                      color: '#1f2937',
+                      fontFamily: 'Arial, sans-serif',
+                      flex: 1,
+                      minWidth: 0,
+                      wordBreak: 'break-word'
+                    }}>
                       {userData.email}
                     </span>
                   </div>
 
                   <div 
-                    className="flex items-center gap-4 p-4 rounded-lg border-l-4"
                     style={{ 
-                      backgroundColor: '#f3f4f6',
-                      borderLeftColor: '#10b981'
+                      backgroundColor: '#f9fafb',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px'
                     }}
                   >
                     <div 
-                      className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: '#10b981' }}
+                      style={{ 
+                        width: '32px',
+                        height: '32px',
+                        backgroundColor: '#10b981',
+                        borderRadius: '6px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}
                     >
-                      <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg style={{ width: '16px', height: '16px', color: '#ffffff' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path>
                       </svg>
                     </div>
-                    <span className="font-semibold text-base" style={{ color: '#1f2937' }}>
+                    <span style={{ 
+                      fontWeight: '600',
+                      fontSize: '12px',
+                      color: '#1f2937',
+                      fontFamily: 'Arial, sans-serif',
+                      flex: 1,
+                      minWidth: 0,
+                      wordBreak: 'break-word'
+                    }}>
                       {userData.phoneNumber}
                     </span>
                   </div>
@@ -873,18 +775,33 @@ const ProfileOverview = ({ darkMode }) => {
 
                 {/* Footer */}
                 <div 
-                  className="text-center mt-8 pt-6"
-                  style={{ borderTop: '2px solid #e5e7eb' }}
+                  style={{ 
+                    paddingTop: '8px',
+                    textAlign: 'center'
+                  }}
                 >
                   <p 
-                    className="text-xs font-bold uppercase mb-1"
-                    style={{ color: '#6b7280' }}
+                    style={{ 
+                      color: '#6b7280', 
+                      margin: 0, 
+                      fontSize: '9px', 
+                      fontWeight: '700',
+                      fontFamily: 'Arial, sans-serif',
+                      letterSpacing: '0.5px',
+                      textTransform: 'uppercase',
+                      marginBottom: '2px'
+                    }}
                   >
                     OFFICIAL DIGITAL IDENTITY CARD
                   </p>
                   <p 
-                    className="text-xs font-medium"
-                    style={{ color: '#9ca3af' }}
+                    style={{ 
+                      color: '#9ca3af', 
+                      margin: 0, 
+                      fontSize: '9px',
+                      fontWeight: '500',
+                      fontFamily: 'Arial, sans-serif'
+                    }}
                   >
                     VALID ACROSS ALL PLATFORMS
                   </p>
@@ -937,20 +854,19 @@ const ProfileOverview = ({ darkMode }) => {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Downloading...
+                Generating PDF...
               </>
             ) : (
               <>
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
                 </svg>
-                Download Card
+                Download PDF
               </>
             )}
           </button>
         </div>
       </div>
-
     </div>
   );
 };
