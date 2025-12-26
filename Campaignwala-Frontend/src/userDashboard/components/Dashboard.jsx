@@ -80,10 +80,13 @@ const Dashboard = ({ darkMode }) => {
         audio.addEventListener('loadstart', handleLoadStart);
         
         // Try to load the audio
-        audio.load().catch((error) => {
+        // Note: audio.load() doesn't return a Promise, so we handle errors via event listeners
+        try {
+          audio.load();
+        } catch (error) {
           console.error('Error loading audio:', error);
           setAudioError(true);
-        });
+        }
         
         return () => {
           audio.removeEventListener('canplay', handleCanPlay);
