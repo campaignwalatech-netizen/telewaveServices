@@ -443,7 +443,7 @@ const DistributeDataPage = ({ darkMode = false }) => {
           distributionResult = await dataService.bulkAssignData(distributionType, count);
           break;
           
-        case 'particular_employee':
+        case 'particular_employee': {
           if (!selectedUser) {
             toast.error('Please select an employee');
             setLoading(false);
@@ -459,6 +459,7 @@ const DistributeDataPage = ({ darkMode = false }) => {
             distributionResult = await dataService.assignDataToUser(count, selectedUser);
           }
           break;
+        }
           
         case 'team_leaders_specific':
           if (!selectedTL) {
@@ -606,6 +607,18 @@ const DistributeDataPage = ({ darkMode = false }) => {
     
     const option = distributionOptions.find(opt => opt.id === distributionType);
     return option ? option.count : 0;
+  };
+
+  // Calculate total records that will be distributed
+  const getTotalRecordsToDistribute = () => {
+    // For specific distributions (particular_employee, team_leaders_specific), only 1 person gets the count
+    if (distributionType === 'particular_employee' || distributionType === 'team_leaders_specific') {
+      return count;
+    }
+    
+    // For bulk distributions, multiply count by number of users/TLs
+    const numberOfTargets = getAvailableCountForType();
+    return count * numberOfTargets;
   };
 
   // Get employee details for display (handles both users and TLs)
@@ -968,9 +981,11 @@ const DistributeDataPage = ({ darkMode = false }) => {
                         <div>
                           <p className="text-sm text-gray-600 dark:text-gray-400">Remaining After Distribution</p>
                           <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
-                            {Math.max(0, availableDataCount - count)}
+                            {Math.max(0, availableDataCount - getTotalRecordsToDistribute())}
                           </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">records will remain</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                            {getTotalRecordsToDistribute()} records will be distributed
+                          </p>
                         </div>
                         <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
                           <RefreshCw className="text-green-600 dark:text-green-400" size={24} />
@@ -1069,11 +1084,11 @@ const DistributeDataPage = ({ darkMode = false }) => {
                       <span className="font-bold text-blue-600 dark:text-blue-400 text-lg">{count}</span>
                     </div>
                   </div>
-                  {availableDataCount > 0 && count > availableDataCount && (
+                  {availableDataCount > 0 && getTotalRecordsToDistribute() > availableDataCount && (
                     <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
                       <p className="text-sm text-yellow-700 dark:text-yellow-300">
                         <Info size={14} className="inline mr-1" />
-                        You're distributing {count} records, but only {availableDataCount} are available. 
+                        You're distributing {getTotalRecordsToDistribute()} records ({count} per {distributionType === 'team_leaders' || distributionType === 'team_leaders_specific' ? 'TL' : 'user'} × {getAvailableCountForType()} {distributionType === 'team_leaders' || distributionType === 'team_leaders_specific' ? 'TLs' : 'users'}), but only {availableDataCount} are available. 
                         The system will distribute what's available.
                       </p>
                     </div>
@@ -1194,7 +1209,7 @@ const DistributeDataPage = ({ darkMode = false }) => {
                     <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
                       <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Remaining After Distribution:</span>
                       <span className="font-bold text-green-600 dark:text-green-400 text-lg">
-                        {Math.max(0, availableDataCount - count)} records
+                        {Math.max(0, availableDataCount - getTotalRecordsToDistribute())} records
                       </span>
                     </div>
                     
@@ -1232,12 +1247,7 @@ const DistributeDataPage = ({ darkMode = false }) => {
                           <div className="text-sm text-blue-700 dark:text-blue-300">
                             <p className="font-medium">Distribution Calculation:</p>
                             <p className="mt-1">
-                              {count} records will be distributed among {getAvailableCountForType()} {distributionType === 'team_leaders' ? 'Team Leaders' : 'HR users'}.
-                              {getAvailableCountForType() > 0 && (
-                                <span className="block mt-1">
-                                  Average: ~{Math.ceil(count / getAvailableCountForType())} records per {distributionType === 'team_leaders' ? 'TL' : 'user'}.
-                                </span>
-                              )}
+                              Total: <strong>{getTotalRecordsToDistribute()}</strong> records ({count} per {distributionType === 'team_leaders' ? 'TL' : 'user'} × {getAvailableCountForType()} {distributionType === 'team_leaders' ? 'TLs' : 'users'}) will be distributed.
                             </p>
                           </div>
                         </div>

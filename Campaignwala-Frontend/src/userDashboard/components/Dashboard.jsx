@@ -386,7 +386,7 @@ const Dashboard = ({ darkMode }) => {
         <div className="flex items-center justify-center gap-3 sm:gap-4 mb-2 sm:mb-3">
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent text-center">
             Welcome, <span className="capitalize font-semibold">{userName}</span>! 🌟
-          </h2>
+        </h2>
           
           {/* Audio Player */}
           {!audioError && (
@@ -629,8 +629,8 @@ const Dashboard = ({ darkMode }) => {
                     slideWidth={100 / totalSlides}
                   />
                 ))}
-              </div>
-            </div>
+                      </div>
+                    </div>
           )}
           
           {/* Navigation Dots */}
