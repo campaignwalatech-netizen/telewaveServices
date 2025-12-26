@@ -1113,11 +1113,12 @@ static async adminWithdrawData(dataIds, adminId, reason = '') {
         try {
             let userQuery = {};
             let assignmentMessage = '';
+            let isTLAssignment = false;
             
             switch (assignmentType) {
                 case 'all_active':
                     userQuery = { role: 'user', status: 'active' };
-                    assignmentMessage = 'all active users';
+                    assignmentMessage = 'all active HR users';
                     break;
                     
                 case 'present_today':
@@ -1129,7 +1130,7 @@ static async adminWithdrawData(dataIds, adminId, reason = '') {
                         'attendance.todayStatus': 'present',
                         'attendance.todayMarkedAt': { $gte: today }
                     };
-                    assignmentMessage = 'users present today';
+                    assignmentMessage = 'HR users present today';
                     break;
                     
                 case 'without_data':
@@ -1138,12 +1139,21 @@ static async adminWithdrawData(dataIds, adminId, reason = '') {
                     userQuery = {
                         role: 'user',
                         status: 'active',
+                        'attendance.todayStatus': 'present',
+                        'attendance.todayMarkedAt': { $gte: todayDate },
                         $or: [
                             { 'leadDistribution.lastLeadDistributionDate': { $lt: todayDate } },
                             { 'leadDistribution.lastLeadDistributionDate': { $exists: false } }
                         ]
                     };
-                    assignmentMessage = 'users without data today';
+                    assignmentMessage = 'present HR users without data today';
+                    break;
+                    
+                case 'team_leaders':
+                    // Assign to all Team Leaders equally
+                    userQuery = { role: 'TL', status: 'active' };
+                    assignmentMessage = 'all active Team Leaders';
+                    isTLAssignment = true;
                     break;
                     
                 default:
@@ -1153,10 +1163,10 @@ static async adminWithdrawData(dataIds, adminId, reason = '') {
                     };
             }
             
-            // Get users
-            const users = await User.find(userQuery);
+            // Get users/TLs
+            const targets = await User.find(userQuery);
             
-            if (users.length === 0) {
+            if (targets.length === 0) {
                 return {
                     success: false,
                     error: `No ${assignmentMessage} found`
@@ -1164,8 +1174,8 @@ static async adminWithdrawData(dataIds, adminId, reason = '') {
             }
             
             // Get pending data
-            const dataPerUser = options.dataPerUser || 5; // Default 5 per user
-            const totalDataNeeded = users.length * dataPerUser;
+            const dataPerTarget = options.dataPerUser || options.dataPerTL || 5; // Default 5 per target
+            const totalDataNeeded = targets.length * dataPerTarget;
             
             const pendingData = await DataDistribution.find({
                 distributionStatus: 'pending',
@@ -1185,35 +1195,63 @@ static async adminWithdrawData(dataIds, adminId, reason = '') {
             const bulkOps = [];
             let dataIndex = 0;
             
-            for (const user of users) {
-                for (let i = 0; i < dataPerUser; i++) {
-                    if (dataIndex >= dataIds.length) break;
-                    
-                    bulkOps.push({
-                        updateOne: {
-                            filter: { _id: dataIds[dataIndex] },
-                            update: {
-                                $set: {
-                                    assignedTo: user._id,
-                                    assignedType: 'direct_user',
-                                    assignedBy: adminId,
-                                    assignedAt: new Date(),
-                                    distributionStatus: 'assigned',
-                                    updatedAt: new Date()
-                                },
-                                $push: {
-                                    teamAssignments: {
-                                        teamMember: user._id,
+            if (isTLAssignment) {
+                // For TL assignments, assign with assignedType: 'tl' (not direct_user)
+                for (const tl of targets) {
+                    for (let i = 0; i < dataPerTarget; i++) {
+                        if (dataIndex >= dataIds.length) break;
+                        
+                        bulkOps.push({
+                            updateOne: {
+                                filter: { _id: dataIds[dataIndex] },
+                                update: {
+                                    $set: {
+                                        assignedTo: tl._id,
+                                        assignedType: 'tl',
                                         assignedBy: adminId,
-                                        status: 'pending',
-                                        assignedAt: new Date()
+                                        assignedAt: new Date(),
+                                        distributionStatus: 'assigned',
+                                        updatedAt: new Date()
                                     }
                                 }
                             }
-                        }
-                    });
-                    
-                    dataIndex++;
+                        });
+                        
+                        dataIndex++;
+                    }
+                }
+            } else {
+                // For user assignments, assign with assignedType: 'direct_user' and add to teamAssignments
+                for (const user of targets) {
+                    for (let i = 0; i < dataPerTarget; i++) {
+                        if (dataIndex >= dataIds.length) break;
+                        
+                        bulkOps.push({
+                            updateOne: {
+                                filter: { _id: dataIds[dataIndex] },
+                                update: {
+                                    $set: {
+                                        assignedTo: user._id,
+                                        assignedType: 'direct_user',
+                                        assignedBy: adminId,
+                                        assignedAt: new Date(),
+                                        distributionStatus: 'assigned',
+                                        updatedAt: new Date()
+                                    },
+                                    $push: {
+                                        teamAssignments: {
+                                            teamMember: user._id,
+                                            assignedBy: adminId,
+                                            status: 'pending',
+                                            assignedAt: new Date()
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                        
+                        dataIndex++;
+                    }
                 }
             }
             
@@ -1227,30 +1265,37 @@ static async adminWithdrawData(dataIds, adminId, reason = '') {
             // Execute bulk write
             const result = await DataDistribution.bulkWrite(bulkOps);
             
-            // Update user statistics
-            const userUpdateOps = users.map(user => ({
-                updateOne: {
-                    filter: { _id: user._id },
-                    update: {
-                        $inc: {
-                            'statistics.totalLeads': dataPerUser,
-                            'statistics.pendingLeads': dataPerUser,
-                            'statistics.todaysLeads': dataPerUser
+            // Update user/TL statistics
+            if (isTLAssignment) {
+                // For TLs, we don't update statistics the same way
+                // TLs will distribute to their team members later
+            } else {
+                // Update user statistics
+                const userUpdateOps = targets.map(user => ({
+                    updateOne: {
+                        filter: { _id: user._id },
+                        update: {
+                            $inc: {
+                                'statistics.totalLeads': dataPerTarget,
+                                'statistics.pendingLeads': dataPerTarget,
+                                'statistics.todaysLeads': dataPerTarget
+                            },
+                            $set: { 'leadDistribution.lastLeadDistributionDate': new Date() }
                         }
                     }
-                }
-            }));
-            
-            await User.bulkWrite(userUpdateOps);
+                }));
+                
+                await User.bulkWrite(userUpdateOps);
+            }
             
             return {
                 success: true,
                 data: {
                     assignedCount: result.modifiedCount,
-                    userCount: users.length,
-                    dataPerUser: dataPerUser,
+                    targetCount: targets.length,
+                    dataPerTarget: dataPerTarget,
                     assignmentType: assignmentType,
-                    message: `Assigned ${result.modifiedCount} records to ${users.length} users (${assignmentMessage})`
+                    message: `Assigned ${result.modifiedCount} records to ${targets.length} ${isTLAssignment ? 'Team Leaders' : 'users'} (${assignmentMessage})`
                 }
             };
             

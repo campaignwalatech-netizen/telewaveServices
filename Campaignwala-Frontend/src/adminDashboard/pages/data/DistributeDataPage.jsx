@@ -1,6 +1,6 @@
 // DistributeDataPage.jsx - FIXED VERSION
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   Users, Search, Upload, UserPlus, 
   CheckCircle, XCircle, RefreshCw,
@@ -449,7 +449,15 @@ const DistributeDataPage = ({ darkMode = false }) => {
             setLoading(false);
             return;
           }
-          distributionResult = await dataService.assignDataToUser(count, selectedUser);
+          // Check if selected employee is a TL or User
+          const selectedEmployee = allEmployees.find(e => e._id === selectedUser);
+          if (selectedEmployee && selectedEmployee.type === 'TL') {
+            // If it's a TL, use assignDataToTL
+            distributionResult = await dataService.assignDataToTL(count, selectedUser);
+          } else {
+            // If it's a user, use assignDataToUser
+            distributionResult = await dataService.assignDataToUser(count, selectedUser);
+          }
           break;
           
         case 'team_leaders_specific':
@@ -511,7 +519,16 @@ const DistributeDataPage = ({ darkMode = false }) => {
   // Items per page options
   const itemsPerPageOptions = [5, 10, 25, 50, 100];
 
-  // Distribution type options with counts - FIXED
+  // Combine users and TLs for particular employee selection
+  const allEmployees = useMemo(() => {
+    const combined = [
+      ...users.map(u => ({ ...u, type: 'user', displayName: `${u.name || 'Unknown'} (HR)` })),
+      ...TLs.map(t => ({ ...t, type: 'TL', displayName: `${t.name || 'Unknown'} (TL)` }))
+    ];
+    return combined.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [users, TLs]);
+
+  // Distribution type options with counts - UPDATED
   const distributionOptions = [
     {
       id: 'present_today',
@@ -520,7 +537,7 @@ const DistributeDataPage = ({ darkMode = false }) => {
       icon: Users,
       color: 'bg-green-500',
       count: distributionCounts.present_today || 0,
-      info: 'Users marked as present today'
+      info: 'HR users marked as present today'
     },
     {
       id: 'without_data',
@@ -529,7 +546,7 @@ const DistributeDataPage = ({ darkMode = false }) => {
       icon: UserPlus,
       color: 'bg-blue-500',
       count: distributionCounts.without_data || 0,
-      info: 'Present users with no leads assigned today'
+      info: 'Present HR users with no data assigned today'
     },
     {
       id: 'all_active',
@@ -543,20 +560,20 @@ const DistributeDataPage = ({ darkMode = false }) => {
     {
       id: 'particular_employee',
       title: 'To Particular Employee',
-      description: 'Distribute to a specific employee',
+      description: 'Distribute to a specific employee (User or TL)',
       icon: User,
       color: 'bg-orange-500',
-      count: users.length || 0,
-      info: 'Select specific employee from list'
+      count: allEmployees.length || 0,
+      info: 'Select specific employee (HR or TL) from list'
     },
     {
       id: 'team_leaders',
       title: 'To Team Leaders',
-      description: 'Distribute to Team Leaders',
+      description: 'Distribute equally to all Team Leaders (bulk assignment)',
       icon: Crown,
       color: 'bg-red-500',
       count: distributionCounts.team_leaders || 0,
-      info: 'All active Team Leaders'
+      info: 'Equal distribution to all active Team Leaders'
     },
     {
       id: 'team_leaders_specific',
@@ -581,7 +598,7 @@ const DistributeDataPage = ({ darkMode = false }) => {
   // Get available count for current distribution type
   const getAvailableCountForType = () => {
     if (distributionType === 'particular_employee') {
-      return users.length;
+      return allEmployees.length;
     }
     if (distributionType === 'team_leaders_specific') {
       return TLs.length;
@@ -589,6 +606,16 @@ const DistributeDataPage = ({ darkMode = false }) => {
     
     const option = distributionOptions.find(opt => opt.id === distributionType);
     return option ? option.count : 0;
+  };
+
+  // Get employee details for display (handles both users and TLs)
+  const getEmployeeDisplayInfo = (employeeId) => {
+    const employee = allEmployees.find(e => e._id === employeeId);
+    if (!employee) return 'Unknown Employee';
+    
+    const contact = employee.phoneNumber || employee.email || 'No contact';
+    const type = employee.type === 'TL' ? 'TL' : 'HR';
+    return `${employee.name || 'Unknown'} (${type}) - ${contact}`;
   };
 
   // Get user details for display
@@ -1065,28 +1092,38 @@ const DistributeDataPage = ({ darkMode = false }) => {
                 {distributionType === 'particular_employee' && (
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Select Employee
+                      Select Employee (HR or TL)
                     </label>
                     <select
                       value={selectedUser}
                       onChange={(e) => setSelectedUser(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      disabled={users.length === 0 || loading}
+                      disabled={allEmployees.length === 0 || loading}
                     >
-                      <option value="">Select Employee...</option>
-                      {users.map(person => (
-                        <option key={person._id} value={person._id}>
-                          {person.name || 'Unknown'} - {person.phoneNumber || person.email || 'No contact'} 
-                          {person.employeeId ? ` (${person.employeeId})` : ''}
-                        </option>
-                      ))}
+                      <option value="">Select Employee (HR or TL)...</option>
+                      <optgroup label="HR Users">
+                        {users.map(person => (
+                          <option key={person._id} value={person._id}>
+                            {person.name || 'Unknown'} (HR) - {person.phoneNumber || person.email || 'No contact'} 
+                            {person.employeeId ? ` (${person.employeeId})` : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                      <optgroup label="Team Leaders">
+                        {TLs.map(tl => (
+                          <option key={tl._id} value={tl._id}>
+                            {tl.name || 'Unknown'} (TL) - {tl.phoneNumber || tl.email || 'No contact'}
+                            {tl.teamName ? ` (Team: ${tl.teamName})` : ''}
+                          </option>
+                        ))}
+                      </optgroup>
                     </select>
                     {selectedUser && (
                       <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                        Selected: {getUserDisplayInfo(selectedUser)}
+                        Selected: {getEmployeeDisplayInfo(selectedUser)}
                       </div>
                     )}
-                    {users.length === 0 && (
+                    {allEmployees.length === 0 && (
                       <div className="mt-2 text-sm text-red-500 dark:text-red-400">
                         No active employees available
                       </div>
@@ -1174,7 +1211,7 @@ const DistributeDataPage = ({ darkMode = false }) => {
                       <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
                         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Selected Employee:</span>
                         <span className="font-semibold text-gray-900 dark:text-gray-100 text-right max-w-xs truncate">
-                          {getUserDisplayInfo(selectedUser)}
+                          {getEmployeeDisplayInfo(selectedUser)}
                         </span>
                       </div>
                     )}
@@ -1188,21 +1225,47 @@ const DistributeDataPage = ({ darkMode = false }) => {
                       </div>
                     )}
                     
-                    {count > 0 && getAvailableCountForType() > 0 && (
+                    {count > 0 && getAvailableCountForType() > 0 && distributionType !== 'particular_employee' && distributionType !== 'team_leaders_specific' && (
                       <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                         <div className="flex items-center">
                           <Info className="text-blue-600 dark:text-blue-400 mr-2" size={18} />
                           <div className="text-sm text-blue-700 dark:text-blue-300">
                             <p className="font-medium">Distribution Calculation:</p>
                             <p className="mt-1">
-                              {count} records will be distributed among {getAvailableCountForType()} {distributionType === 'team_leaders' || distributionType === 'team_leaders_specific' ? 'Team Leaders' : 'HR users'}.
+                              {count} records will be distributed among {getAvailableCountForType()} {distributionType === 'team_leaders' ? 'Team Leaders' : 'HR users'}.
                               {getAvailableCountForType() > 0 && (
                                 <span className="block mt-1">
-                                  Average: ~{Math.ceil(count / getAvailableCountForType())} records per {distributionType === 'team_leaders' || distributionType === 'team_leaders_specific' ? 'TL' : 'user'}.
-                      </span>
+                                  Average: ~{Math.ceil(count / getAvailableCountForType())} records per {distributionType === 'team_leaders' ? 'TL' : 'user'}.
+                                </span>
                               )}
                             </p>
-                    </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {distributionType === 'particular_employee' && selectedUser && (
+                      <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <div className="flex items-center">
+                          <Info className="text-blue-600 dark:text-blue-400 mr-2" size={18} />
+                          <div className="text-sm text-blue-700 dark:text-blue-300">
+                            <p className="font-medium">Distribution Details:</p>
+                            <p className="mt-1">
+                              {count} record{count !== 1 ? 's' : ''} will be assigned to {getEmployeeDisplayInfo(selectedUser)}.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    {distributionType === 'team_leaders_specific' && selectedTL && (
+                      <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <div className="flex items-center">
+                          <Info className="text-blue-600 dark:text-blue-400 mr-2" size={18} />
+                          <div className="text-sm text-blue-700 dark:text-blue-300">
+                            <p className="font-medium">Distribution Details:</p>
+                            <p className="mt-1">
+                              {count} record{count !== 1 ? 's' : ''} will be assigned to {getTLDisplayInfo(selectedTL)}.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     )}
