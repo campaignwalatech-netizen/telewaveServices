@@ -11,69 +11,67 @@ const staticSlides = [
   {
     id: 1,
     image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop",
-    alt: "Earn More & More",
-    title: "Earn More & More!!",
-    description: "Grow your skills and earnings with our exclusive programs!",
+    alt: "Welcome Freelancer",
+    title: "Welcome Freelancer 👋",
+    description: "Daily calls complete karo, performance dikhao.",
     gradient: "from-indigo-600/80 to-purple-600/80",
     buttonText: ""
   },
   {
     id: 2,
     image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&h=400&fit=crop",
-    alt: "Savings Account Offers",
-    title: "Saving Offers Are Live Going On!",
-    description: "Don't miss out on exclusive savings account benefits!",
+    alt: "Daily Calling Required",
+    title: "Daily Calling Required",
+    description: "Regular work = stable growth.",
     gradient: "from-green-600/80 to-teal-600/80",
     buttonText: ""
   },
   {
     id: 3,
     image: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&h=400&fit=crop",
-    alt: "Demat Account Special Offers",
-    title: "Demat Offers Going On!",
-    description: "Exclusive deals on demat accounts - Limited time only!",
+    alt: "More Accounts More Salary",
+    title: "More Accounts Open = More Salary",
+    description: "Jitne zyada accounts, utna increment.",
     gradient: "from-blue-600/80 to-purple-600/80",
     buttonText: "Explore Now"
   },
   {
     id: 4,
     image: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&h=400&fit=crop",
-    alt: "Credit Card Special Offers",
-    title: "Credit Card Offers Live!",
-    description: "Get amazing rewards and cashback on premium credit cards!",
+    alt: "Performance Based Earnings",
+    title: "Performance Based Earnings",
+    description: "Result ke hisaab se payment.",
     gradient: "from-amber-600/80 to-orange-600/80",
     buttonText: "Apply Now"
   },
   {
     id: 5,
     image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&h=400&fit=crop",
-    alt: "Saturday Bonus",
-    title: "Saturday Special Bonus!",
-    description: "You will get ₹100 per account on every Saturday!",
-    description2: "Complete your accounts and earn weekly bonuses!",
+    alt: "No Fixed Limit on Growth",
+    title: "No Fixed Limit on Growth",
+    description: "Aapka kaam hi aapki salary decide karega.",
     gradient: "from-yellow-600/80 to-amber-600/80",
     buttonText: "Claim Bonus"
   },
   {
     id: 6,
     image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=400&fit=crop",
-    alt: "Weekly Rewards",
-    title: "Weekly Rewards Program!",
-    description: "Get ₹100 per account every Saturday!",
-    description2: "Join now and start earning weekly bonuses!",
+    alt: "Consistent Work Better Income",
+    title: "Consistent Work, Better Income",
+    description: "Roz ka effort, better returns.",
     gradient: "from-pink-600/80 to-rose-600/80",
     buttonText: "Join Now"
   },
   {
     id: 7,
     image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop",
-    alt: "Account Bonus",
-    title: "Account Bonus Every Saturday!",
-    description: "Earn ₹100 per account on every Saturday!",
-    description2: "Don't miss out on your weekly earnings!",
+    alt: "Freelance with Growth Opportunity",
+    title: "Freelance with Growth Opportunity",
+    description: "Skill + effort = higher pay.",
     gradient: "from-indigo-600/80 to-blue-600/80",
     buttonText: "Learn More"
   }
+  
 ];
 
 const Dashboard = ({ darkMode }) => {
