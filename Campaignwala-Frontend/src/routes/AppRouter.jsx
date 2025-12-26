@@ -103,6 +103,8 @@ import ClosedLeads from "../userDashboard/pages/ClosedLeads";
 // ==================== DATA MANAGEMENT PAGES ====================
 // Admin Data Management Pages
 import DataDashboard from "../adminDashboard/pages/data/DataDashboard";
+import NotUsedDataPage from "../adminDashboard/pages/data/NotUsedDataPage";
+import TodayAssignedDataPage from "../adminDashboard/pages/data/TodayAssignedDataPage";
 import UploadDataPage from "../adminDashboard/pages/data/UploadDataPage";
 import DistributeDataPage from "../adminDashboard/pages/data/DistributeDataPage";
 import CalledDataPage from "../adminDashboard/pages/data/CalledDataPage";
@@ -196,6 +198,8 @@ export default function AppRouter() {
           <Route path="profile" element={<AdminProfile darkMode={darkMode} setDarkMode={setDarkMode} />} /> 
           <Route path="data/dashboard" element={<DataDashboard darkMode={darkMode} setDarkMode={setDarkMode} />} /> 
           <Route path="data/distribute" element={<DistributeDataPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
+          <Route path="data/not-used" element={<NotUsedDataPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
+          <Route path="data/today-assigned" element={<TodayAssignedDataPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
           <Route path="data/upload" element={<UploadDataPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
           <Route path="data/called" element={<CalledDataPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
           <Route path="data/closed" element={<ClosedDataPage darkMode={darkMode} setDarkMode={setDarkMode} />} />
