@@ -150,6 +150,12 @@ router.get('/admin/pending-data',
     requireAdmin,
     DataController.getPendingData);
 
+// Get today's admin-assigned data
+router.get('/admin/today-assigned-data',
+    protect,
+    authorize('admin'),
+    DataController.getTodayAdminAssignedData);
+
 // Get batch statistics
 router.get('/admin/batch-stats/:batchNumber', 
     protect, 

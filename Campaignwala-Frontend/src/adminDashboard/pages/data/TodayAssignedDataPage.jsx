@@ -8,7 +8,7 @@ import dataService from '../../../services/dataService';
 import userService from '../../../services/userService';
 import toast, { Toaster } from 'react-hot-toast';
 
-const TodayAssignedDataPage = ({ darkMode = false, setDarkMode }) => {
+const TodayAssignedDataPage = ({ darkMode = false }) => {
   const [assignedData, setAssignedData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({
@@ -49,18 +49,18 @@ const TodayAssignedDataPage = ({ darkMode = false, setDarkMode }) => {
     setLoading(true);
     setApiError(null);
     try {
-      const today = getTodayDate();
-      console.log('Fetching today assigned data with filters:', filters);
+      console.log('Fetching today\'s admin-assigned data with filters:', filters);
       
-      // Build params for API call (without pagination - we'll paginate after filtering)
+      // Build params for API call
       const params = {
+        page: pagination.page,
+        limit: pagination.limit,
         search: filters.search || undefined,
         batchNumber: filters.batchNumber || undefined,
         assignedTo: filters.assignedTo || undefined,
         assignedType: filters.assignedType !== 'all' ? filters.assignedType : undefined,
         sortBy: filters.sortBy,
-        sortOrder: filters.sortOrder,
-        limit: 10000 // Get large dataset to filter properly
+        sortOrder: filters.sortOrder
       };
 
       // Remove undefined params
@@ -72,57 +72,22 @@ const TodayAssignedDataPage = ({ darkMode = false, setDarkMode }) => {
 
       console.log('API params:', params);
       
-      // Get all data (we'll filter by assigned date on client side)
-      // This gets all data, then we filter for today's assignments
-      const result = await dataService.getPendingData(params);
+      // Get today's admin-assigned data from backend
+      const result = await dataService.getTodayAdminAssignedData(params);
       
       console.log('API Response:', result);
       
       if (result.success) {
         const data = result.data || [];
-        console.log('Processed data sample:', data.length > 0 ? data[0] : 'No data');
+        const paginationData = result.pagination || {};
         
-        // Filter data that was assigned TODAY
-        const todayAssigned = data.filter(item => {
-          // Check assignedAt (direct assignment from admin)
-          if (item.assignedAt) {
-            const assignedDate = new Date(item.assignedAt).toISOString().split('T')[0];
-            if (assignedDate === today) {
-              return true;
-            }
-          }
-          
-          // Check teamAssignments for assignments made today
-          if (item.teamAssignments && Array.isArray(item.teamAssignments)) {
-            const todayAssignments = item.teamAssignments.filter(ta => {
-              if (ta.withdrawn) return false;
-              if (ta.assignedAt) {
-                const taDate = new Date(ta.assignedAt).toISOString().split('T')[0];
-                return taDate === today;
-              }
-              return false;
-            });
-            
-            if (todayAssignments.length > 0) {
-              return true;
-            }
-          }
-          
-          return false;
-        });
-
-        console.log('Today assigned data:', todayAssigned.length, 'items');
+        console.log('Today\'s admin-assigned data:', data.length, 'items');
         
-        // Apply pagination to filtered results
-        const startIndex = (pagination.page - 1) * pagination.limit;
-        const endIndex = startIndex + pagination.limit;
-        const paginatedData = todayAssigned.slice(startIndex, endIndex);
-        
-        setAssignedData(paginatedData);
+        setAssignedData(data);
         setPagination(prev => ({
           ...prev,
-          total: todayAssigned.length,
-          totalPages: Math.ceil(todayAssigned.length / pagination.limit) || 1
+          total: paginationData.total || 0,
+          totalPages: paginationData.pages || 1
         }));
       } else {
         console.error('Failed to fetch assigned data:', result.error);
@@ -130,82 +95,28 @@ const TodayAssignedDataPage = ({ darkMode = false, setDarkMode }) => {
         setApiError(errorMsg);
         toast.error(errorMsg);
         setAssignedData([]);
+        setPagination(prev => ({
+          ...prev,
+          total: 0,
+          totalPages: 1
+        }));
       }
-    } catch (error) {
-      console.error('Error fetching assigned data:', error);
-      const errorMsg = error.message || 'Error fetching data';
+    } catch (err) {
+      console.error('Error fetching assigned data:', err);
+      const errorMsg = err.message || 'Error fetching data';
       setApiError(errorMsg);
       toast.error(errorMsg);
       setAssignedData([]);
+      setPagination(prev => ({
+        ...prev,
+        total: 0,
+        totalPages: 1
+      }));
     }
     setLoading(false);
   }, [pagination.page, pagination.limit, filters]);
 
-  const fetchStats = useCallback(async () => {
-    try {
-      const today = getTodayDate();
-      // Get all data to calculate stats
-      const result = await dataService.getPendingData({
-        limit: 10000
-      });
-      
-      if (result.success) {
-        const data = result.data || [];
-        // Filter data assigned today
-        const todayAssigned = data.filter(item => {
-          // Check assignedAt (direct assignment from admin)
-          if (item.assignedAt) {
-            const assignedDate = new Date(item.assignedAt).toISOString().split('T')[0];
-            if (assignedDate === today) {
-              return true;
-            }
-          }
-          
-          // Check teamAssignments for assignments made today
-          if (item.teamAssignments && Array.isArray(item.teamAssignments)) {
-            const todayAssignments = item.teamAssignments.filter(ta => {
-              if (ta.withdrawn) return false;
-              if (ta.assignedAt) {
-                const taDate = new Date(ta.assignedAt).toISOString().split('T')[0];
-                return taDate === today;
-              }
-              return false;
-            });
-            
-            if (todayAssignments.length > 0) {
-              return true;
-            }
-          }
-          
-          return false;
-        });
-
-        const assignedToUsers = todayAssigned.filter(item => 
-          item.assignedType === 'direct_user' || item.assignedType === 'all_active' || item.assignedType === 'present_today' || item.assignedType === 'without_data'
-        ).length;
-        const assignedToTLs = todayAssigned.filter(item => item.assignedType === 'tl').length;
-        const directAssignments = todayAssigned.filter(item => item.assignedType === 'direct_user').length;
-        const bulkAssignments = todayAssigned.filter(item => 
-          item.assignedType === 'all_active' || item.assignedType === 'present_today' || item.assignedType === 'without_data'
-        ).length;
-
-        setStats({
-          totalAssigned: todayAssigned.length,
-          assignedToUsers,
-          assignedToTLs,
-          directAssignments,
-          bulkAssignments
-        });
-      } else {
-        calculateStatsFromData();
-      }
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-      calculateStatsFromData();
-    }
-  }, [assignedData]);
-
-  const calculateStatsFromData = () => {
+  const calculateStatsFromData = useCallback(() => {
     const assignedToUsers = assignedData.filter(item => 
       item.assignedType === 'direct_user' || item.assignedType === 'all_active' || item.assignedType === 'present_today' || item.assignedType === 'without_data'
     ).length;
@@ -222,7 +133,42 @@ const TodayAssignedDataPage = ({ darkMode = false, setDarkMode }) => {
       directAssignments,
       bulkAssignments
     });
-  };
+  }, [assignedData]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      // Get all today's admin-assigned data to calculate stats
+      const result = await dataService.getTodayAdminAssignedData({
+        limit: 10000
+      });
+      
+      if (result.success) {
+        const data = result.data || [];
+        
+        const assignedToUsers = data.filter(item => 
+          item.assignedType === 'direct_user' || item.assignedType === 'all_active' || item.assignedType === 'present_today' || item.assignedType === 'without_data'
+        ).length;
+        const assignedToTLs = data.filter(item => item.assignedType === 'tl').length;
+        const directAssignments = data.filter(item => item.assignedType === 'direct_user').length;
+        const bulkAssignments = data.filter(item => 
+          item.assignedType === 'all_active' || item.assignedType === 'present_today' || item.assignedType === 'without_data'
+        ).length;
+
+        setStats({
+          totalAssigned: data.length,
+          assignedToUsers,
+          assignedToTLs,
+          directAssignments,
+          bulkAssignments
+        });
+      } else {
+        calculateStatsFromData();
+      }
+    } catch {
+      calculateStatsFromData();
+    }
+  }, [calculateStatsFromData]);
+
 
   const fetchUsersList = async () => {
     setUsersLoading(true);
@@ -262,7 +208,7 @@ const TodayAssignedDataPage = ({ darkMode = false, setDarkMode }) => {
 
   useEffect(() => {
     fetchStats();
-  }, [assignedData]);
+  }, [fetchStats]);
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -297,8 +243,7 @@ const TodayAssignedDataPage = ({ darkMode = false, setDarkMode }) => {
       } else {
         toast.error(result.error || 'Export failed');
       }
-    } catch (error) {
-      console.error('Export error:', error);
+    } catch {
       toast.error('Failed to export data');
     }
     setExporting(false);
@@ -317,7 +262,7 @@ const TodayAssignedDataPage = ({ darkMode = false, setDarkMode }) => {
         month: 'short',
         day: 'numeric'
       });
-    } catch (error) {
+    } catch {
       return 'Invalid Date';
     }
   };
@@ -332,7 +277,7 @@ const TodayAssignedDataPage = ({ darkMode = false, setDarkMode }) => {
         hour: '2-digit',
         minute: '2-digit'
       });
-    } catch (error) {
+    } catch {
       return 'Invalid Date';
     }
   };

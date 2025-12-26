@@ -218,6 +218,157 @@ class DataController {
         }
     }
     
+    /**
+     * Get today's admin-assigned data (Admin only)
+     */
+    static async getTodayAdminAssignedData(req, res) {
+        try {
+            const { page = 1, limit = 50, search, batchNumber, assignedTo, assignedType, sortBy = 'assignedAt', sortOrder = 'desc' } = req.query;
+            const skip = (page - 1) * limit;
+            
+            // Get today's date range (00:00:00 to 23:59:59)
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const tomorrow = new Date(today);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            
+            // Build query for data assigned today by admin
+            // Admin assignments have assignedBy field set and assignedAt is today
+            // OR teamAssignments have assignedBy (admin) and assignedAt is today
+            let query = {
+                isActive: true,
+                $or: [
+                    // Direct admin assignment (assignedBy exists and assignedAt is today)
+                    {
+                        assignedBy: { $exists: true, $ne: null },
+                        assignedAt: {
+                            $gte: today,
+                            $lt: tomorrow
+                        }
+                    },
+                    // Admin assignment through teamAssignments
+                    {
+                        'teamAssignments.assignedBy': { $exists: true, $ne: null },
+                        'teamAssignments.assignedAt': {
+                            $gte: today,
+                            $lt: tomorrow
+                        },
+                        'teamAssignments.withdrawn': false
+                    }
+                ]
+            };
+            
+            // Add search filter
+            if (search && search.trim() !== '') {
+                const searchRegex = new RegExp(search, 'i');
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { name: searchRegex },
+                        { contact: searchRegex },
+                        { email: searchRegex },
+                        { batchNumber: searchRegex },
+                        { source: searchRegex }
+                    ]
+                });
+            }
+            
+            // Add batch filter
+            if (batchNumber && batchNumber.trim() !== '') {
+                query.batchNumber = batchNumber;
+            }
+            
+            // Add assignedTo filter
+            if (assignedTo && assignedTo.trim() !== '') {
+                query.$or = [
+                    { assignedTo: assignedTo },
+                    { 'teamAssignments.teamMember': assignedTo }
+                ];
+            }
+            
+            // Add assignedType filter
+            if (assignedType && assignedType !== 'all') {
+                query.assignedType = assignedType;
+            }
+            
+            // Build sort object
+            const sort = {};
+            if (sortBy === 'assignedAt') {
+                sort.assignedAt = sortOrder === 'asc' ? 1 : -1;
+            } else if (sortBy === 'name') {
+                sort.name = sortOrder === 'asc' ? 1 : -1;
+            } else if (sortBy === 'createdAt') {
+                sort.createdAt = sortOrder === 'asc' ? 1 : -1;
+            } else if (sortBy === 'batchNumber') {
+                sort.batchNumber = sortOrder === 'asc' ? 1 : -1;
+            } else {
+                sort.assignedAt = -1;
+            }
+            
+            // First, get all matching documents
+            const allData = await DataDistribution.find(query)
+                .populate('assignedBy', 'name email role')
+                .populate('assignedTo', 'name email phoneNumber')
+                .populate('teamAssignments.teamMember', 'name email phoneNumber')
+                .populate('teamAssignments.assignedBy', 'name email role')
+                .sort(sort);
+            
+            // Filter in-memory to ensure we only get data assigned today BY ADMIN
+            const todayAssignedData = allData.filter(item => {
+                // Check direct assignment by admin
+                if (item.assignedBy && item.assignedAt) {
+                    // Ensure assignedBy is an admin (check role if populated)
+                    const isAdmin = !item.assignedBy.role || item.assignedBy.role === 'admin';
+                    if (isAdmin) {
+                        const assignedDate = new Date(item.assignedAt);
+                        if (assignedDate >= today && assignedDate < tomorrow) {
+                            return true;
+                        }
+                    }
+                }
+                
+                // Check teamAssignments assigned by admin
+                if (item.teamAssignments && Array.isArray(item.teamAssignments)) {
+                    const todayAssignments = item.teamAssignments.filter(ta => {
+                        if (ta.withdrawn) return false;
+                        if (ta.assignedBy && ta.assignedAt) {
+                            // Ensure assignedBy is an admin (check role if populated)
+                            const isAdmin = !ta.assignedBy.role || ta.assignedBy.role === 'admin';
+                            if (isAdmin) {
+                                const taDate = new Date(ta.assignedAt);
+                                return taDate >= today && taDate < tomorrow;
+                            }
+                        }
+                        return false;
+                    });
+                    return todayAssignments.length > 0;
+                }
+                
+                return false;
+            });
+            
+            // Apply pagination
+            const paginatedData = todayAssignedData.slice(skip, skip + parseInt(limit));
+            
+            res.status(200).json({
+                success: true,
+                data: paginatedData,
+                pagination: {
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    total: todayAssignedData.length,
+                    pages: Math.ceil(todayAssignedData.length / limit) || 1
+                }
+            });
+        } catch (error) {
+            console.error('Get today admin assigned data error:', error);
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+    
     // ==================== TL CONTROLLERS ====================
     
     /**

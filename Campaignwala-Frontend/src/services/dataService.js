@@ -211,6 +211,41 @@ async getDistributionCounts() {
    * @param {Object} params - Query parameters
    * @returns {Promise}
    */
+  /**
+   * Get today's admin-assigned data (Admin only)
+   * @param {Object} params - Query parameters (page, limit, search, batchNumber, assignedTo, assignedType, sortBy, sortOrder)
+   * @returns {Promise}
+   */
+  async getTodayAdminAssignedData(params = {}) {
+    try {
+      const response = await api.get('/data/admin/today-assigned-data', {
+        params: {
+          page: params.page || 1,
+          limit: params.limit || 50,
+          search: params.search,
+          batchNumber: params.batchNumber,
+          assignedTo: params.assignedTo,
+          assignedType: params.assignedType,
+          sortBy: params.sortBy || 'assignedAt',
+          sortOrder: params.sortOrder || 'desc',
+          ...params
+        }
+      });
+      
+      return {
+        success: true,
+        data: response.data.data || [],
+        pagination: response.data.pagination
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to get today\'s assigned data',
+        details: error.response?.data
+      };
+    }
+  },
+
   async getPendingData(params = {}) {
     try {
       const response = await api.get('/data/admin/pending-data', {

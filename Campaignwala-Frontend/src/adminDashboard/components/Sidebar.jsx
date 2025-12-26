@@ -83,7 +83,7 @@ export default function AdminSidebar({
     { id: "distribute-data", label: "Distribute Data", icon: TrendingUp, path: "/admin/data/distribute" },
     { id: "upload-data", label: "Upload Fresh data", icon: Upload, path: "/admin/data/upload" },
     { id: "not-used", label: "Not Used", icon: Filter, path: "/admin/data/not-used" },
-    { id: "today-assigned", label: "Today Assigned", icon: Calendar, path: "/admin/data/today-assigned", badge: dashboardStats.todayLeads },
+    { id: "today-assigned", label: "Today Assigned", icon: Calendar, path: "/admin/data/today-assigned"},
     { id: "called", label: "Called", icon: Bell, path: "/admin/data/called" },
     { id: "closed", label: "Closed", icon: CheckCircle, path: "/admin/data/closed" },
     { id: "feedback-analytics", label: "Data Feedback Analytics", icon: MessageSquare, path: "/admin/data/analytics/feedback" }, 
