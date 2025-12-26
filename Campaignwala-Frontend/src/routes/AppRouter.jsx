@@ -118,6 +118,8 @@ import TLDataAnalytics from "../tlDashboard/pages/data/TLDataAnalytics";
 
 // User Data Management Pages
 import UserTodayDataPage from "../userDashboard/pages/data/UserTodayDataPage";
+import UserPreviousDataPage from "../userDashboard/pages/data/UserPreviousDataPage";
+import UserClosedDataPage from "../userDashboard/pages/data/UserClosedDataPage";
 import NotApprovedUsers from "../adminDashboard/forms/NotApprovedUsers";
 import ApprovedUsers from "../adminDashboard/forms/ApprovedUsers";
 
@@ -340,6 +342,21 @@ export default function AppRouter() {
           <Route
             path="data-today"
             element={<UserTodayDataPage darkMode={darkMode} />}
+          />
+          <Route
+            path="data-previous"
+            element={<UserPreviousDataPage darkMode={darkMode} setDarkMode={setDarkMode} />}
+          />
+          <Route
+            path="data-closed"
+            element={<UserClosedDataPage darkMode={darkMode} setDarkMode={setDarkMode} />}
+          />
+          <Route
+            path="data-previous"
+            element={<UserPreviousDataPage darkMode={darkMode} />}
+          /><Route
+            path="data-closed"
+            element={<UserClosedDataPage darkMode={darkMode} />}
           />
 
           {/* Legacy leads routes (for compatibility) */}

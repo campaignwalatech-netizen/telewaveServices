@@ -196,11 +196,25 @@ router.get('/tl/withdrawn-data',
 
 // ==================== USER ROUTES ====================
 
-// Get user's assigned data
+// Get user's assigned data (supports dateFilter: today, previous, all)
 router.get('/user/data', 
     protect, 
     authorize('TL', 'user'), 
     DataController.getUserData
+);
+
+// Get user's previous data (assigned before today)
+router.get('/user/previous-data', 
+    protect, 
+    authorize('user'), 
+    DataController.getUserPreviousData
+);
+
+// Get user's closed data (data closed by the user)
+router.get('/user/closed-data', 
+    protect, 
+    authorize('user'), 
+    DataController.getUserClosedData
 );
 
 // Update data status

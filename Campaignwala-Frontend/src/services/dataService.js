@@ -612,7 +612,10 @@ async bulkUpdateDataStatus(dataIds, status, responseType = '', notes = '') {
    */
   async getUserTodayData() {
     try {
-      const response = await api.get('/data/user/data');
+      // Pass dateFilter=today to get only today's assigned data
+      const response = await api.get('/data/user/data', {
+        params: { dateFilter: 'today' }
+      });
       
       return {
         success: true,
@@ -622,6 +625,50 @@ async bulkUpdateDataStatus(dataIds, status, responseType = '', notes = '') {
       return {
         success: false,
         error: error.response?.data?.error || 'Failed to get today\'s data',
+        details: error.response?.data
+      };
+    }
+  },
+  
+  /**
+   * Get user's previous data (assigned before today)
+   * @param {Object} params - Query parameters (status, page, limit, search)
+   * @returns {Promise}
+   */
+  async getUserPreviousData(params = {}) {
+    try {
+      const response = await api.get('/data/user/previous-data', { params });
+      
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to get previous data',
+        details: error.response?.data
+      };
+    }
+  },
+  
+  /**
+   * Get user's closed data (data closed by the user)
+   * @param {Object} params - Query parameters (closedType, page, limit, search)
+   * @returns {Promise}
+   */
+  async getUserClosedData(params = {}) {
+    try {
+      const response = await api.get('/data/user/closed-data', { params });
+      
+      return {
+        success: true,
+        data: response.data
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to get closed data',
         details: error.response?.data
       };
     }

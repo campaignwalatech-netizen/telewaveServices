@@ -95,8 +95,13 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
           // Extract user's assignment from teamAssignments if available
           let userAssignment = null;
           if (item.teamAssignments && Array.isArray(item.teamAssignments)) {
-            // This assumes the current user's assignment is in teamAssignments
-            userAssignment = item.teamAssignments.find(ta => !ta.withdrawn);
+            // Find the user's assignment (not withdrawn)
+            // The backend should already filter by user, but we need to find the specific assignment
+            userAssignment = item.teamAssignments.find(ta => 
+              ta.teamMember && 
+              (ta.teamMember._id || ta.teamMember) && 
+              !ta.withdrawn
+            );
           }
           
           return {

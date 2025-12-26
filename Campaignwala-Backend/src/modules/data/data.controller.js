@@ -428,24 +428,188 @@ class DataController {
     static async getUserData(req, res) {
         try {
             const userId = req.user._id;
-            const { status, page = 1, limit = 50 } = req.query;
+            const { status, page = 1, limit = 50, dateFilter = 'today' } = req.query;
             const skip = (page - 1) * limit;
             
-            let query = { 
-                'teamAssignments.teamMember': userId,
-                'teamAssignments.withdrawn': false,
-                isActive: true
+            // Build base query with $elemMatch to ensure all conditions match the same array element
+            const baseElemMatch = {
+                teamMember: userId,
+                withdrawn: false
             };
             
-            if (status) {
-                query['teamAssignments.status'] = status;
+            // Filter by date based on dateFilter parameter
+            if (dateFilter === 'today') {
+                // Get today's date range (00:00:00 to 23:59:59)
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const tomorrow = new Date(today);
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                
+                // Filter by teamAssignments.assignedAt for today
+                baseElemMatch.assignedAt = {
+                    $gte: today,
+                    $lt: tomorrow
+                };
+            } else if (dateFilter === 'previous') {
+                // Get today's start date
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
+                // Filter by teamAssignments.assignedAt before today
+                baseElemMatch.assignedAt = {
+                    $lt: today
+                };
             }
+            // If dateFilter is 'all' or not specified, no date filter is applied
+            
+            if (status) {
+                baseElemMatch.status = status;
+            }
+            
+            let query = { 
+                teamAssignments: {
+                    $elemMatch: baseElemMatch
+                },
+                isActive: true
+            };
             
             const [data, total] = await Promise.all([
                 DataDistribution.find(query)
                     .populate('assignedTo', 'name email')
                     .populate('assignedBy', 'name email')
                     .sort({ 'teamAssignments.assignedAt': -1 })
+                    .skip(skip)
+                    .limit(parseInt(limit)),
+                DataDistribution.countDocuments(query)
+            ]);
+            
+            res.status(200).json({
+                success: true,
+                data,
+                pagination: {
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    total,
+                    pages: Math.ceil(total / limit)
+                }
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+    
+    /**
+     * Get user's previous data (assigned before today)
+     */
+    static async getUserPreviousData(req, res) {
+        try {
+            const userId = req.user._id;
+            const { status, page = 1, limit = 50 } = req.query;
+            const skip = (page - 1) * limit;
+            
+            // Get today's start date
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Build $elemMatch query to ensure all conditions match the same array element
+            const baseElemMatch = {
+                teamMember: userId,
+                withdrawn: false,
+                assignedAt: {
+                    $lt: today
+                }
+            };
+            
+            if (status) {
+                baseElemMatch.status = status;
+            }
+            
+            let query = { 
+                teamAssignments: {
+                    $elemMatch: baseElemMatch
+                },
+                isActive: true
+            };
+            
+            const [data, total] = await Promise.all([
+                DataDistribution.find(query)
+                    .populate('assignedTo', 'name email')
+                    .populate('assignedBy', 'name email')
+                    .sort({ 'teamAssignments.assignedAt': -1 })
+                    .skip(skip)
+                    .limit(parseInt(limit)),
+                DataDistribution.countDocuments(query)
+            ]);
+            
+            res.status(200).json({
+                success: true,
+                data,
+                pagination: {
+                    page: parseInt(page),
+                    limit: parseInt(limit),
+                    total,
+                    pages: Math.ceil(total / limit)
+                }
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                error: error.message
+            });
+        }
+    }
+    
+    /**
+     * Get user's closed data (data closed by the user)
+     */
+    static async getUserClosedData(req, res) {
+        try {
+            const userId = req.user._id;
+            const { closedType = 'all', page = 1, limit = 50, search = '' } = req.query;
+            const skip = (page - 1) * limit;
+            
+            // Build $elemMatch query to ensure all conditions match the same array element
+            const baseElemMatch = {
+                teamMember: userId,
+                withdrawn: false
+            };
+            
+            // Filter by closed status
+            if (closedType === 'all') {
+                baseElemMatch.status = {
+                    $in: ['converted', 'rejected', 'not_reachable']
+                };
+            } else {
+                baseElemMatch.status = closedType;
+            }
+            
+            let query = { 
+                teamAssignments: {
+                    $elemMatch: baseElemMatch
+                },
+                isActive: true
+            };
+            
+            // Add search filter
+            if (search && search.trim() !== '') {
+                const searchRegex = new RegExp(search, 'i');
+                query.$or = [
+                    { name: searchRegex },
+                    { contact: searchRegex },
+                    { email: searchRegex },
+                    { batchNumber: searchRegex },
+                    { source: searchRegex }
+                ];
+            }
+            
+            const [data, total] = await Promise.all([
+                DataDistribution.find(query)
+                    .populate('assignedTo', 'name email')
+                    .populate('assignedBy', 'name email')
+                    .sort({ 'teamAssignments.statusUpdatedAt': -1 })
                     .skip(skip)
                     .limit(parseInt(limit)),
                 DataDistribution.countDocuments(query)
