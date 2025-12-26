@@ -25,7 +25,7 @@ const Sidebar = ({ darkMode, isSidebarOpen, toggleSidebar }) => {
   { icon: Users, label: "All Accounts", path: "/user/all-leads" },
   
   // Work Analytics & Profile
-  { icon: BarChart, label: "Work Analytics", path: "/user/work-analytics" },
+  // { icon: BarChart, label: "Work Analytics", path: "/user/work-analytics" },
   { icon: User, label: "Profile Details", path: "/user/profile-overview" },
   
   // Salary & Wallet

@@ -282,17 +282,41 @@ const Dashboard = ({ darkMode }) => {
     };
   }, []);
 
-  // Auto-slide effect with smooth transition - Include all slides
+  // Auto-slide effect with smooth transition - Infinite loop without reverting
   useEffect(() => {
     if (isPaused) return;
     
-    // Calculate total slides: backend slides + static slides (7 slides)
+    // Calculate total slides: backend slides + static slides
     const totalSlides = slides.length + staticSlides.length;
     if (totalSlides === 0) return; // Don't set interval if no slides
     
     const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % totalSlides);
-    }, 5000); // 5 seconds per slide
+      setCurrentSlide((prev) => {
+        const next = prev + 1;
+        // If we've reached the last slide, instantly reset to first without transition
+        if (next >= totalSlides) {
+          // Disable transition and reset to 0 instantly
+          const carousel = document.querySelector('.carousel-container');
+          if (carousel) {
+            carousel.style.transition = 'none';
+            // Use requestAnimationFrame to ensure the transition is disabled before reset
+            requestAnimationFrame(() => {
+              setCurrentSlide(0);
+              // Re-enable transition after reset
+              requestAnimationFrame(() => {
+                if (carousel) {
+                  carousel.style.transition = '';
+                }
+              });
+            });
+          } else {
+            setCurrentSlide(0);
+          }
+          return totalSlides; // Temporary to trigger reset
+        }
+        return next;
+      });
+    }, 2000); // 2 seconds per slide (faster - was 5 seconds)
     return () => clearInterval(timer);
   }, [slides.length, isPaused]);
 
@@ -300,17 +324,47 @@ const Dashboard = ({ darkMode }) => {
   // Calculate total slides
   const totalSlides = slides.length + staticSlides.length;
 
-  // Navigation functions
+  // Navigation functions with infinite loop support
   const goToNextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % totalSlides);
+    setCurrentSlide((prev) => {
+      const next = prev + 1;
+      if (next >= totalSlides) {
+        // Instantly reset to 0 without transition
+        const carousel = document.querySelector('.carousel-container');
+        if (carousel) {
+          carousel.style.transition = 'none';
+          requestAnimationFrame(() => {
+            setCurrentSlide(0);
+            requestAnimationFrame(() => {
+              if (carousel) {
+                carousel.style.transition = '';
+              }
+            });
+          });
+        } else {
+          setCurrentSlide(0);
+        }
+        return totalSlides; // Temporary to trigger reset
+      }
+      return next;
+    });
   };
 
   const goToPrevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + totalSlides) % totalSlides);
+    setCurrentSlide((prev) => {
+      const prevIndex = prev - 1;
+      if (prevIndex < 0) {
+        // Go to last slide for seamless loop
+        return totalSlides - 1;
+      }
+      return prevIndex;
+    });
   };
 
   const goToSlide = (index) => {
-    setCurrentSlide(index);
+    if (index >= 0 && index < totalSlides) {
+      setCurrentSlide(index);
+    }
   };
 
   // Slide Component
@@ -563,11 +617,11 @@ const Dashboard = ({ darkMode }) => {
               <div className="animate-spin rounded-full h-8 w-8 sm:h-12 sm:w-12 border-b-2 border-blue-600"></div>
             </div>
           ) : (
-            <div className="relative w-full h-full">
+            <div className="relative w-full h-full overflow-hidden">
               <div 
-                className="flex h-full transition-transform duration-3500 ease-in-out"
+                className="flex h-full transition-transform duration-500 ease-in-out carousel-container"
                 style={{ 
-                  transform: `translateX(-${currentSlide * (100 / totalSlides)}%)`,
+                  transform: `translateX(-${currentSlide >= totalSlides ? 0 : currentSlide * (100 / totalSlides)}%)`,
                   width: `${totalSlides * 100}%`
                 }}
               >
@@ -611,18 +665,22 @@ const Dashboard = ({ darkMode }) => {
           {/* Navigation Dots */}
           {!slidesLoading && (
             <div className="absolute bottom-2 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-1.5 sm:gap-2">
-              {Array.from({ length: totalSlides }).map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => goToSlide(index)}
-                  className={`transition-all rounded-full ${
-                    currentSlide === index
-                      ? 'w-6 sm:w-8 h-2 sm:h-2.5 bg-blue-600 dark:bg-blue-400'
-                      : 'w-2 sm:w-2.5 h-2 sm:h-2.5 bg-white/60 dark:bg-gray-600/60 hover:bg-white/80 dark:hover:bg-gray-500/80'
-                  }`}
-                  aria-label={`Go to slide ${index + 1}`}
-                />
-              ))}
+              {Array.from({ length: totalSlides }).map((_, index) => {
+                // Show active dot based on current slide
+                const isActive = (currentSlide >= totalSlides ? 0 : currentSlide) === index;
+                return (
+                  <button
+                    key={index}
+                    onClick={() => goToSlide(index)}
+                    className={`transition-all rounded-full ${
+                      isActive
+                        ? 'w-6 sm:w-8 h-2 sm:h-2.5 bg-blue-600 dark:bg-blue-400'
+                        : 'w-2 sm:w-2.5 h-2 sm:h-2.5 bg-white/60 dark:bg-gray-600/60 hover:bg-white/80 dark:hover:bg-gray-500/80'
+                    }`}
+                    aria-label={`Go to slide ${index + 1}`}
+                  />
+                );
+              })}
             </div>
           )}
         </div>
