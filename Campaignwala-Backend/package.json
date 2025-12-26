@@ -9,6 +9,9 @@
     "dev": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
+  "engines": {
+  "node": "18.x"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://campaignwalatech-netizen@github.com/campaignwalatech-netizen/campaignwala-panels-backend.git"
