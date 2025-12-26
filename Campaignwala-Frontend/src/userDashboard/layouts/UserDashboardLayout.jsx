@@ -17,33 +17,73 @@ function UserDashboardLayout({ darkMode, setDarkMode }) {
   // Fetch notifications from API
   useEffect(() => {
     fetchNotifications();
+    
+    // Listen for storage changes (when notifications are marked as read)
+    const handleStorageChange = (e) => {
+      if (e.key === 'readNotifications') {
+        // Refresh notifications when read status changes
+        fetchNotifications();
+      }
+    };
+    
+    // Listen for custom event when mark all as read is clicked
+    const handleMarkAllRead = () => {
+      fetchNotifications();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('notificationsMarkedAsRead', handleMarkAllRead);
+    
+    // Also poll for changes (in case same-tab updates don't trigger storage event)
+    const pollInterval = setInterval(() => {
+      fetchNotifications();
+    }, 10000); // Check every 10 seconds
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('notificationsMarkedAsRead', handleMarkAllRead);
+      clearInterval(pollInterval);
+    };
   }, []);
 
   const fetchNotifications = async () => {
     try {
       const response = await notificationService.getUserNotifications({
         page: 1,
-        limit: 10
+        limit: 100
       });
 
       if (response.success && response.data.notifications) {
-        const transformed = response.data.notifications.map(notif => {
-          // Determine type based on notification type
-          let notificationType = "info";
-          if (notif.type === "offer") notificationType = "success";
-          else if (notif.type === "profile") notificationType = "warning";
-          else if (notif.status === "failed") notificationType = "warning";
+        const transformed = response.data.notifications
+          .map(notif => {
+            const notificationId = notif._id || notif.notificationId;
+            
+            // Check if notification is read from localStorage
+            const isRead = notificationService.isNotificationRead(notificationId);
+            
+            // Determine type based on notification type
+            let notificationType = "info";
+            if (notif.type === "offer") notificationType = "success";
+            else if (notif.type === "profile") notificationType = "warning";
+            else if (notif.status === "failed") notificationType = "warning";
 
-          return {
-            id: notif._id || notif.notificationId,
-            title: notif.title,
-            message: notif.message,
-            type: notificationType,
-            sentDate: notif.sentDate || notif.createdAt
-          };
-        });
+            return {
+              id: notificationId,
+              title: notif.title,
+              message: notif.message,
+              type: notificationType,
+              sentDate: notif.sentDate || notif.createdAt,
+              isRead: isRead
+            };
+          })
+          // Filter out read notifications - only show unread ones
+          .filter(notif => !notif.isRead);
 
         setNotifications(transformed);
+        // Reset index if notifications list changed
+        if (transformed.length > 0 && notificationIndex >= transformed.length) {
+          setNotificationIndex(0);
+        }
       }
     } catch (err) {
       console.error('Error fetching notifications:', err);
@@ -51,12 +91,19 @@ function UserDashboardLayout({ darkMode, setDarkMode }) {
   };
 
   useEffect(() => {
-    if (notifications.length === 0) return;
+    // Only show popups if there are unread notifications
+    if (notifications.length === 0) {
+      setShowNotification(false);
+      setCurrentNotification(null);
+      return;
+    }
 
     const showNotificationPopup = () => {
       if (notifications.length === 0) return;
       
       const current = notifications[notificationIndex];
+      if (!current) return;
+      
       setCurrentNotification(current);
       setShowNotification(true);
 
@@ -156,7 +203,7 @@ function UserDashboardLayout({ darkMode, setDarkMode }) {
           } ${getNotificationStyles()}`}
         >
           <div className="flex items-start gap-2 sm:gap-3">
-            <span className="text-base sm:text-xl md:text-2xl flex-shrink-0">
+            <span className="text-base sm:text-xl md:text-2xl shrink-0">
               {getNotificationIcon()}
             </span>
             <div className="flex-1 min-w-0">
@@ -177,7 +224,7 @@ function UserDashboardLayout({ darkMode, setDarkMode }) {
             </div>
             <button
               onClick={() => setShowNotification(false)}
-              className={`flex-shrink-0 text-sm sm:text-base ${
+              className={`shrink-0 text-sm sm:text-base ${
                 darkMode
                   ? "text-gray-400 hover:text-white"
                   : "text-gray-600 hover:text-gray-900"

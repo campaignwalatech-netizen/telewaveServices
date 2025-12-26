@@ -95,6 +95,16 @@ const NotificationsPage = ({ darkMode }) => {
     const notificationIds = notifications.map(n => n.id);
     notificationService.markAllNotificationsAsRead(notificationIds);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new CustomEvent('notificationsMarkedAsRead'));
+    
+    // Also trigger storage event manually for same-tab updates
+    window.dispatchEvent(new StorageEvent('storage', {
+      key: 'readNotifications',
+      newValue: localStorage.getItem('readNotifications')
+    }));
+    
     toast.success('All notifications marked as read');
   };
 
@@ -210,7 +220,7 @@ const NotificationsPage = ({ darkMode }) => {
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 flex-shrink-0 ${
+              className={`px-4 py-2.5 rounded-lg font-medium text-sm transition-all duration-200 shrink-0 ${
                 activeCategory === cat
                   ? "bg-blue-600 text-white shadow-lg transform scale-105"
                   : darkMode
@@ -263,7 +273,7 @@ const NotificationsPage = ({ darkMode }) => {
                 <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
                   {/* Notification Icon */}
                   <div
-                    className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full text-lg sm:text-xl font-semibold flex-shrink-0 ${typeColors[notification.type]}`}
+                    className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-full text-lg sm:text-xl font-semibold shrink-0 ${typeColors[notification.type]}`}
                   >
                     {getTypeIcon(notification.type)}
                   </div>
@@ -275,7 +285,7 @@ const NotificationsPage = ({ darkMode }) => {
                         {notification.title}
                       </h3>
                       {!notification.read && (
-                        <span className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-2"></span>
+                        <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0 mt-2"></span>
                       )}
                     </div>
                     <p className={`text-xs sm:text-sm mt-2 leading-relaxed break-words ${darkMode ? "text-gray-300" : "text-gray-600"}`}>

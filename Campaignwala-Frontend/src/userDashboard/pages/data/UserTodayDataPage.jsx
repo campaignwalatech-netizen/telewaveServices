@@ -585,29 +585,54 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
       darkMode ? 'bg-gray-900 text-gray-100' : 'bg-gray-50 text-gray-900'
     }`}>
       {/* Mobile Header */}
-      <div className={`sticky top-0 z-10 p-4 border-b md:hidden ${
+      <div className={`sticky top-0 z-20 p-3 sm:p-4 border-b md:hidden ${
         darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
-      }`}>
+      } shadow-sm`}>
         <div className="flex justify-between items-center">
-          <h1 className="text-xl font-bold">Today's Data</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0">
+            <h1 className={`text-lg sm:text-xl font-bold truncate ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
+              Today's Data
+            </h1>
+            {filteredData.length > 0 && (
+              <p className={`text-xs sm:text-sm mt-0.5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                {filteredData.length} record{filteredData.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2 ml-2">
+            {(searchQuery || filterStatus !== 'all') && (
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                darkMode ? 'bg-blue-900/30 text-blue-300' : 'bg-blue-100 text-blue-700'
+              }`}>
+                Filtered
+              </span>
+            )}
             <button
               onClick={() => setShowMobileFilters(!showMobileFilters)}
-              className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+              className={`p-2 rounded-lg transition-colors ${
+                showMobileFilters
+                  ? darkMode ? 'bg-blue-700 text-white' : 'bg-blue-100 text-blue-700'
+                  : darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              }`}
+              aria-label="Toggle filters"
             >
               <Filter size={20} />
             </button>
             <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`p-2 rounded-lg ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'}`}
+              onClick={() => fetchTodayData()}
+              disabled={loading}
+              className={`p-2 rounded-lg transition-colors ${
+                darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+              } disabled:opacity-50`}
+              aria-label="Refresh data"
             >
-              {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
             </button>
           </div>
         </div>
       </div>
 
-      <div className="p-4 md:p-6">
+      <div className="p-3 sm:p-4 md:p-6">
         {/* Desktop Header */}
         <div className="hidden md:block mb-8">
           <div className="flex justify-between items-start md:items-center mb-4">
@@ -635,59 +660,59 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
         </div>
         
         {/* Stats Overview - Mobile First */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-8">
-          <div className={`rounded-xl shadow p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
+          <div className={`rounded-lg sm:rounded-xl shadow-sm sm:shadow p-2.5 sm:p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="flex items-center">
-              <div className={`p-2 md:p-3 rounded-lg mr-3 md:mr-4 ${
+              <div className={`p-1.5 sm:p-2 md:p-3 rounded-lg mr-2 sm:mr-3 md:mr-4 shrink-0 ${
                 darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'
               }`}>
-                <Target className="w-4 h-4 md:w-5 md:h-5" />
+                <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
               </div>
-              <div>
-                <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Assigned</p>
-                <p className="text-lg md:text-2xl font-bold">{todaysCounts.total}</p>
+              <div className="min-w-0 flex-1">
+                <p className={`text-[10px] sm:text-xs md:text-sm truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Assigned</p>
+                <p className="text-base sm:text-lg md:text-2xl font-bold truncate">{todaysCounts.total}</p>
               </div>
             </div>
           </div>
           
-          <div className={`rounded-xl shadow p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className={`rounded-lg sm:rounded-xl shadow-sm sm:shadow p-2.5 sm:p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="flex items-center">
-              <div className={`p-2 md:p-3 rounded-lg mr-3 md:mr-4 ${
+              <div className={`p-1.5 sm:p-2 md:p-3 rounded-lg mr-2 sm:mr-3 md:mr-4 shrink-0 ${
                 darkMode ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-600'
               }`}>
-                <Clock className="w-4 h-4 md:w-5 md:h-5" />
+                <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
               </div>
-              <div>
-                <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Pending</p>
-                <p className="text-lg md:text-2xl font-bold">{todaysCounts.pending}</p>
+              <div className="min-w-0 flex-1">
+                <p className={`text-[10px] sm:text-xs md:text-sm truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Pending</p>
+                <p className="text-base sm:text-lg md:text-2xl font-bold truncate">{todaysCounts.pending}</p>
               </div>
             </div>
           </div>
           
-          <div className={`rounded-xl shadow p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className={`rounded-lg sm:rounded-xl shadow-sm sm:shadow p-2.5 sm:p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="flex items-center">
-              <div className={`p-2 md:p-3 rounded-lg mr-3 md:mr-4 ${
+              <div className={`p-1.5 sm:p-2 md:p-3 rounded-lg mr-2 sm:mr-3 md:mr-4 shrink-0 ${
                 darkMode ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-600'
               }`}>
-                <PhoneCall className="w-4 h-4 md:w-5 md:h-5" />
+                <PhoneCall className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
               </div>
-              <div>
-                <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Called</p>
-                <p className="text-lg md:text-2xl font-bold">{todaysCounts.called}</p>
+              <div className="min-w-0 flex-1">
+                <p className={`text-[10px] sm:text-xs md:text-sm truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Called</p>
+                <p className="text-base sm:text-lg md:text-2xl font-bold truncate">{todaysCounts.called}</p>
               </div>
             </div>
           </div>
           
-          <div className={`rounded-xl shadow p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+          <div className={`rounded-lg sm:rounded-xl shadow-sm sm:shadow p-2.5 sm:p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="flex items-center">
-              <div className={`p-2 md:p-3 rounded-lg mr-3 md:mr-4 ${
+              <div className={`p-1.5 sm:p-2 md:p-3 rounded-lg mr-2 sm:mr-3 md:mr-4 shrink-0 ${
                 darkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-600'
               }`}>
-                <CheckCircle className="w-4 h-4 md:w-5 md:h-5" />
+                <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
               </div>
-              <div>
-                <p className={`text-xs md:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Closed</p>
-                <p className="text-lg md:text-2xl font-bold">{todaysCounts.closed}</p>
+              <div className="min-w-0 flex-1">
+                <p className={`text-[10px] sm:text-xs md:text-sm truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Closed</p>
+                <p className="text-base sm:text-lg md:text-2xl font-bold truncate">{todaysCounts.closed}</p>
               </div>
             </div>
           </div>
@@ -695,39 +720,46 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
         
         {/* Mobile Filters Overlay */}
         {showMobileFilters && (
-          <div className={`fixed inset-0 z-50 md:hidden ${darkMode ? 'bg-gray-900/95' : 'bg-white/95'}`}>
-            <div className="p-4">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">Filters</h2>
-                <button
-                  onClick={() => setShowMobileFilters(false)}
-                  className="p-2"
-                >
-                  ✕
-                </button>
+          <div className={`fixed inset-0 z-50 md:hidden ${darkMode ? 'bg-gray-900/95' : 'bg-white/95'} backdrop-blur-sm`}>
+            <div className="flex flex-col h-full overflow-y-auto">
+              {/* Mobile Filter Header */}
+              <div className={`sticky top-0 z-10 p-4 border-b ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+                <div className="flex justify-between items-center">
+                  <h2 className={`text-xl font-bold ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>Filters & Actions</h2>
+                  <button
+                    onClick={() => setShowMobileFilters(false)}
+                    className={`p-2 rounded-lg ${darkMode ? 'hover:bg-gray-700 text-gray-300' : 'hover:bg-gray-100 text-gray-600'}`}
+                    aria-label="Close filters"
+                  >
+                    <span className="text-2xl">×</span>
+                  </button>
+                </div>
               </div>
               
-              <div className="space-y-4">
+              {/* Mobile Filter Content - Scrollable */}
+              <div className="flex-1 p-4 space-y-4">
+                {/* Search Input */}
                 <div>
                   <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     Search
                   </label>
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                    <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} size={18} />
                     <input
                       type="text"
                       placeholder="Search by name, contact..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className={`w-full pl-10 pr-4 py-3 rounded-lg ${
+                      className={`w-full pl-10 pr-4 py-3 rounded-lg text-base ${
                         darkMode 
-                          ? 'bg-gray-800 border-gray-700 text-white' 
-                          : 'bg-white border-gray-300'
+                          ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' 
+                          : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'
                       } border focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
                     />
                   </div>
                 </div>
                 
+                {/* Status Filter */}
                 <div>
                   <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                     Filter by Status
@@ -735,10 +767,10 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
                   <select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
-                    className={`w-full px-4 py-3 rounded-lg ${
+                    className={`w-full px-4 py-3 rounded-lg text-base ${
                       darkMode 
                         ? 'bg-gray-800 border-gray-700 text-white' 
-                        : 'bg-white border-gray-300'
+                        : 'bg-white border-gray-300 text-gray-900'
                     } border focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
                   >
                     <option value="all">All Status</option>
@@ -750,9 +782,10 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
                   </select>
                 </div>
                 
+                {/* Selected Count Display */}
                 {selectedData.length > 0 && (
-                  <div className="pt-4 border-t border-gray-700">
-                    <p className={`text-sm mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-gray-50 border border-gray-200'}`}>
+                    <p className={`text-sm font-medium mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                       {selectedData.length} record{selectedData.length !== 1 ? 's' : ''} selected
                     </p>
                     <div className="space-y-2">
@@ -762,7 +795,7 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
                           setShowMobileFilters(false);
                         }}
                         disabled={loading}
-                        className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium flex items-center justify-center space-x-2 disabled:opacity-50"
+                        className="w-full px-4 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         <CheckCircle size={18} />
                         <span>Mark as Converted</span>
@@ -773,14 +806,61 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
                           setShowMobileFilters(false);
                         }}
                         disabled={loading}
-                        className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center justify-center space-x-2 disabled:opacity-50"
+                        className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white rounded-lg font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
                         <Check size={18} />
                         <span>Mark as Closed</span>
                       </button>
+                      <button
+                        onClick={() => {
+                          handleBulkClose('not_reachable');
+                          setShowMobileFilters(false);
+                        }}
+                        disabled={loading}
+                        className="w-full px-4 py-3 bg-orange-600 hover:bg-orange-700 active:bg-orange-800 text-white rounded-lg font-medium flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        <AlertCircle size={18} />
+                        <span>Mark as Invalid Number</span>
+                      </button>
                     </div>
                   </div>
                 )}
+                
+                {/* Quick Actions */}
+                <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-800 border border-gray-700' : 'bg-gray-50 border border-gray-200'}`}>
+                  <h3 className={`text-sm font-medium mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Quick Actions</h3>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setFilterStatus('all');
+                        setShowMobileFilters(false);
+                      }}
+                      className={`w-full px-4 py-2 rounded-lg text-sm font-medium ${
+                        darkMode 
+                          ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' 
+                          : 'bg-white hover:bg-gray-100 text-gray-700 border border-gray-300'
+                      } transition-colors`}
+                    >
+                      Clear Filters
+                    </button>
+                    <button
+                      onClick={() => {
+                        fetchTodayData();
+                        setShowMobileFilters(false);
+                      }}
+                      disabled={loading}
+                      className={`w-full px-4 py-2 rounded-lg text-sm font-medium flex items-center justify-center space-x-2 ${
+                        darkMode 
+                          ? 'bg-gray-700 hover:bg-gray-600 text-gray-200' 
+                          : 'bg-white hover:bg-gray-100 text-gray-700 border border-gray-300'
+                      } disabled:opacity-50 transition-colors`}
+                    >
+                      <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+                      <span>Refresh Data</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -904,123 +984,125 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
             ) : (
               <div className="md:table w-full">
                 {/* Mobile Card View */}
-                <div className="md:hidden">
+                <div className="md:hidden space-y-3">
                   {filteredData.map((item) => (
                     <div
                       key={item._id}
-                      className={`p-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}
+                      className={`p-3 sm:p-4 rounded-lg border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} shadow-sm`}
                     >
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center mb-2">
+                      <div className="flex justify-between items-start gap-3 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-2 mb-2">
                             <input
                               type="checkbox"
                               checked={selectedData.includes(item._id)}
                               onChange={() => toggleDataSelection(item._id)}
-                              className={`h-4 w-4 mr-3 rounded ${
+                              className={`h-4 w-4 mt-0.5 rounded shrink-0 ${
                                 darkMode 
                                   ? 'bg-gray-700 border-gray-600 text-blue-400 focus:ring-blue-500/30' 
                                   : 'border-gray-300 text-blue-600 focus:ring-blue-500'
                               }`}
                             />
-                            <div>
-                              <div className={`font-medium ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                            <div className="min-w-0 flex-1">
+                              <div className={`font-medium text-sm sm:text-base truncate ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
                                 {item.name || 'Unknown'}
                               </div>
-                              <div className="text-sm font-mono">{item.contact || 'No contact'}</div>
+                              <div className={`text-xs sm:text-sm font-mono truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                {item.contact || 'No contact'}
+                              </div>
                             </div>
                           </div>
                           
-                          <div className="space-y-2 ml-7">
-                            <div className="flex items-center text-sm">
-                              <FileText size={14} className="mr-2 flex-shrink-0" />
-                              <span>Batch: {item.batchNumber || 'N/A'}</span>
+                          <div className="space-y-1.5 sm:space-y-2 ml-6 sm:ml-7">
+                            <div className={`flex items-center text-xs sm:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                              <FileText size={12} className="mr-1.5 sm:mr-2 shrink-0" />
+                              <span className="truncate">Batch: {item.batchNumber || 'N/A'}</span>
                             </div>
                             
                             {item.source && (
-                              <div className="text-sm">
+                              <div className={`text-xs sm:text-sm truncate ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
                                 Source: {item.source}
                               </div>
                             )}
                             
                             {item.assignedAt && (
-                              <div className="text-sm">
+                              <div className={`text-xs sm:text-sm ${darkMode ? 'text-gray-500' : 'text-gray-600'}`}>
                                 Assigned: {formatDate(item.assignedAt)}
                               </div>
                             )}
                             
                             {item.calledAt && (
-                              <div className="text-sm text-blue-500">
+                              <div className="text-xs sm:text-sm text-blue-500">
                                 Called: {formatDate(item.calledAt)}
                               </div>
                             )}
                             
                             {item.closedAt && (
-                              <div className="text-sm text-green-500">
+                              <div className="text-xs sm:text-sm text-green-500">
                                 Closed: {formatDate(item.closedAt)}
                               </div>
                             )}
                             
                             {item.responseType && (
-                              <div className={`text-sm font-medium ${getResponseTypeColor(item.responseType)}`}>
-                                <CheckCircle size={12} className="inline mr-1" />
+                              <div className={`text-xs sm:text-sm font-medium ${getResponseTypeColor(item.responseType)}`}>
+                                <CheckCircle size={10} className="inline mr-1" />
                                 Response: {getResponseTypeText(item.responseType)}
                               </div>
                             )}
                             
                             {item.callAttempts > 0 && (
-                              <div className="text-sm text-purple-500">
-                                <PhoneCall size={12} className="inline mr-1" />
+                              <div className="text-xs sm:text-sm text-purple-500">
+                                <PhoneCall size={10} className="inline mr-1" />
                                 Calls: {item.callAttempts}
                               </div>
                             )}
                           </div>
                         </div>
                         
-                        <div className="flex flex-col items-end">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mb-3 ${getStatusColor(item)}`}>
+                        <div className="flex flex-col items-end shrink-0">
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] sm:text-xs font-medium mb-2 sm:mb-3 ${getStatusColor(item)}`}>
                             {getStatusIcon(item)}
-                            <span className="ml-1">{getStatusText(item)}</span>
+                            <span className="ml-1 whitespace-nowrap">{getStatusText(item)}</span>
                           </span>
                           
                           {/* Actions for Mobile */}
                           {!['converted', 'rejected', 'not_reachable'].includes(item.status) && (
-                            <div className="flex flex-col space-y-2">
+                            <div className="flex flex-col space-y-1.5 sm:space-y-2 w-full sm:w-auto">
                               <button
                                 onClick={() => handleCall(item._id, item.contact)}
                                 disabled={loading || item.status === 'contacted'}
-                                className={`px-3 py-1.5 rounded-lg flex items-center justify-center space-x-1 text-sm ${
+                                className={`px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center justify-center space-x-1 text-xs sm:text-sm w-full sm:w-auto ${
                                   item.status === 'contacted'
                                     ? darkMode
                                       ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                                       : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                     : darkMode
-                                    ? 'bg-blue-900/30 text-blue-300 hover:bg-blue-800/30'
-                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                                }`}
+                                    ? 'bg-blue-900/30 text-blue-300 hover:bg-blue-800/30 active:bg-blue-700/30'
+                                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200 active:bg-blue-300'
+                                } transition-colors`}
                               >
-                                <Phone size={14} />
-                                <span>{item.status === 'contacted' ? 'Called' : 'Call'}</span>
+                                <Phone size={12} className="sm:w-3.5 sm:h-3.5" />
+                                <span className="whitespace-nowrap">{item.status === 'contacted' ? 'Called' : 'Call'}</span>
                               </button>
                               
-                              <div className="relative" ref={el => dropdownRefs.current[item._id] = el}>
+                              <div className="relative w-full sm:w-auto" ref={el => dropdownRefs.current[item._id] = el}>
                                 <button
                                   onClick={() => toggleDropdown(item._id)}
                                   disabled={loading}
-                                  className={`px-3 py-1.5 rounded-lg flex items-center justify-center space-x-1 text-sm ${
+                                  className={`px-2.5 sm:px-3 py-1.5 rounded-lg flex items-center justify-center space-x-1 text-xs sm:text-sm w-full sm:w-auto ${
                                     darkMode 
-                                      ? 'bg-green-900/30 text-green-300 hover:bg-green-800/30' 
-                                      : 'bg-green-100 text-green-700 hover:bg-green-200'
-                                  }`}
+                                      ? 'bg-green-900/30 text-green-300 hover:bg-green-800/30 active:bg-green-700/30' 
+                                      : 'bg-green-100 text-green-700 hover:bg-green-200 active:bg-green-300'
+                                  } transition-colors`}
                                 >
-                                  <CheckCircle size={14} />
-                                  <span>Close</span>
-                                  <ChevronRight size={14} />
+                                  <CheckCircle size={12} className="sm:w-3.5 sm:h-3.5" />
+                                  <span className="whitespace-nowrap">Close</span>
+                                  <ChevronRight size={12} className="sm:w-3.5 sm:h-3.5" />
                                 </button>
                                 
                                 {/* Dropdown Menu */}
                                 {openDropdownId === item._id && (
-                                  <div className={`absolute right-0 top-full mt-1 w-48 rounded-lg shadow-lg z-10 ${
+                                  <div className={`absolute right-0 top-full mt-1 w-48 sm:w-56 rounded-lg shadow-lg z-20 ${
                                     darkMode 
                                       ? 'bg-gray-800 border-gray-700' 
                                       : 'bg-white border-gray-200'
@@ -1427,7 +1509,7 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
                         <div key={index} className={`text-sm flex items-start ${
                           darkMode ? 'text-red-400' : 'text-red-600'
                         }`}>
-                          <AlertCircle size={14} className="mr-2 mt-0.5 flex-shrink-0" />
+                          <AlertCircle size={14} className="mr-2 mt-0.5 shrink-0" />
                           <span>ID {error.dataId}: {error.error}</span>
                         </div>
                       ))}

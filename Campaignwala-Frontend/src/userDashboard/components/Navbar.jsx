@@ -208,9 +208,30 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
     };
 
     fetchNotificationCount();
+    
+    // Listen for storage changes (when notifications are marked as read)
+    const handleStorageChange = (e) => {
+      if (e.key === 'readNotifications') {
+        fetchNotificationCount();
+      }
+    };
+    
+    // Listen for custom event when mark all as read is clicked
+    const handleMarkAllRead = () => {
+      fetchNotificationCount();
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('notificationsMarkedAsRead', handleMarkAllRead);
+    
     // Refresh notification count every 30 seconds
     const interval = setInterval(fetchNotificationCount, 30000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('notificationsMarkedAsRead', handleMarkAllRead);
+    };
   }, [user]);
 
   // ---------------------------
