@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Play, Pause, Volume2 } from 'lucide-react';
 import api from '../../services/api';
@@ -6,6 +6,75 @@ import walletService from '../../services/walletService';
 import leadService from '../../services/leadService';
 import authService from '../../services/authService';
 
+// Static slides configuration - moved outside component to prevent re-creation
+const staticSlides = [
+  {
+    id: 1,
+    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop",
+    alt: "Earn More & More",
+    title: "Earn More & More!!",
+    description: "Grow your skills and earnings with our exclusive programs!",
+    gradient: "from-indigo-600/80 to-purple-600/80",
+    buttonText: ""
+  },
+  {
+    id: 2,
+    image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&h=400&fit=crop",
+    alt: "Savings Account Offers",
+    title: "Saving Offers Are Live Going On!",
+    description: "Don't miss out on exclusive savings account benefits!",
+    gradient: "from-green-600/80 to-teal-600/80",
+    buttonText: ""
+  },
+  {
+    id: 3,
+    image: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&h=400&fit=crop",
+    alt: "Demat Account Special Offers",
+    title: "Demat Offers Going On!",
+    description: "Exclusive deals on demat accounts - Limited time only!",
+    gradient: "from-blue-600/80 to-purple-600/80",
+    buttonText: "Explore Now"
+  },
+  {
+    id: 4,
+    image: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&h=400&fit=crop",
+    alt: "Credit Card Special Offers",
+    title: "Credit Card Offers Live!",
+    description: "Get amazing rewards and cashback on premium credit cards!",
+    gradient: "from-amber-600/80 to-orange-600/80",
+    buttonText: "Apply Now"
+  },
+  {
+    id: 5,
+    image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&h=400&fit=crop",
+    alt: "Saturday Bonus",
+    title: "Saturday Special Bonus!",
+    description: "You will get ₹100 per account on every Saturday!",
+    description2: "Complete your accounts and earn weekly bonuses!",
+    gradient: "from-yellow-600/80 to-amber-600/80",
+    buttonText: "Claim Bonus"
+  },
+  {
+    id: 6,
+    image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=400&fit=crop",
+    alt: "Weekly Rewards",
+    title: "Weekly Rewards Program!",
+    description: "Get ₹100 per account every Saturday!",
+    description2: "Join now and start earning weekly bonuses!",
+    gradient: "from-pink-600/80 to-rose-600/80",
+    buttonText: "Join Now"
+  },
+  {
+    id: 7,
+    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop",
+    alt: "Account Bonus",
+    title: "Account Bonus Every Saturday!",
+    description: "Earn ₹100 per account on every Saturday!",
+    description2: "Don't miss out on your weekly earnings!",
+    gradient: "from-indigo-600/80 to-blue-600/80",
+    buttonText: "Learn More"
+  }
+];
 
 const Dashboard = ({ darkMode }) => {
   const navigate = useNavigate();
@@ -43,6 +112,118 @@ const Dashboard = ({ darkMode }) => {
     'from-indigo-400 to-blue-500',
   ];
 
+  // Define all functions before using them in useEffect
+  const checkRegistrationStatus = useCallback(() => {
+    // Using authService to check if user is approved
+    if (!authService.isUserApproved()) {
+      const status = authService.getUserRegistrationStatus();
+      console.log(`⚠️ User not approved (status: ${status}), redirecting to pending approval`);
+      navigate('/pending-approval', { replace: true });
+      return;
+    }
+  }, [navigate]);
+
+  const fetchUserProfile = useCallback(async () => {
+    try {
+      const response = await api.get('/users/profile');
+      if (response.data.success) {
+        setUserName(response.data.data.user?.name || '#user');
+        // Double-check registration status from API - only redirect if not already on pending page
+        if (response.data.data.user?.registrationStatus !== 'approved' && window.location.pathname !== '/pending-approval') {
+          navigate('/pending-approval', { replace: true });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      // Don't redirect on error, just log it
+    }
+  }, [navigate]);
+
+  const fetchWalletData = useCallback(async () => {
+    try {
+      const userData = localStorage.getItem('user');
+      if (userData && userData !== 'undefined' && userData !== 'null') {
+        const user = JSON.parse(userData);
+        if (user._id) {
+          const response = await walletService.getWalletByUserId(user._id);
+          if (response.success) {
+            setWalletData({
+              balance: response.data.balance || 0,
+              totalEarned: response.data.totalEarned || 0,
+              totalWithdrawn: response.data.totalWithdrawn || 0
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching wallet data:', error);
+    }
+  }, []);
+
+  const fetchLeadsStats = useCallback(async () => {
+    try {
+      const userData = localStorage.getItem('user');
+      if (userData && userData !== 'undefined' && userData !== 'null') {
+        const user = JSON.parse(userData);
+        if (user._id) {
+          const response = await leadService.getLeadStats(user._id);
+          if (response.success) {
+            setLeadsStats({
+              total: response.data.total || 0,
+              pending: response.data.pending || 0,
+              approved: response.data.approved || 0,
+              rejected: response.data.rejected || 0
+            });
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching leads stats:', error);
+    }
+  }, []);
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/categories', {
+        params: {
+          status: 'active',
+          limit: 10
+        }
+      });
+      
+      if (response.data.success) {
+        setCategories(response.data.data.categories || []);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchSlides = useCallback(async () => {
+    try {
+      setSlidesLoading(true);
+      const response = await api.get('/slides', {
+        params: {
+          status: 'active',
+          limit: 10,
+          sortBy: 'order',
+          order: 'asc'
+        }
+      });
+      
+      if (response.data.success) {
+        setSlides(response.data.data.slides || []);
+      }
+    } catch (error) {
+      console.error('Error fetching slides:', error);
+    } finally {
+      setSlidesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     // Check registration status before loading dashboard
     checkRegistrationStatus();
@@ -51,8 +232,7 @@ const Dashboard = ({ darkMode }) => {
     fetchLeadsStats();
     fetchUserProfile();
     fetchSlides();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [checkRegistrationStatus, fetchUserProfile, fetchCategories, fetchWalletData, fetchLeadsStats, fetchSlides]);
 
   // Separate effect for audio setup after component mounts
   useEffect(() => {
@@ -104,224 +284,20 @@ const Dashboard = ({ darkMode }) => {
     };
   }, []);
 
-  const checkRegistrationStatus = () => {
-    // Using authService to check if user is approved
-    if (!authService.isUserApproved()) {
-      const status = authService.getUserRegistrationStatus();
-      console.log(`⚠️ User not approved (status: ${status}), redirecting to pending approval`);
-      navigate('/pending-approval', { replace: true });
-      return;
-    }
-  };
-
   // Auto-slide effect with smooth transition - Include all slides
   useEffect(() => {
     if (isPaused) return;
     
-    // Calculate total slides: backend slides + 10 static slides
-    const totalSlides = slides.length > 0 ? slides.length + 10 : 10;
+    // Calculate total slides: backend slides + static slides (7 slides)
+    const totalSlides = slides.length + staticSlides.length;
+    if (totalSlides === 0) return; // Don't set interval if no slides
+    
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % totalSlides);
     }, 5000); // 5 seconds per slide
     return () => clearInterval(timer);
   }, [slides.length, isPaused]);
 
-  const fetchUserProfile = async () => {
-    try {
-      const response = await api.get('/users/profile');
-      if (response.data.success) {
-        setUserName(response.data.data.user?.name || '#user');
-        // Double-check registration status from API
-        if (response.data.data.user?.registrationStatus !== 'approved') {
-          navigate('/pending-approval', { replace: true });
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching user profile:', error);
-    }
-  };
-
-  const fetchWalletData = async () => {
-    try {
-      const userData = localStorage.getItem('user');
-      if (userData && userData !== 'undefined' && userData !== 'null') {
-        const user = JSON.parse(userData);
-        if (user._id) {
-          const response = await walletService.getWalletByUserId(user._id);
-          if (response.success) {
-            setWalletData({
-              balance: response.data.balance || 0,
-              totalEarned: response.data.totalEarned || 0,
-              totalWithdrawn: response.data.totalWithdrawn || 0
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching wallet data:', error);
-    }
-  };
-
-  const fetchLeadsStats = async () => {
-    try {
-      const userData = localStorage.getItem('user');
-      if (userData && userData !== 'undefined' && userData !== 'null') {
-        const user = JSON.parse(userData);
-        if (user._id) {
-          const response = await leadService.getLeadStats(user._id);
-          if (response.success) {
-            setLeadsStats({
-              total: response.data.total || 0,
-              pending: response.data.pending || 0,
-              approved: response.data.approved || 0,
-              rejected: response.data.rejected || 0
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching leads stats:', error);
-    }
-  };
-
-  const fetchCategories = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/categories', {
-        params: {
-          status: 'active',
-          limit: 10
-        }
-      });
-      
-      if (response.data.success) {
-        setCategories(response.data.data.categories || []);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchSlides = async () => {
-    try {
-      setSlidesLoading(true);
-      const response = await api.get('/slides', {
-        params: {
-          status: 'active',
-          limit: 10,
-          sortBy: 'order',
-          order: 'asc'
-        }
-      });
-      
-      if (response.data.success) {
-        setSlides(response.data.data.slides || []);
-      }
-    } catch (error) {
-      console.error('Error fetching slides:', error);
-    } finally {
-      setSlidesLoading(false);
-    }
-  };
-
-  // Static slides configuration
-  const staticSlides = [
-    {
-      id: 1,
-      image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop",
-      alt: "Earn More & More",
-      title: "Earn More & More!!",
-      description: "Grow your skills and earnings with our exclusive programs!",
-      gradient: "from-indigo-600/80 to-purple-600/80",
-      buttonText: ""
-    },
-    {
-      id: 2,
-      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=400&fit=crop",
-      alt: "Big Offers Coming",
-      title: "Big Offers Coming Soon!!",
-      description: "Get ready for amazing deals and exclusive benefits!",
-      gradient: "from-orange-600/80 to-red-600/80",
-      buttonText: ""
-    },
-    {
-      id: 3,
-      image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&h=400&fit=crop",
-      alt: "Savings Account Offers",
-      title: "Saving Offers Are Live Going On!",
-      description: "Don't miss out on exclusive savings account benefits!",
-      gradient: "from-green-600/80 to-teal-600/80",
-      buttonText: ""
-    },
-    {
-      id: 4,
-      image: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&h=400&fit=crop",
-      alt: "Demat Account Special Offers",
-      title: "Demat Offers Going On!",
-      description: "Exclusive deals on demat accounts - Limited time only!",
-      gradient: "from-blue-600/80 to-purple-600/80",
-      buttonText: "Explore Now"
-    },
-    {
-      id: 5,
-      image: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200&h=400&fit=crop",
-      alt: "Credit Card Special Offers",
-      title: "Credit Card Offers Live!",
-      description: "Get amazing rewards and cashback on premium credit cards!",
-      gradient: "from-amber-600/80 to-orange-600/80",
-      buttonText: "Apply Now"
-    },
-    {
-      id: 6,
-      image: "https://images.unsplash.com/photo-1579621970795-87facc2f976d?w=1200&h=400&fit=crop",
-      alt: "Personal Loan Offers",
-      title: "Personal Loan Offers!",
-      description: "Low interest rates and instant approval available now!",
-      gradient: "from-red-600/80 to-pink-600/80",
-      buttonText: "Get Loan"
-    },
-    {
-      id: 7,
-      image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&h=400&fit=crop",
-      alt: "Investment Opportunities",
-      title: "Investment Offers Live!",
-      description: "Start your investment journey with exclusive bonuses!",
-      gradient: "from-emerald-600/80 to-green-600/80",
-      buttonText: "Invest Now"
-    },
-    {
-      id: 8,
-      image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&h=400&fit=crop",
-      alt: "Saturday Bonus",
-      title: "Saturday Special Bonus!",
-      description: "You will get ₹100 per account on every Saturday!",
-      description2: "Complete your accounts and earn weekly bonuses!",
-      gradient: "from-yellow-600/80 to-amber-600/80",
-      buttonText: "Claim Bonus"
-    },
-    {
-      id: 9,
-      image: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=400&fit=crop",
-      alt: "Weekly Rewards",
-      title: "Weekly Rewards Program!",
-      description: "Get ₹100 per account every Saturday!",
-      description2: "Join now and start earning weekly bonuses!",
-      gradient: "from-pink-600/80 to-rose-600/80",
-      buttonText: "Join Now"
-    },
-    {
-      id: 10,
-      image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop",
-      alt: "Account Bonus",
-      title: "Account Bonus Every Saturday!",
-      description: "Earn ₹100 per account on every Saturday!",
-      description2: "Don't miss out on your weekly earnings!",
-      gradient: "from-indigo-600/80 to-blue-600/80",
-      buttonText: "Learn More"
-    }
-  ];
 
   // Calculate total slides
   const totalSlides = slides.length + staticSlides.length;
@@ -391,13 +367,12 @@ const Dashboard = ({ darkMode }) => {
             Welcome, <span className="capitalize font-semibold">{userName}</span>! 🌟
         </h2>
           
-          {/* Audio Player */}
-          {!audioError && (
-            <div className={`flex items-center gap-2 px-3 py-2 rounded-full shadow-lg transition-all hover:scale-105 ${
-              darkMode 
-                ? 'bg-gray-800/80 border border-gray-700' 
-                : 'bg-white/90 border border-gray-200'
-            }`}>
+          {/* Audio Player - Always show, but disable if error */}
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-full shadow-lg transition-all hover:scale-105 ${
+            darkMode 
+              ? 'bg-gray-800/80 border border-gray-700' 
+              : 'bg-white/90 border border-gray-200'
+          } ${audioError ? 'opacity-50' : ''}`}>
               <audio
                 ref={audioRef}
                 src="/sample-audio.mp3"
@@ -473,7 +448,6 @@ const Dashboard = ({ darkMode }) => {
                 darkMode ? 'text-gray-400' : 'text-gray-600'
               }`} />
             </div>
-          )}
         </div>
         <p className={`text-xs sm:text-sm md:text-base text-center max-w-2xl mx-auto px-4 ${
           darkMode ? 'text-gray-400' : 'text-gray-500'

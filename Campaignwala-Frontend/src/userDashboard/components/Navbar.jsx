@@ -525,7 +525,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
           document.body
         )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes fadeIn {
           from {
             opacity: 0;
