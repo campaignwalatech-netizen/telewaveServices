@@ -280,20 +280,52 @@ const hasPermission = (permission) => {
 // ==================== ATTENDANCE SPECIFIC MIDDLEWARE ====================
 
 /**
- * Check if user can mark attendance (only between 9 AM to 10 AM)
+ * Get IST time components from UTC
+ * IST is UTC+5:30
+ */
+const getISTTimeComponents = () => {
+    const now = new Date();
+    // Get UTC time components
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+    const utcSeconds = now.getUTCSeconds();
+    
+    // Convert to IST (UTC+5:30)
+    let istHours = utcHours + 5;
+    let istMinutes = utcMinutes + 30;
+    
+    // Handle minute overflow
+    if (istMinutes >= 60) {
+        istHours += 1;
+        istMinutes -= 60;
+    }
+    
+    // Handle hour overflow (next day)
+    if (istHours >= 24) {
+        istHours -= 24;
+    }
+    
+    return { hours: istHours, minutes: istMinutes, seconds: utcSeconds };
+};
+
+/**
+ * Check if user can mark attendance (only between 00:01 AM to 10:00 AM IST)
  * @returns {Function} Express middleware
  */
 const canMarkAttendance = (req, res, next) => {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const { hours: currentHour, minutes: currentMinute } = getISTTimeComponents();
     
-    // Check if within 9 AM to 10 AM window
-    if (currentHour < 9 || (currentHour === 10 && currentMinute > 0) || currentHour > 10) {
+    // Convert to minutes since midnight for easier comparison
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+    const startTimeInMinutes = 0 * 60 + 1; // 00:01 AM
+    const endTimeInMinutes = 10 * 60 + 0; // 10:00 AM
+    
+    // Check if within 00:01 AM to 10:00 AM IST window
+    if (currentTimeInMinutes < startTimeInMinutes || currentTimeInMinutes > endTimeInMinutes) {
         return res.status(HTTP_STATUS.FORBIDDEN).json({
             success: false,
-            message: 'Attendance can only be marked between 9:00 AM and 10:00 AM',
-            currentTime: now.toISOString()
+            message: 'Attendance can only be marked between 00:01 AM and 10:00 AM IST',
+            currentIST: `${String(currentHour).padStart(2, '0')}:${String(currentMinute).padStart(2, '0')} IST`
         });
     }
 

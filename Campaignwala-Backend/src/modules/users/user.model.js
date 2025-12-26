@@ -1166,13 +1166,35 @@ userSchema.methods.canMarkAttendance = function () {
         };
     }
     
+    // Get IST time components (UTC+5:30)
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+    
+    // Convert to IST
+    let currentHour = utcHours + 5;
+    let currentMinute = utcMinutes + 30;
+    
+    // Handle minute overflow
+    if (currentMinute >= 60) {
+        currentHour += 1;
+        currentMinute -= 60;
+    }
+    
+    // Handle hour overflow (next day)
+    if (currentHour >= 24) {
+        currentHour -= 24;
+    }
     
     if (this.attendance.todayMarkedAt) {
         const markedDate = new Date(this.attendance.todayMarkedAt);
-        if (markedDate.toDateString() === now.toDateString()) {
+        // Compare dates (using UTC date for comparison)
+        const markedUTC = new Date(markedDate);
+        markedUTC.setUTCHours(0, 0, 0, 0);
+        const todayUTC = new Date(now);
+        todayUTC.setUTCHours(0, 0, 0, 0);
+        
+        if (markedUTC.getTime() === todayUTC.getTime()) {
             return {
                 canMark: false,
                 message: 'Attendance already marked for today'
@@ -1180,13 +1202,15 @@ userSchema.methods.canMarkAttendance = function () {
         }
     }
     
-    const startHour = 9;
-    const endHour = 10;
+    // Convert to minutes since midnight for easier comparison
+    const currentTimeInMinutes = currentHour * 60 + currentMinute;
+    const startTimeInMinutes = 0 * 60 + 1; // 00:01 AM
+    const endTimeInMinutes = 10 * 60 + 0; // 10:00 AM
     
-    if (currentHour < startHour || (currentHour === endHour && currentMinute > 0) || currentHour > endHour) {
+    if (currentTimeInMinutes < startTimeInMinutes || currentTimeInMinutes > endTimeInMinutes) {
         return {
             canMark: false,
-            message: `Attendance can only be marked between ${startHour}:00 AM and ${endHour}:00 AM IST`
+            message: `Attendance can only be marked between 00:01 AM and 10:00 AM IST`
         };
     }
     

@@ -37,17 +37,33 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
   const navigate = useNavigate();
 
   // ---------------------------
-  // CHECK TIME RANGE FUNCTION
+  // CHECK TIME RANGE FUNCTION (IST)
   // ---------------------------
   const checkTimeRange = () => {
+    // Get IST time components (UTC+5:30)
     const now = new Date();
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const utcHours = now.getUTCHours();
+    const utcMinutes = now.getUTCMinutes();
+    
+    // Convert to IST
+    let currentHour = utcHours + 5;
+    let currentMinute = utcMinutes + 30;
+    
+    // Handle minute overflow
+    if (currentMinute >= 60) {
+      currentHour += 1;
+      currentMinute -= 60;
+    }
+    
+    // Handle hour overflow (next day)
+    if (currentHour >= 24) {
+      currentHour -= 24;
+    }
     
     // Convert to minutes since midnight for easier comparison
     const currentTimeInMinutes = currentHour * 60 + currentMinute;
-    const startTimeInMinutes = 0 * 60 + 1; // 00:01 AM
-    const endTimeInMinutes = 10 * 60 + 0; // 10:00 AM
+    const startTimeInMinutes = 0 * 60 + 1; // 00:01 AM IST
+    const endTimeInMinutes = 10 * 60 + 0; // 10:00 AM IST
     
     return currentTimeInMinutes >= startTimeInMinutes && currentTimeInMinutes <= endTimeInMinutes;
   };
@@ -151,7 +167,8 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
       try {
         const response = await userService.getTodayAttendance();
         if (response.success && response.data) {
-          const isMarkedPresent = response.data.status === "present";
+          // API returns 'todayStatus', not 'status'
+          const isMarkedPresent = response.data.todayStatus === "present";
           setIsPresent(isMarkedPresent);
           localStorage.setItem("attendanceStatus", isMarkedPresent ? "present" : "absent");
           localStorage.setItem("lastAttendanceDate", new Date().toDateString());
@@ -243,21 +260,27 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
       const response = await userService.markAttendance({ status: statusValue });
       
       if (response.success) {
+        // Immediately update state based on what we sent
         setIsPresent(newStatus);
         localStorage.setItem("attendanceStatus", statusValue);
         localStorage.setItem("lastAttendanceDate", new Date().toDateString());
         
         console.log("Attendance marked successfully:", response.message);
         
-        // Fetch updated status
+        // Fetch updated status from server to confirm
         const todayResponse = await userService.getTodayAttendance();
         if (todayResponse.success && todayResponse.data) {
-          const updatedStatus = todayResponse.data.status === "present";
+          // API returns 'todayStatus', not 'status'
+          const updatedStatus = todayResponse.data.todayStatus === "present";
           setIsPresent(updatedStatus);
           localStorage.setItem("attendanceStatus", updatedStatus ? "present" : "absent");
+        } else {
+          // If fetch fails, keep the state we set based on what we sent
+          console.warn("Could not verify attendance status, using local state");
         }
       } else {
         console.error("Failed to mark attendance:", response.message);
+        // Don't update state if API call failed
       }
     } catch (error) {
       console.error("Error marking attendance:", error);
@@ -361,7 +384,7 @@ const Navbar = ({ darkMode, setDarkMode, toggleSidebar }) => {
                 ? "bg-red-900 border-red-700 text-gray-100 hover:bg-red-800"
                 : "bg-red-900 border-red-400 text-gray-100 hover:bg-red-800"
             }`}
-            title={!isWithinTimeRange && !isPresent ? "Attendance can only be marked between 00:01 AM to 10:00 AM" : ""}
+            title={!isWithinTimeRange && !isPresent ? "Attendance can only be marked between 00:01 AM to 10:00 AM IST" : ""}
           >
             {attendanceLoading ? (
               <>
