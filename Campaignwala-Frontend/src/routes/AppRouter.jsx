@@ -117,6 +117,8 @@ import TLWithdrawnDataPage from "../tlDashboard/pages/data/TLWithdrawnDataPage";
 import TLDataAnalytics from "../tlDashboard/pages/data/TLDataAnalytics";
 
 // User Data Management Pages
+import UserDataDashboard from "../userDashboard/pages/data/UserDataDashboard";
+import UserDataAnalytics from "../userDashboard/pages/data/UserDataAnalytics";
 import UserTodayDataPage from "../userDashboard/pages/data/UserTodayDataPage";
 import UserPreviousDataPage from "../userDashboard/pages/data/UserPreviousDataPage";
 import UserClosedDataPage from "../userDashboard/pages/data/UserClosedDataPage";
@@ -341,7 +343,7 @@ export default function AppRouter() {
           {/* ==================== USER DATA MANAGEMENT ROUTES ==================== */}
           <Route
             path="data-today"
-            element={<UserTodayDataPage darkMode={darkMode} />}
+            element={<UserTodayDataPage darkMode={darkMode} setDarkMode={setDarkMode} />}
           />
           <Route
             path="data-previous"
@@ -352,11 +354,12 @@ export default function AppRouter() {
             element={<UserClosedDataPage darkMode={darkMode} setDarkMode={setDarkMode} />}
           />
           <Route
-            path="data-previous"
-            element={<UserPreviousDataPage darkMode={darkMode} />}
-          /><Route
-            path="data-closed"
-            element={<UserClosedDataPage darkMode={darkMode} />}
+            path="data-analytics"
+            element={<UserDataAnalytics darkMode={darkMode} setDarkMode={setDarkMode} />}
+          />
+          <Route
+            path="data-dashboard"
+            element={<UserDataDashboard darkMode={darkMode} setDarkMode={setDarkMode} />}
           />
 
           {/* Legacy leads routes (for compatibility) */}

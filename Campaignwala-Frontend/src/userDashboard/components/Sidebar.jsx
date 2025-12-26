@@ -4,7 +4,8 @@ import {
   Home, Users, Wallet, User, ChevronLeft, ChevronRight, 
   Award, Bell, Calendar, Trophy, TrendingUp, Link, 
   BarChart, HelpCircle, Clock, CheckCircle, 
-  FileText, CreditCard, List, Shield, Target, BarChart3
+  FileText, CreditCard, List, Shield, Target, BarChart3,
+  BarChart2Icon
 } from "lucide-react";
 
 const Sidebar = ({ darkMode, isSidebarOpen, toggleSidebar }) => {
@@ -16,10 +17,11 @@ const Sidebar = ({ darkMode, isSidebarOpen, toggleSidebar }) => {
   { icon: Home, label: "Dashboard", path: "/user" },
   
   // Data Sections
+  { icon: BarChart2Icon, label: "Data Dashboard", path: "/user/data-dashboard" },
+  { icon: BarChart3, label: "Data Analytics", path: "/user/data-analytics" },
   { icon: Target, label: "Today's Data", path: "/user/data-today" },
   { icon: Clock, label: "Previous Data", path: "/user/data-previous" },
   { icon: CheckCircle, label: "Closed Data", path: "/user/data-closed" },
-  { icon: BarChart3, label: "Data Analytics", path: "/user/data-analytics" },
   
   // Legacy leads routes (for compatibility)
   { icon: Users, label: "All Accounts", path: "/user/all-leads" },
