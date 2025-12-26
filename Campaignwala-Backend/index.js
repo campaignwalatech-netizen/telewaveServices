@@ -15,7 +15,6 @@ const app = express();
 /* =====================================================
    DATABASE
 ===================================================== */
-connectDB();
 
 /* =====================================================
    CORS CONFIG (Express 5 compatible)
@@ -37,11 +36,11 @@ const corsOptions = {
   origin: (origin, callback) => {
     // Allow non-browser requests (Postman, mobile apps, server-to-server)
     if (!origin) return callback(null, true);
-
+    
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
-
+    
     console.log('🔒 CORS BLOCKED:', origin);
     return callback(new Error('Not allowed by CORS'));
   },
@@ -58,7 +57,7 @@ app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions)); // Use regex instead of '*'
 
 /* =====================================================
-   DIAGNOSTIC MIDDLEWARE
+DIAGNOSTIC MIDDLEWARE
 ===================================================== */
 app.use((req, res, next) => {
   console.log(
@@ -79,13 +78,13 @@ app.get('/test-probe', (req, res) => {
 });
 
 /* =====================================================
-   BODY PARSERS
+BODY PARSERS
 ===================================================== */
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /* =====================================================
-   REQUEST LOGGER
+REQUEST LOGGER
 ===================================================== */
 app.use((req, res, next) => {
   console.log('🟢 ===== INCOMING REQUEST =====');
@@ -96,7 +95,7 @@ app.use((req, res, next) => {
 });
 
 /* =====================================================
-   SECURITY HEADERS
+SECURITY HEADERS
 ===================================================== */
 app.use((req, res, next) => {
   res.removeHeader('X-Powered-By');
@@ -107,17 +106,17 @@ app.use((req, res, next) => {
 });
 
 /* =====================================================
-   SWAGGER DOCS
+SWAGGER DOCS
 ===================================================== */
 swaggerSetup(app);
 
 /* =====================================================
-   ROUTES
+ROUTES
 ===================================================== */
 app.use('/api', routes);
 
 /* =====================================================
-   ROOT
+ROOT
 ===================================================== */
 app.get('/', (req, res) => {
   res.json({
@@ -133,7 +132,7 @@ app.get('/', (req, res) => {
 });
 
 /* =====================================================
-   STATUS
+STATUS
 ===================================================== */
 app.get('/api/status', (req, res) => {
   res.json({
@@ -147,12 +146,12 @@ app.get('/api/status', (req, res) => {
 });
 
 /* =====================================================
-   ERROR HANDLER
+ERROR HANDLER
 ===================================================== */
 app.use((err, req, res, next) => {
   console.error('❌ ERROR:', err.message);
   console.error('Stack:', err.stack);
-
+  
   if (err.message === 'Not allowed by CORS') {
     return res.status(403).json({
       success: false,
@@ -173,14 +172,14 @@ app.use((err, req, res, next) => {
   res.status(err.status || 500).json({
     success: false,
     message: process.env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
-      : err.message,
+    ? 'Internal server error' 
+    : err.message,
     ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
   });
 });
 
 /* =====================================================
-   404 HANDLER
+404 HANDLER
 ===================================================== */
 app.use((req, res) => {
   res.status(404).json({
@@ -193,7 +192,7 @@ app.use((req, res) => {
 });
 
 /* =====================================================
-   SERVER START (RAILWAY / RENDER SAFE)
+SERVER START (RAILWAY / RENDER SAFE)
 ===================================================== */
 const PORT = process.env.PORT || 8080;
 
@@ -202,6 +201,7 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Environment: ${process.env.NODE_ENV || 'production'}`);
   console.log(`📦 Node Version: ${process.version}`);
   console.log(`🏗️  Platform: ${process.platform}`);
+  connectDB();
 });
 
 module.exports = app;
