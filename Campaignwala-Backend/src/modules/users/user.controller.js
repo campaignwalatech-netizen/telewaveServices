@@ -1913,13 +1913,14 @@ const sendEmailOTP = async (req, res) => {
             });
         }
 
-        // Generate static OTP for development (always 1006)
-        const otp = '1006';
-        console.log('🔑 Generated Static OTP:', otp);
+        // Generate random OTP (4-digit)
+        const otp = user.generateOTP();
+        console.log('🔑 Generated OTP:', otp);
 
         // Store OTP in user document
         user.emailOtp = otp;
         user.emailOtpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+        user.emailOtpVerified = false; // Reset verification flag
         user.incrementOtpAttempts();
         await user.save();
 
@@ -1935,7 +1936,7 @@ const sendEmailOTP = async (req, res) => {
             data: {
                 email: user.email,
                 expiresIn: 600,
-                otp: otp,
+                // Do not send OTP in response for security
                 developmentMode: emailResult.developmentMode || false
             }
         });
@@ -1993,14 +1994,22 @@ const verifyEmailOTP = async (req, res) => {
             });
         }
 
-        // Clear OTP after successful verification
+        // Mark OTP as verified (keep it for a short time to allow KYC update)
+        user.emailOtpVerified = true;
+        user.emailOtpVerifiedAt = Date.now();
+        // Keep OTP for 5 minutes after verification to allow KYC update
+        // Clear OTP after successful verification (but keep verified flag)
         user.emailOtp = undefined;
         user.emailOtpExpires = undefined;
         await user.save();
 
         res.json({
             success: true,
-            message: 'OTP verified successfully'
+            message: 'OTP verified successfully',
+            data: {
+                verified: true,
+                expiresIn: 300 // 5 minutes to complete KYC update
+            }
         });
 
     } catch (error) {
@@ -3455,6 +3464,38 @@ const updateKYCDetails = async (req, res) => {
         
         const userId = req.user._id;
         
+        // Check if OTP was verified for KYC update (within last 5 minutes)
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: 'User not found'
+            });
+        }
+        
+        // Check if OTP was verified recently (within 5 minutes)
+        if (!user.emailOtpVerified || !user.emailOtpVerifiedAt) {
+            return res.status(403).json({
+                success: false,
+                message: 'OTP verification required. Please verify your email OTP first.'
+            });
+        }
+        
+        const verificationAge = Date.now() - user.emailOtpVerifiedAt.getTime();
+        const fiveMinutes = 5 * 60 * 1000;
+        
+        if (verificationAge > fiveMinutes) {
+            // Clear verification flag if expired
+            user.emailOtpVerified = false;
+            user.emailOtpVerifiedAt = null;
+            await user.save();
+            
+            return res.status(403).json({
+                success: false,
+                message: 'OTP verification expired. Please request a new OTP and verify again.'
+            });
+        }
+        
         // Extract data from nested objects or direct properties
         const personalDetails = req.body.personalDetails || {};
         const kycDocuments = req.body.kycDocuments || {};
@@ -3486,14 +3527,6 @@ const updateKYCDetails = async (req, res) => {
         const upiId = req.body.upiId || bankDetails.upiId;
         
         console.log('🟡 Extracted Bank Details:', { bankName, accountHolderName, accountNumber, ifscCode, branchAddress, upiId });
-
-        const user = await User.findById(userId);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: 'User not found'
-            });
-        }
 
         // Update Personal Details
         if (firstName !== undefined) user.firstName = firstName;
@@ -3535,6 +3568,10 @@ const updateKYCDetails = async (req, res) => {
             user.kycDetails.kycRejectedAt = null;
         }
 
+        // Clear OTP verification flag after successful update
+        user.emailOtpVerified = false;
+        user.emailOtpVerifiedAt = null;
+        
         await user.save();
         console.log('🟢 User saved successfully. Final KYC Status:', user.kycDetails.kycStatus);
 
@@ -3893,9 +3930,70 @@ const submitKYC = async (req, res) => {
                 message: 'User not found'
             });
         }
+        
+        // Check if OTP was verified recently (within 5 minutes)
+        if (!user.emailOtpVerified || !user.emailOtpVerifiedAt) {
+            return res.status(403).json({
+                success: false,
+                message: 'OTP verification required. Please verify your email OTP first.'
+            });
+        }
+        
+        const verificationAge = Date.now() - user.emailOtpVerifiedAt.getTime();
+        const fiveMinutes = 5 * 60 * 1000;
+        
+        if (verificationAge > fiveMinutes) {
+            // Clear verification flag if expired
+            user.emailOtpVerified = false;
+            user.emailOtpVerifiedAt = null;
+            await user.save();
+            
+            return res.status(403).json({
+                success: false,
+                message: 'OTP verification expired. Please request a new OTP and verify again.'
+            });
+        }
 
-        // Submit KYC
-        user.submitKYC(kycData);
+        // Extract and update KYC data (same format as updateKYCDetails)
+        const personalDetails = kycData.personalDetails || {};
+        const kycDocuments = kycData.kycDocuments || {};
+        const bankDetails = kycData.bankDetails || {};
+        
+        // Personal Details
+        if (kycData.firstName !== undefined || personalDetails.firstName) user.firstName = kycData.firstName || personalDetails.firstName;
+        if (kycData.lastName !== undefined || personalDetails.lastName) user.lastName = kycData.lastName || personalDetails.lastName;
+        if (kycData.dob !== undefined || personalDetails.dob) user.dob = kycData.dob || personalDetails.dob;
+        if (kycData.gender !== undefined || personalDetails.gender) user.gender = kycData.gender || personalDetails.gender;
+        if (kycData.address1 !== undefined || personalDetails.address1) user.address1 = kycData.address1 || personalDetails.address1;
+        if (kycData.city !== undefined || personalDetails.city) user.city = kycData.city || personalDetails.city;
+        if (kycData.state !== undefined || personalDetails.state) user.state = kycData.state || personalDetails.state;
+        if (kycData.zip !== undefined || personalDetails.zip) user.zip = kycData.zip || personalDetails.zip;
+        if (kycData.country !== undefined || personalDetails.country) user.country = kycData.country || personalDetails.country;
+        
+        // KYC Documents
+        if (kycData.panNumber !== undefined || kycDocuments.panNumber) user.kycDetails.panNumber = kycData.panNumber || kycDocuments.panNumber;
+        if (kycData.aadhaarNumber !== undefined || kycDocuments.aadhaarNumber) user.kycDetails.aadhaarNumber = kycData.aadhaarNumber || kycDocuments.aadhaarNumber;
+        if (kycData.panImage !== undefined || kycDocuments.panImage) user.kycDetails.panImage = kycData.panImage || kycDocuments.panImage;
+        if (kycData.aadhaarImage !== undefined || kycDocuments.aadhaarImage) user.kycDetails.aadhaarImage = kycData.aadhaarImage || kycDocuments.aadhaarImage;
+        
+        // Bank Details
+        if (kycData.bankName !== undefined || bankDetails.bankName) user.bankDetails.bankName = kycData.bankName || bankDetails.bankName;
+        if (kycData.accountHolderName !== undefined || bankDetails.accountHolderName) user.bankDetails.accountHolderName = kycData.accountHolderName || bankDetails.accountHolderName;
+        if (kycData.accountNumber !== undefined || bankDetails.accountNumber) user.bankDetails.accountNumber = kycData.accountNumber || bankDetails.accountNumber;
+        if (kycData.ifscCode !== undefined || bankDetails.ifscCode) user.bankDetails.ifscCode = kycData.ifscCode || bankDetails.ifscCode;
+        if (kycData.branchAddress !== undefined || bankDetails.branchAddress) user.bankDetails.branchAddress = kycData.branchAddress || bankDetails.branchAddress;
+        if (kycData.upiId !== undefined || bankDetails.upiId) user.bankDetails.upiId = kycData.upiId || bankDetails.upiId;
+        
+        // Set KYC status to pending
+        user.kycDetails.kycStatus = 'pending';
+        user.kycDetails.kycSubmittedAt = new Date();
+        user.kycDetails.kycRejectionReason = '';
+        user.kycDetails.kycRejectedAt = null;
+        
+        // Clear OTP verification flag after successful submission
+        user.emailOtpVerified = false;
+        user.emailOtpVerifiedAt = null;
+        
         await user.save();
 
         res.json({

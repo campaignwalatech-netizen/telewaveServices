@@ -137,12 +137,7 @@ const KYCDetails = ({ darkMode }) => {
       if (response.success) {
         setPendingAction('personal');
         setShowOtpModal(true);
-        
-        // Show static OTP in development
-        if (response.data?.otp) {
-          console.log('🔑 Development OTP:', response.data.otp);
-          toast.success(`OTP sent! Use: ${response.data.otp}`);
-        }
+        toast.success('OTP sent to your registered email. Please check your inbox.');
       } else {
         toast.error(response.message || 'Failed to send OTP');
       }
@@ -205,12 +200,7 @@ const KYCDetails = ({ darkMode }) => {
       if (response.success) {
         setPendingAction('kyc');
         setShowOtpModal(true);
-        
-        // Show static OTP in development
-        if (response.data?.otp) {
-          console.log('🔑 Development OTP:', response.data.otp);
-          toast.success(`OTP sent! Use: ${response.data.otp}`);
-        }
+        toast.success('OTP sent to your registered email. Please check your inbox.');
       } else {
         toast.error(response.message || 'Failed to send OTP');
       }
@@ -266,12 +256,7 @@ const KYCDetails = ({ darkMode }) => {
       if (response.success) {
         setPendingAction('bank');
         setShowOtpModal(true);
-        
-        // Show static OTP in development
-        if (response.data?.otp) {
-          console.log('🔑 Development OTP:', response.data.otp);
-          toast.success(`OTP sent! Use: ${response.data.otp}`);
-        }
+        toast.success('OTP sent to your registered email. Please check your inbox.');
       } else {
         toast.error(response.message || 'Failed to send OTP');
       }
@@ -335,6 +320,8 @@ const KYCDetails = ({ darkMode }) => {
           await saveKYCDetails();
         } else if (pendingAction === 'bank') {
           await saveBankDetails();
+        } else if (pendingAction === 'submit') {
+          await submitKYCDetails();
         }
         
         setPendingAction(null);
@@ -354,13 +341,7 @@ const KYCDetails = ({ darkMode }) => {
       const response = await authService.sendEmailOTP('profile-update');
       
       if (response.success) {
-        toast.success('OTP sent successfully');
-        
-        // Show static OTP in development
-        if (response.data?.otp) {
-          console.log('🔑 Development OTP:', response.data.otp);
-          toast.success(`New OTP: ${response.data.otp}`);
-        }
+        toast.success('OTP sent successfully. Please check your email.');
       } else {
         toast.error(response.message || 'Failed to resend OTP');
       }
@@ -373,14 +354,42 @@ const KYCDetails = ({ darkMode }) => {
   const handleSubmitKYC = async () => {
     try {
       console.log('🌐 Submitting KYC for approval...');
-      setSubmitting(true);
       
       // Validate required fields
       if (!form.firstName || !form.lastName || !form.pan || !form.aadhaar || !form.accountNumber) {
         toast.error('Please fill all required fields (Personal Details, PAN, Aadhaar, Bank Account)');
-        setSubmitting(false);
         return;
       }
+      
+      // First, request OTP for KYC submission
+      try {
+        console.log('🔐 Requesting OTP for KYC submission...');
+        const otpResponse = await authService.sendEmailOTP('profile-update');
+        
+        if (otpResponse.success) {
+          setPendingAction('submit');
+          setShowOtpModal(true);
+          toast.success('OTP sent to your registered email. Please verify to submit KYC.');
+          return;
+        } else {
+          toast.error(otpResponse.message || 'Failed to send OTP');
+          return;
+        }
+      } catch (error) {
+        console.error('❌ Error sending OTP:', error);
+        toast.error(error.message || 'Failed to send OTP');
+        return;
+      }
+    } catch (error) {
+      console.error('❌ Error in handleSubmitKYC:', error);
+      toast.error(error.message || 'Failed to initiate KYC submission');
+    }
+  };
+
+  const submitKYCDetails = async () => {
+    try {
+      console.log('🌐 Submitting KYC for approval...');
+      setSubmitting(true);
       
       // Send data in the format backend expects
       const data = {
@@ -407,6 +416,7 @@ const KYCDetails = ({ darkMode }) => {
       };
       
       console.log('📤 Full KYC submission payload:', data);
+      // Use updateKYCDetails for submission as it handles the data format correctly
       const response = await userService.updateKYCDetails(data);
       console.log('📥 Submit response:', response);
       

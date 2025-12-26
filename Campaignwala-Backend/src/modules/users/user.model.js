@@ -370,6 +370,20 @@ const userSchema = new mongoose.Schema({
     resetPasswordOtpExpires: {
         type: Date
     },
+    // Email OTP for profile/KYC updates
+    emailOtp: {
+        type: String
+    },
+    emailOtpExpires: {
+        type: Date
+    },
+    emailOtpVerified: {
+        type: Boolean,
+        default: false
+    },
+    emailOtpVerifiedAt: {
+        type: Date
+    },
     isActive: {
         type: Boolean,
         default: false // Initially false until approved by admin
@@ -1398,6 +1412,10 @@ userSchema.methods.toJSON = function () {
     delete userObject.loginOtpExpires;
     delete userObject.resetPasswordOtp;
     delete userObject.resetPasswordOtpExpires;
+    delete userObject.emailOtp;
+    delete userObject.emailOtpExpires;
+    delete userObject.emailOtpVerified;
+    delete userObject.emailOtpVerifiedAt;
     delete userObject.security;
     
     return userObject;
