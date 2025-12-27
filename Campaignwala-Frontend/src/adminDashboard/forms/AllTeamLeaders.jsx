@@ -42,7 +42,17 @@ import {
   PhoneCall,
   Briefcase,
   AlertCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  DollarSign,
+  FileText,
+  PhoneForwarded,
+  PhoneOff,
+  PhoneMissed,
+  CalendarClock,
+  Clock4,
+  CalendarCheck,
+  UserCircle,
+  Calendar as CalendarIcon
 } from 'lucide-react';
 
 // Basic UI Components
@@ -254,7 +264,7 @@ const StatusToggleButton = ({ user, onToggle, loading = false }) => {
 };
 
 // Action Menu Component
-const ActionMenu = ({ user, onView, onEdit, onStatus, onBlock, onDelete, loading = false }) => {
+const ActionMenu = ({ user, onView, onEdit, onStatus, onBlock, loading = false }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -313,12 +323,218 @@ const ActionMenu = ({ user, onView, onEdit, onStatus, onBlock, onDelete, loading
   );
 };
 
+// Team Members Modal Component
+const TeamMembersModal = ({ isOpen, onClose, tlId, tlName, filterType = 'all' }) => {
+  const [teamMembers, setTeamMembers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen && tlId) {
+      fetchTeamMembers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, tlId, filterType]);
+
+  const fetchTeamMembers = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Get all users and filter by reportingTo
+      const response = await userService.getAllUsersWithStats({ 
+        limit: 1000,
+        role: 'user'
+      });
+      
+      if (response.success) {
+        // Filter users by reportingTo matching tlId (handle both ObjectId and string comparison)
+        const members = response.data.users.filter(user => {
+          const reportingToId = user.reportingTo?._id || user.reportingTo;
+          return reportingToId && (
+            reportingToId.toString() === tlId.toString() || 
+            reportingToId === tlId ||
+            (typeof reportingToId === 'string' && typeof tlId === 'string' && reportingToId === tlId)
+          );
+        });
+        
+        // If filterType is 'present', filter by attendance
+        if (filterType === 'present') {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const filtered = members.filter(member => {
+            const todayMarkedAt = member.attendance?.todayMarkedAt ? new Date(member.attendance.todayMarkedAt) : null;
+            const isMarkedToday = todayMarkedAt && todayMarkedAt >= today;
+            const attendanceStatus = isMarkedToday ? (member.attendance?.todayStatus || 'absent') : 'absent';
+            return attendanceStatus === 'present' || attendanceStatus === 'late' || attendanceStatus === 'half-day';
+          });
+          setTeamMembers(filtered);
+        } else {
+          setTeamMembers(members);
+        }
+      } else {
+        setError(response.message || 'Failed to fetch team members');
+      }
+    } catch (err) {
+      console.error('Error fetching team members:', err);
+      setError(err.message || 'Failed to fetch team members');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                Team Members - {tlName}
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                {filterType === 'present' ? 'Present Team Members' : 'All Team Members'} ({teamMembers.length})
+              </p>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="text-center py-12">
+              <RefreshCw className="w-10 h-10 animate-spin text-blue-600 mx-auto mb-4" />
+              <p className="text-gray-500">Loading team members...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12 text-red-500">
+              <AlertCircle className="w-10 h-10 mx-auto mb-4" />
+              <p>{error}</p>
+            </div>
+          ) : teamMembers.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Users className="w-16 h-16 mx-auto mb-4 opacity-30" />
+              <p className="text-lg font-medium">No team members found</p>
+              <p className="text-sm mt-2">
+                {filterType === 'present' 
+                  ? 'No team members are present today' 
+                  : 'This TL has no team members assigned'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {teamMembers.map((member) => {
+                const todayDate = new Date();
+                todayDate.setHours(0, 0, 0, 0);
+                const todayMarkedAt = member.attendance?.todayMarkedAt ? new Date(member.attendance.todayMarkedAt) : null;
+                const isMarkedToday = todayMarkedAt && todayMarkedAt >= todayDate;
+                const attendanceStatus = isMarkedToday ? (member.attendance?.todayStatus || 'absent') : 'absent';
+                const todayDateStr = new Date().toISOString().split('T')[0];
+                const todayCalled = member.dailyStats?.[todayDateStr]?.called ?? member.todayCalled ?? 0;
+                const todayClosed = member.dailyStats?.[todayDateStr]?.closed ?? member.todayClosed ?? 0;
+                
+                return (
+                  <div
+                    key={member._id}
+                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3 flex-1">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                          <User className="w-5 h-5 text-blue-600 dark:text-blue-300" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                            {member.name}
+                          </p>
+                          <div className="flex items-center gap-4 mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            <span className="flex items-center gap-1">
+                              <Phone className="w-3 h-3" />
+                              {member.phoneNumber}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Mail className="w-3 h-3" />
+                              {member.email}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
+                          <Badge variant={member.status === 'active' ? 'success' : 'warning'} className="mt-1">
+                            {member.status || 'N/A'}
+                          </Badge>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Attendance</p>
+                          <Badge 
+                            variant={attendanceStatus === 'present' || attendanceStatus === 'late' || attendanceStatus === 'half-day' ? 'success' : 'destructive'} 
+                            className="mt-1"
+                          >
+                            {attendanceStatus === 'present' || attendanceStatus === 'late' || attendanceStatus === 'half-day' ? 'Present' : 'Absent'}
+                          </Badge>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Today Called</p>
+                          <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mt-1">{todayCalled}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Today Closed</p>
+                          <p className="text-sm font-medium text-green-600 dark:text-green-400 mt-1">{todayClosed}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Total Leads</p>
+                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-1">
+                            {member.statistics?.totalLeads || 0}
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Open Data</p>
+                          <p className="text-sm font-medium text-orange-600 dark:text-orange-400 mt-1">
+                            {(member.statistics?.totalLeads || 0) - (member.statistics?.completedLeads || 0)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end">
+          <Button variant="outline" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function AllTeamLeaders() {
   const [teamLeaders, setTeamLeaders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  // Team Members Modal state
+  const [teamMembersModal, setTeamMembersModal] = useState({
+    isOpen: false,
+    tlId: null,
+    tlName: '',
+    filterType: 'all' // 'all' or 'present'
+  });
   
   const [filters, setFilters] = useState({
     search: '',
@@ -340,7 +556,7 @@ export default function AllTeamLeaders() {
       new Date(tl.tlDetails.lastSavedDate).toLocaleDateString('en-IN') : '-';
     
     // HR statistics
-    const totalHR = tl.tlDetails?.teamMembers?.length || 0;
+    const totalHR = tl.tlDetails?.teamMembers?.length || tl.teamMembers?.length || 0;
     const presentHR = tl.teamAttendance?.presentCount || 0;
     const newHR = tl.tlDetails?.newHiresThisMonth || 0;
     
@@ -360,6 +576,37 @@ export default function AllTeamLeaders() {
     const conversionRate = tl.statistics?.totalLeads > 0 ? 
       (tl.statistics?.completedLeads / tl.statistics?.totalLeads * 100).toFixed(2) : 0;
 
+    // Calculate today's date string for dailyStats lookup
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    
+    // Today's stats
+    const todayCalled = tl.dailyStats?.[todayDateStr]?.called ?? tl.todayCalled ?? 0;
+    const todayClosed = tl.dailyStats?.[todayDateStr]?.closed ?? tl.todayClosed ?? 0;
+    
+    // Attendance
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
+    const todayMarkedAt = tl.attendance?.todayMarkedAt ? new Date(tl.attendance.todayMarkedAt) : null;
+    const isMarkedToday = todayMarkedAt && todayMarkedAt >= todayDate;
+    const attendanceStatus = isMarkedToday ? (tl.attendance?.todayStatus || 'absent') : 'absent';
+    const totalPresent = tl.attendance?.totalPresent || tl.attendance?.monthlyStats?.present || 0;
+    
+    // Rollback data
+    const rollbackData = tl.rollback?.total || (Array.isArray(tl.rollback?.data) ? tl.rollback.data.length : 0);
+    const rollbackDate = tl.rollback?.lastDate ? 
+      new Date(tl.rollback.lastDate).toLocaleDateString('en-IN') : '-';
+    
+    // Last Data
+    const lastDataCount = tl.lastAssignedDataCount || 
+                           tl.leadDistribution?.lastDataCount || 
+                           tl.leadDistribution?.lastAssignedDataCount ||
+                           tl.statistics?.lastAssignedCount || 
+                           0;
+    const lastData = lastDataCount > 0 ? lastDataCount.toString() : '-';
+    
+    // Salary
+    const salary = tl.financials?.salary || tl.wallet?.balance || tl.currentBalance || '-';
+
     return {
       ...tl,
       savedLeads,
@@ -378,7 +625,15 @@ export default function AllTeamLeaders() {
       teamPerformance: tl.tlDetails?.teamPerformance || 0,
       dailyLeadQuota: tl.tlDetails?.dailyLeadQuota || 0,
       monthlyTarget: tl.tlDetails?.monthlyTarget || 0,
-      achievedTarget: tl.tlDetails?.achievedTarget || 0
+      achievedTarget: tl.tlDetails?.achievedTarget || 0,
+      todayCalled,
+      todayClosed,
+      attendanceStatus,
+      totalPresent,
+      rollbackData,
+      rollbackDate,
+      lastData,
+      salary
     };
   };
 
@@ -403,7 +658,52 @@ export default function AllTeamLeaders() {
       const response = await userService.getAllUsersWithStats(params);
       
       if (response.success) {
-        const enhancedTLs = response.data.users.map(enhanceTLData);
+        // Fetch all users to calculate presentHR for each TL
+        let allUsers = [];
+        try {
+          const usersResponse = await userService.getAllUsersWithStats({ 
+            limit: 10000,
+            role: 'user'
+          });
+          if (usersResponse.success) {
+            allUsers = usersResponse.data.users || [];
+          }
+        } catch (userErr) {
+          console.warn('Failed to fetch users for presentHR calculation:', userErr);
+        }
+
+        // Calculate presentHR for each TL
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const enhancedTLs = response.data.users.map(tl => {
+          // Calculate presentHR by counting team members who are present today
+          const teamMembers = allUsers.filter(user => {
+            const reportingToId = user.reportingTo?._id || user.reportingTo;
+            const tlId = tl._id;
+            return reportingToId && (
+              reportingToId.toString() === tlId.toString() || 
+              reportingToId === tlId ||
+              (typeof reportingToId === 'string' && typeof tlId === 'string' && reportingToId === tlId)
+            );
+          });
+
+          // Count present team members (same logic as modal)
+          const presentCount = teamMembers.filter(member => {
+            const todayMarkedAt = member.attendance?.todayMarkedAt ? new Date(member.attendance.todayMarkedAt) : null;
+            const isMarkedToday = todayMarkedAt && todayMarkedAt >= today;
+            const attendanceStatus = isMarkedToday ? (member.attendance?.todayStatus || 'absent') : 'absent';
+            return attendanceStatus === 'present' || attendanceStatus === 'late' || attendanceStatus === 'half-day';
+          }).length;
+
+          // Override presentHR with calculated value
+          const enhancedTL = enhanceTLData(tl);
+          enhancedTL.presentHR = presentCount;
+          enhancedTL.totalHR = teamMembers.length; // Also update totalHR to match actual count
+          
+          return enhancedTL;
+        });
+        
         setTeamLeaders(enhancedTLs);
       } else {
         const errorMsg = response.message || 'Failed to fetch team leaders';
@@ -420,31 +720,31 @@ export default function AllTeamLeaders() {
     }
   };
 
-  // Update TL profile
-  const updateTLProfile = async (tlId, data) => {
-    try {
-      setActionLoading(prev => ({ ...prev, [tlId]: true }));
-      const response = await userService.updateUser(tlId, data);
-      
-      if (response.success) {
-        const successMsg = 'Team Leader profile updated successfully';
-        setSuccess(successMsg);
-        toast.success(`✅ ${successMsg}`);
-        await fetchTeamLeaders();
-      } else {
-        const errorMsg = response.message || 'Failed to update team leader';
-        setError(errorMsg);
-        toast.error(errorMsg);
-      }
-    } catch (err) {
-      console.error('Error updating team leader:', err);
-      const errorMsg = err.message || 'Failed to update team leader';
-      setError(errorMsg);
-      toast.error(errorMsg);
-    } finally {
-      setActionLoading(prev => ({ ...prev, [tlId]: false }));
-    }
-  };
+  // Update TL profile (for future use)
+  // const updateTLProfile = async (tlId, data) => {
+  //   try {
+  //     setActionLoading(prev => ({ ...prev, [tlId]: true }));
+  //     const response = await userService.updateUser(tlId, data);
+  //     
+  //     if (response.success) {
+  //       const successMsg = 'Team Leader profile updated successfully';
+  //       setSuccess(successMsg);
+  //       toast.success(`✅ ${successMsg}`);
+  //       await fetchTeamLeaders();
+  //     } else {
+  //       const errorMsg = response.message || 'Failed to update team leader';
+  //       setError(errorMsg);
+  //       toast.error(errorMsg);
+  //     }
+  //   } catch (err) {
+  //     console.error('Error updating team leader:', err);
+  //     const errorMsg = err.message || 'Failed to update team leader';
+  //     setError(errorMsg);
+  //     toast.error(errorMsg);
+  //   } finally {
+  //     setActionLoading(prev => ({ ...prev, [tlId]: false }));
+  //   }
+  // };
 
   // Mark TL as Ex
   const markTLAsEx = async (tlId) => {
@@ -563,6 +863,7 @@ export default function AllTeamLeaders() {
   // Effects
   useEffect(() => {
     fetchTeamLeaders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.page, filters.limit, filters.status, sort]);
 
   useEffect(() => {
@@ -575,6 +876,7 @@ export default function AllTeamLeaders() {
     }, 500);
 
     return () => clearTimeout(timeoutId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.search]);
 
   useEffect(() => {
@@ -816,48 +1118,95 @@ export default function AllTeamLeaders() {
                 <TableHeader>
                   <TableRow>
                     <TableHead sortable onSort={handleSort} sortKey="createdAt" currentSort={sort}>
+                      <CalendarClock className="w-4 h-4 inline mr-1" />
                       Joined On
                     </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="name" currentSort={sort}>
+                      <UserCircle className="w-4 h-4 inline mr-1" />
                       Name
                     </TableHead>
                     <TableHead>
+                      <Phone className="w-4 h-4 inline mr-1" />
                       Phone Number
                     </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="status" currentSort={sort}>
+                      <UserCheck className="w-4 h-4 inline mr-1" />
                       Status
                     </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="attendance.todayStatus" currentSort={sort}>
+                      <CalendarCheck className="w-4 h-4 inline mr-1" />
+                      Attendance
+                    </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="savedLeads" currentSort={sort}>
+                      <Bookmark className="w-4 h-4 inline mr-1" />
                       Saved Leads
                     </TableHead>
                     <TableHead>
+                      <CalendarDays className="w-4 h-4 inline mr-1" />
                       Saved Date
                     </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="totalHR" currentSort={sort}>
+                      <Users className="w-4 h-4 inline mr-1" />
                       Total HR
                     </TableHead>
+                    <TableHead>
+                      <UserCheck className="w-4 h-4 inline mr-1" />
+                      Present HR
+                    </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="pendingAccounts" currentSort={sort}>
+                      <AlertCircle className="w-4 h-4 inline mr-1" />
                       Pending Accounts
                     </TableHead>
                     <TableHead>
-                      Present HR
+                      <PhoneCall className="w-4 h-4 inline mr-1" />
+                      Today Called
                     </TableHead>
                     <TableHead>
-                      Last Lead
+                      <CheckCircle className="w-4 h-4 inline mr-1" />
+                      Today Closed
+                    </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="totalPresent" currentSort={sort}>
+                      <Clock4 className="w-4 h-4 inline mr-1" />
+                      Total Present
                     </TableHead>
                     <TableHead>
+                      <FileText className="w-4 h-4 inline mr-1" />
+                      Last Data
+                    </TableHead>
+                    <TableHead>
+                      <CalendarIcon className="w-4 h-4 inline mr-1" />
                       Date Assigned
                     </TableHead>
                     <TableHead>
+                      <Calendar className="w-4 h-4 inline mr-1" />
+                      Last Lead
+                    </TableHead>
+                    <TableHead sortable onSort={handleSort} sortKey="salary" currentSort={sort}>
+                      <DollarSign className="w-4 h-4 inline mr-1" />
+                      Salary
+                    </TableHead>
+                    <TableHead>
+                      <DollarSign className="w-4 h-4 inline mr-1" />
+                      RollBack Data
+                    </TableHead>
+                    <TableHead>
+                      <CalendarDays className="w-4 h-4 inline mr-1" />
+                      RollBack Date
+                    </TableHead>
+                    <TableHead>
+                      <Users className="w-4 h-4 inline mr-1" />
                       New HR
                     </TableHead>
                     <TableHead>
+                      <Mail className="w-4 h-4 inline mr-1" />
                       Email Id
                     </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="openLeads" currentSort={sort}>
+                      <FileText className="w-4 h-4 inline mr-1" />
                       Open Leads
                     </TableHead>
                     <TableHead>
+                      <Settings className="w-4 h-4 inline mr-1" />
                       Action
                     </TableHead>
                   </TableRow>
@@ -865,7 +1214,7 @@ export default function AllTeamLeaders() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={15} className="text-center py-12">
+                      <TableCell colSpan={22} className="text-center py-12">
                         <div className="flex flex-col items-center justify-center">
                           <RefreshCw className="w-10 h-10 animate-spin text-blue-600 mb-4" />
                           <span className="text-lg">Loading team leaders...</span>
@@ -875,7 +1224,7 @@ export default function AllTeamLeaders() {
                     </TableRow>
                   ) : teamLeaders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={15} className="text-center py-12 text-gray-500">
+                      <TableCell colSpan={22} className="text-center py-12 text-gray-500">
                         <Briefcase className="w-16 h-16 mx-auto mb-4 opacity-30" />
                         <p className="text-xl font-medium">No team leaders found</p>
                         <p className="text-sm mt-2">
@@ -922,6 +1271,16 @@ export default function AllTeamLeaders() {
                           />
                         </TableCell>
                         
+                        {/* Attendance */}
+                        <TableCell>
+                          <Badge 
+                            variant={tl.attendanceStatus === 'present' || tl.attendanceStatus === 'late' || tl.attendanceStatus === 'half-day' ? 'success' : 'destructive'} 
+                            className="min-w-[80px] justify-center"
+                          >
+                            {tl.attendanceStatus === 'present' || tl.attendanceStatus === 'late' || tl.attendanceStatus === 'half-day' ? 'Present' : 'Absent'}
+                          </Badge>
+                        </TableCell>
+                        
                         <TableCell>
                           <div className="text-center">
                             {tl.savedLeads > 0 ? (
@@ -938,10 +1297,40 @@ export default function AllTeamLeaders() {
                           <span className="text-sm">{tl.savedDate}</span>
                         </TableCell>
                         
+                        {/* Total HR - Clickable */}
                         <TableCell>
                           <div className="text-center">
-                            <span className="font-bold text-lg">{tl.teamMembers.length}</span>
-                            
+                            <button
+                              onClick={() => setTeamMembersModal({
+                                isOpen: true,
+                                tlId: tl._id,
+                                tlName: tl.name,
+                                filterType: 'all'
+                              })}
+                              className="font-bold text-lg text-blue-600 hover:text-blue-800 hover:underline cursor-pointer transition-colors"
+                              title="Click to view all team members"
+                            >
+                              {tl.totalHR}
+                            </button>
+                          </div>
+                        </TableCell>
+                        
+                        {/* Present HR - Clickable */}
+                        <TableCell>
+                          <div className="text-center">
+                            <button
+                              onClick={() => setTeamMembersModal({
+                                isOpen: true,
+                                tlId: tl._id,
+                                tlName: tl.name,
+                                filterType: 'present'
+                              })}
+                              className="font-bold text-green-600 hover:text-green-800 hover:underline cursor-pointer transition-colors"
+                              title="Click to view present team members"
+                            >
+                              {tl.presentHR}
+                            </button>
+                            <p className="text-xs text-gray-500">present today</p>
                           </div>
                         </TableCell>
                         
@@ -955,13 +1344,45 @@ export default function AllTeamLeaders() {
                           </div>
                         </TableCell>
                         
+                        {/* Today Called */}
                         <TableCell>
                           <div className="text-center">
-                            <span className="font-bold text-green-600">{tl.teamMembers.length}</span>
-                            <p className="text-xs text-gray-500">present today</p>
+                            <span className="font-medium text-blue-600">{tl.todayCalled ?? 0}</span>
                           </div>
                         </TableCell>
                         
+                        {/* Today Closed */}
+                        <TableCell>
+                          <div className="text-center">
+                            <span className="font-medium text-green-600">{tl.todayClosed ?? 0}</span>
+                          </div>
+                        </TableCell>
+                        
+                        {/* Total Present */}
+                        <TableCell>
+                          <div className="text-center">
+                            <span className="font-bold">{tl.totalPresent}</span>
+                            <div className="text-xs text-gray-500">
+                              <Clock className="w-3 h-3 inline mr-1" />
+                              Days
+                            </div>
+                          </div>
+                        </TableCell>
+                        
+                        {/* Last Data */}
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm font-medium">{tl.lastData}</span>
+                          </div>
+                        </TableCell>
+                        
+                        {/* Date Assigned */}
+                        <TableCell>
+                          <span className="text-sm">{tl.dateAssigned}</span>
+                        </TableCell>
+                        
+                        {/* Last Lead */}
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-gray-500" />
@@ -969,8 +1390,33 @@ export default function AllTeamLeaders() {
                           </div>
                         </TableCell>
                         
+                        {/* Salary */}
                         <TableCell>
-                          <span className="text-sm">{tl.dateAssigned}</span>
+                          <div className="text-right">
+                            {tl.salary && tl.salary !== '-' ? (
+                              <div className="flex items-center justify-end gap-1">
+                                <span className="font-bold text-green-600">₹{typeof tl.salary === 'number' ? tl.salary.toLocaleString('en-IN') : tl.salary}</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500">{tl.salary}</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        
+                        {/* RollBack Data */}
+                        <TableCell>
+                          <div className="text-center">
+                            {tl.rollbackData > 0 ? (
+                              <Badge variant="destructive">{tl.rollbackData}</Badge>
+                            ) : (
+                              <span className="text-gray-500">0</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        
+                        {/* RollBack Date */}
+                        <TableCell>
+                          <span className="text-sm">{tl.rollbackDate}</span>
                         </TableCell>
                         
                         <TableCell>
@@ -1037,9 +1483,18 @@ export default function AllTeamLeaders() {
                               onEdit={() => console.log('Edit TL:', tl._id)}
                               onStatus={() => console.log('Manage TL status:', tl._id)}
                               onBlock={() => markTLAsEx(tl._id)}
-                              onDelete={() => deleteTL(tl._id)}
                               loading={actionLoading[tl._id]}
                             />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteTL(tl._id)}
+                              disabled={actionLoading[tl._id]}
+                              title="Delete TL"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1083,6 +1538,15 @@ export default function AllTeamLeaders() {
           </div>
         </div>
       )}
+
+      {/* Team Members Modal */}
+      <TeamMembersModal
+        isOpen={teamMembersModal.isOpen}
+        onClose={() => setTeamMembersModal({ isOpen: false, tlId: null, tlName: '', filterType: 'all' })}
+        tlId={teamMembersModal.tlId}
+        tlName={teamMembersModal.tlName}
+        filterType={teamMembersModal.filterType}
+      />
     </div>
   );
 }
