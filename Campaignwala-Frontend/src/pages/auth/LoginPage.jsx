@@ -182,7 +182,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background flex flex-col md:flex-row">
+    <main className="min-h-screen bg-background flex flex-col md:flex-row overflow-x-hidden">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -248,7 +248,7 @@ export default function LoginPage() {
       </div>
 
       {/* ---------- RIGHT SECTION (Login Form) ---------- */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-10 bg-background mb-16">
+      <div className="w-full md:w-1/2 flex items-center justify-center p-4 sm:p-6 md:p-10 bg-background pb-16 sm:pb-16">
         <div className="w-full max-w-md">
           {/* Mobile Header */}
           <div className="md:hidden text-center mb-8">
@@ -269,7 +269,7 @@ export default function LoginPage() {
           {/* --------- FORM --------- */}
           <form
             onSubmit={handleSubmit}
-            className="bg-card rounded-lg shadow-lg p-8 space-y-6 border border-border"
+            className="bg-card rounded-lg shadow-lg p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 border border-border"
           >
             {formError && formError.includes('pending') && (
               <div className="bg-amber-500/10 border-amber-500/30 text-amber-600 px-4 py-3 rounded-lg text-sm border">

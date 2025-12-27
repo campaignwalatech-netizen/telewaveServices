@@ -257,7 +257,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background flex flex-col md:flex-row">
+    <main className="min-h-screen bg-background flex flex-col md:flex-row overflow-x-hidden">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -310,16 +310,16 @@ export default function RegisterPage() {
       </div>
 
       {/* ---------- RIGHT PANEL ---------- */}
-      <div className="w-full md:w-1/2 flex items-center justify-center p-6 md:p-10 bg-background">
+      <div className="w-full md:w-1/2 flex items-center justify-center p-4 sm:p-6 md:p-10 bg-background pb-16 sm:pb-16">
         <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-foreground">Register</h1>
-            <p className="text-sm text-muted-foreground mt-2">
+          <div className="text-center mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Register</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-2">
               Create your account with email and password
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="bg-card rounded-lg shadow-lg p-8 space-y-6 border border-border">
+          <form onSubmit={handleSubmit} className="bg-card rounded-lg shadow-lg p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 border border-border">
             {(error || formError) && !formError.includes('pending') && (
               <div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg text-sm">
                 {error || formError}

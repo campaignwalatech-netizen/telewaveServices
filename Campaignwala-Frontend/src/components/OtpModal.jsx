@@ -143,14 +143,14 @@ export default function OtpModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 z-50">
       <div className={`w-full max-w-sm rounded-xl shadow-2xl border ${
         darkMode 
           ? 'bg-gray-900 text-white border-gray-700' 
           : 'bg-white text-gray-900 border-gray-200'
       }`}>
         {/* Header */}
-        <div className={`flex items-center justify-between p-6 border-b ${
+        <div className={`flex items-center justify-between p-4 sm:p-6 border-b ${
           darkMode ? 'border-gray-700' : 'border-gray-200'
         }`}>
           <div className="flex items-center gap-3">
@@ -162,10 +162,10 @@ export default function OtpModal({
               }`} />
             </div>
             <div>
-              <h3 className={`font-semibold text-lg ${
+              <h3 className={`font-semibold text-base sm:text-lg ${
                 darkMode ? 'text-white' : 'text-gray-900'
               }`}>{getPurposeText()}</h3>
-              <p className={`text-sm ${
+              <p className={`text-xs sm:text-sm ${
                 darkMode ? 'text-gray-400' : 'text-gray-500'
               }`}>
                 Enter verification code
@@ -185,18 +185,18 @@ export default function OtpModal({
         </div>
 
         {/* Body */}
-        <div className="p-6">
-          <p className={`text-center text-sm mb-6 ${
+        <div className="p-4 sm:p-6">
+          <p className={`text-center text-xs sm:text-sm mb-4 sm:mb-6 ${
             darkMode ? 'text-gray-300' : 'text-gray-600'
           }`}>
             We sent a 4-digit code to<br />
-            <span className={`font-semibold ${
+            <span className={`font-semibold break-all ${
               darkMode ? 'text-white' : 'text-gray-900'
             }`}>{email}</span>
           </p>
 
           {/* OTP Inputs */}
-          <div className="flex gap-2 justify-center mb-6" onPaste={handlePaste}>
+          <div className="flex gap-2 sm:gap-3 justify-center mb-4 sm:mb-6" onPaste={handlePaste}>
             {otp.map((digit, index) => (
               <input
                 key={index}
@@ -207,7 +207,7 @@ export default function OtpModal({
                 value={digit}
                 onChange={(e) => handleChange(index, e.target.value)}
                 onKeyDown={(e) => handleKeyDown(index, e)}
-                className={`w-12 h-12 text-center text-xl font-bold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+                className={`w-10 h-10 sm:w-12 sm:h-12 text-center text-lg sm:text-xl font-bold border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
                   digit 
                     ? darkMode
                       ? 'border-blue-500 bg-blue-900/20 text-white'
@@ -239,7 +239,7 @@ export default function OtpModal({
             <button
               onClick={() => handleVerify()}
               disabled={isLoading || otp.some(digit => digit === "")}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              className="w-full bg-blue-600 text-white py-2.5 sm:py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 text-sm sm:text-base"
             >
               {isLoading ? (
                 <>

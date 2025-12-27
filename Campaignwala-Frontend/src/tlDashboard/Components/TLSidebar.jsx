@@ -53,16 +53,25 @@ export default function TLSidebar({ darkMode, isSidebarOpen, toggleSidebar }) {
   };
 
   return (
-    <aside
-      className={`fixed top-16 z-40 h-[calc(100%-64px)] transition-all duration-300 ease-in-out 
-      ${isSidebarOpen ? "left-0 w-64" : "-left-full md:left-0 md:w-16"} 
-      ${darkMode ? "bg-gray-900 bg-gradient-to-b from-gray-900 via-gray-900 to-gray-800 border-gray-700" : "bg-gradient-to-b from-blue-50 via-white to-purple-50 border-gray-200"} 
-      border-r shadow-lg`}
-    >
+    <>
+      {/* Mobile backdrop overlay */}
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={toggleSidebar}
+          aria-hidden="true"
+        />
+      )}
+      <aside
+        className={`fixed top-16 z-40 h-[calc(100vh-64px)] transition-all duration-300 ease-in-out 
+        ${isSidebarOpen ? "left-0 w-64" : "-left-full md:left-0 md:w-16"} 
+        ${darkMode ? "bg-gray-900 bg-gradient-to-b from-gray-900 via-gray-900 to-gray-800 border-gray-700" : "bg-gradient-to-b from-blue-50 via-white to-purple-50 border-gray-200"} 
+        border-r shadow-lg`}
+      >
       
 
       {/* Menu */}
-      <nav className="p-2 space-y-2 overflow-y-auto h-[calc(100%-64px)] md:h-[calc(100%-64px)]">
+      <nav className="p-2 sm:p-3 space-y-1 sm:space-y-2 overflow-y-auto h-full scrollbar-hide">
         {isSidebarOpen ? (
           // Render with labels when sidebar is open
           menuItems.map((item) => {
@@ -76,7 +85,7 @@ export default function TLSidebar({ darkMode, isSidebarOpen, toggleSidebar }) {
                   handleItemClick(item.path);
                 }}
                 className={({ isActive: navIsActive }) => `
-                  w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 
+                  w-full flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 sm:py-2.5 rounded-lg transition-all duration-200 text-sm sm:text-base
                   ${
                     navIsActive || isActive || activeMenu === item.id
                       ? darkMode
@@ -88,8 +97,8 @@ export default function TLSidebar({ darkMode, isSidebarOpen, toggleSidebar }) {
                   }
                 `}
               >
-                <item.icon className="shrink-0" size={18} />
-                <span className="text-sm font-medium text-left">{item.label}</span>
+                <item.icon className="shrink-0 w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                <span className="text-xs sm:text-sm font-medium text-left truncate">{item.label}</span>
               </NavLink>
             );
           })
@@ -106,7 +115,7 @@ export default function TLSidebar({ darkMode, isSidebarOpen, toggleSidebar }) {
                   handleItemClick(item.path);
                 }}
                 className={({ isActive: navIsActive }) => `
-                  w-full flex items-center justify-center gap-3 px-3 py-3 rounded-lg transition-all duration-200 
+                  w-full flex items-center justify-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 sm:py-3 rounded-lg transition-all duration-200
                   ${
                     navIsActive || isActive || activeMenu === item.id
                       ? darkMode
@@ -119,14 +128,13 @@ export default function TLSidebar({ darkMode, isSidebarOpen, toggleSidebar }) {
                 `}
                 title={!isSidebarOpen ? item.label : ""}
               >
-                <item.icon className="shrink-0" size={20} />
+                <item.icon className="shrink-0 w-5 h-5 sm:w-5 sm:h-5" />
               </NavLink>
             );
           })
         )}
       </nav>
-
-      
     </aside>
+    </>
   );
 }
