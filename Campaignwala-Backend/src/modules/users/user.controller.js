@@ -4346,6 +4346,7 @@ const getAllUsersWithStats = async (req, res) => {
             limit = 10, 
             role, 
             status, 
+            registrationStatus,
             search, 
             sort = 'createdAt',
             order = 'desc' 
@@ -4355,6 +4356,11 @@ const getAllUsersWithStats = async (req, res) => {
 
         // Role filter
         if (role && role !== 'all') query.role = role;
+
+        // Registration Status filter
+        if (registrationStatus && registrationStatus !== 'all') {
+            query.registrationStatus = registrationStatus;
+        }
 
         // Status filter
         if (status && status !== 'all') {

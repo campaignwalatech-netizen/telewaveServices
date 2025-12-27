@@ -708,8 +708,11 @@ export default function AllUsers() {
     direction: 'desc'
   });
 
+  // Local search state (for input field) - doesn't trigger fetch immediately
+  const [localSearch, setLocalSearch] = useState('');
+
   // Search debounce
-  const [searchTimeout, setSearchTimeout] = useState(null);
+  const searchTimeoutRef = useRef(null);
 
   // Enhance user data with calculated fields - UPDATED
   const enhanceUserData = (user) => {
@@ -812,7 +815,7 @@ export default function AllUsers() {
     };
   };
 
-  // Fetch all users (only approved users - exclude pending_approval)
+  // Fetch all users with registrationStatus === 'approved' (approved by admin and assigned TL)
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
@@ -823,7 +826,8 @@ export default function AllUsers() {
         limit: filters.limit,
         sort: sort.key,
         order: sort.direction,
-        ...(filters.search && { search: filters.search }),
+        registrationStatus: 'approved', // Only show users with registrationStatus === 'approved'
+        ...(filters.search && filters.search.trim() && { search: filters.search.trim() }),
         ...(filters.status !== 'all' && { 
           ...(filters.status === 'ex' ? { isEx: true } : { status: filters.status })
         }),
@@ -833,9 +837,10 @@ export default function AllUsers() {
       const response = await userService.getAllUsersWithStats(params);
       
       if (response.success) {
-        // Filter out pending_approval users - only show approved users
+        // Additional filter to ensure only approved users are shown
+        // (Backend should already filter, but this is a safety check)
         const approvedUsers = response.data.users.filter(user => 
-          user.status !== 'pending_approval'
+          user.registrationStatus === 'approved' && user.status !== 'pending_approval'
         );
         
         const enhancedUsers = approvedUsers.map(enhanceUserData);
@@ -853,7 +858,7 @@ export default function AllUsers() {
     } finally {
       setLoading(false);
     }
-  }, [filters.page, filters.limit, filters.status, filters.role, filters.search, sort]);
+  }, [filters.page, filters.limit, filters.status, filters.role, filters.search, sort.key, sort.direction]);
 
   // Fetch Team Leaders for TL change dropdown
   const fetchTeamLeaders = async () => {
@@ -867,15 +872,29 @@ export default function AllUsers() {
     }
   };
 
-  // Handle search with debounce
-  const handleSearch = (value) => {
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
+  // Handle search with debounce - improved
+  const handleSearchChange = (value) => {
+    // Update local search immediately for responsive UI
+    setLocalSearch(value);
+    
+    // Clear existing timeout
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
     
-    setSearchTimeout(setTimeout(() => {
-      setFilters(prev => ({ ...prev, search: value, page: 1 }));
-    }, 300));
+    // Set new timeout for actual search (increased to 800ms for better UX)
+    searchTimeoutRef.current = setTimeout(() => {
+      setFilters(prev => ({ ...prev, search: value.trim(), page: 1 }));
+    }, 800);
+  };
+
+  // Clear search
+  const handleClearSearch = () => {
+    setLocalSearch('');
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    setFilters(prev => ({ ...prev, search: '', page: 1 }));
   };
 
   // Change user role - Updated to remove from previous TL when changed to TL
@@ -1136,11 +1155,20 @@ export default function AllUsers() {
     }
   };
 
+  // Sync localSearch with filters.search when filters change externally (e.g., on refresh)
+  useEffect(() => {
+    setLocalSearch(filters.search);
+  }, [filters.search]);
+
   // Effects
   useEffect(() => {
     fetchUsers();
+  }, [fetchUsers]);
+
+  // Fetch team leaders only once on mount
+  useEffect(() => {
     fetchTeamLeaders();
-  }, [filters.page, filters.limit, filters.status, filters.role, sort, fetchUsers]);
+  }, []);
 
   useEffect(() => {
     if (error || success) {
@@ -1155,11 +1183,11 @@ export default function AllUsers() {
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
-      if (searchTimeout) {
-        clearTimeout(searchTimeout);
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchTimeout]);
+  }, []);
 
   // Handlers
   const handleFilterChange = (key, value) => {
@@ -1167,10 +1195,19 @@ export default function AllUsers() {
   };
 
   const handleSort = (key) => {
-    setSort(prev => ({
-      key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
-    }));
+    // Don't allow sorting by status if it conflicts with filters
+    if (key === 'status' && filters.status !== 'all') {
+      // If status filter is active, just toggle sort direction without changing filter
+      setSort(prev => ({
+        key: prev.key === key ? key : 'status',
+        direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+      }));
+    } else {
+      setSort(prev => ({
+        key,
+        direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
+      }));
+    }
   };
 
   const handleFileUpload = (event) => {
@@ -1283,7 +1320,11 @@ export default function AllUsers() {
           
           {/* Refresh */}
           <Button 
-            onClick={() => { fetchUsers(); fetchTeamLeaders(); }} 
+            onClick={() => { 
+              // Reset search to trigger fresh fetch
+              setLocalSearch('');
+              setFilters(prev => ({ ...prev, page: 1 }));
+            }} 
             disabled={loading}
             size="sm"
           >
@@ -1314,11 +1355,21 @@ export default function AllUsers() {
               <Search className="absolute left-3 top-3 h-4 w-4 text-gray-500" />
               <Input
                 placeholder="Search by name, email, phone..."
-                value={filters.search}
-                onChange={(e) => handleSearch(e.target.value)}
-                className="pl-9"
+                value={localSearch}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-9 pr-9"
                 disabled={loading}
               />
+              {localSearch && (
+                <button
+                  onClick={handleClearSearch}
+                  className="absolute right-3 top-3 h-4 w-4 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                  type="button"
+                  title="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <Select 
@@ -1386,7 +1437,7 @@ export default function AllUsers() {
                       <PhoneIcon className="w-4 h-4 inline mr-1" />
                       Phone Number
                     </TableHead>
-                    <TableHead sortable onSort={handleSort} sortKey="status" currentSort={sort}>
+                    <TableHead sortable={false}>
                       <UserCheckIcon className="w-4 h-4 inline mr-1" />
                       Status
                     </TableHead>
