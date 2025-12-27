@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import offerService from "../../services/offerService";
 import leadService from "../../services/leadService";
-import api from "../../services/api";
 
 const SharedOfferForm = ({ darkMode }) => {
   const { offerId, hrUserId } = useParams();
@@ -23,21 +22,32 @@ const SharedOfferForm = ({ darkMode }) => {
   const [agreedToTerms, setAgreedToTerms] = useState(true);
 
   useEffect(() => {
-    fetchOfferDetails();
-    // No need to fetch HR user details - backend will handle it
+    console.log('🔵 SharedOfferForm mounted with params:', { offerId, hrUserId });
+    if (offerId && hrUserId) {
+      fetchOfferDetails();
+    } else {
+      setError("Invalid share link. Missing offer ID or user ID.");
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [offerId, hrUserId]);
 
   const fetchOfferDetails = async () => {
     try {
       setLoading(true);
+      setError(null);
+      console.log('🔵 Fetching offer details for offerId:', offerId);
       const response = await offerService.getOfferById(offerId);
+      console.log('🔵 Offer fetch response:', response);
       if (response.success) {
         setOffer(response.data);
+        console.log('✅ Offer loaded successfully:', response.data?.name);
       } else {
-        setError("Offer not found");
+        setError("Offer not found. Please check the share link.");
       }
     } catch (err) {
-      setError(err.message || "Failed to load offer details");
+      console.error('❌ Error fetching offer:', err);
+      setError(err.message || "Failed to load offer details. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -108,7 +118,19 @@ const SharedOfferForm = ({ darkMode }) => {
       
       if (response.success) {
         alert("Thank you! Your interest has been submitted successfully. We will contact you soon.");
-        navigate("/");
+        
+        // Redirect to the main offer link if available
+        if (offer?.link) {
+          // Open in new tab
+          window.open(offer.link, '_blank');
+          // Also navigate to home after a short delay
+          setTimeout(() => {
+            navigate("/");
+          }, 1000);
+        } else {
+          // If no link, just navigate to home
+          navigate("/");
+        }
       } else {
         setError(response.message || "Failed to submit. Please try again.");
       }

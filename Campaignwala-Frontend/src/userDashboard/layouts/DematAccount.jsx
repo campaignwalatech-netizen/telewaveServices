@@ -14,10 +14,10 @@ const DematAccount = ({ darkMode }) => {
   
   // Get category info from navigation state or use defaults
   const categoryName = location.state?.categoryName || "DEMAT Account";
-  const categoryDescription = location.state?.categoryDescription || "";
 
   useEffect(() => {
     fetchOffers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryId]);
 
   const fetchOffers = async () => {
@@ -88,17 +88,42 @@ const DematAccount = ({ darkMode }) => {
     }
   };
 
-  // 🟩 Navigate to Zero-Fee Demat Page with offer details
-  const handleShare = (offerId) => {
-    console.log('🔵 Step 1: Share button clicked');
-    console.log('🔵 Step 2: Offer ID received:', offerId);
-    console.log('🔵 Step 3: Navigating to:', `/user/zerofee-demat/${offerId}`);
+  // 🟩 Copy share message with video link and offer link
+  const handleShare = async (offer) => {
+    const userId = user?._id || user?.id;
+    if (!userId) {
+      alert("Please login to generate your share link.");
+      return;
+    }
     
+    const shareLink = `${window.location.origin}/share/${offer._id}/${userId}`;
+    
+    // Get video link from offer (prefer videoLink, fallback to video)
+    const videoLink = offer?.videoLink || offer?.video || "";
+    
+    // Generate formatted WhatsApp message
+    let shareMessage = `🌟 *Welcome to FREELANCER WAALA!* 🌟\n\n`;
+    shareMessage += `*Explore our platform for exclusive benefits and opportunities. Don't miss out on:*\n`;
+    shareMessage += `- Valuable insights\n`;
+    shareMessage += `- Exciting offers\n`;
+    shareMessage += `- Personalized support\n\n`;
+    
+    if (videoLink) {
+      shareMessage += `🔗 📹 *Helping Video:* ${videoLink}\n\n`;
+    }
+    
+    // Get offer name for the message
+    const offerName = offer?.name || "ANGELONE Free Account";
+    shareMessage += `👥 *Open ${offerName}:* Tap the Link Now👇👇\n\n`;
+    shareMessage += `🎉${shareLink}`;
+    
+    // Copy the formatted message to clipboard
     try {
-      navigate(`/user/zerofee-demat/${offerId}`);
-      console.log('✅ Step 4: Navigation successful');
+      await navigator.clipboard.writeText(shareMessage);
+      alert("Share message copied to clipboard! You can now paste it in WhatsApp or any messaging app.");
     } catch (error) {
-      console.error('❌ Step 4: Navigation failed:', error);
+      console.error('Error copying to clipboard:', error);
+      alert("Failed to copy. Please try again.");
     }
   };
 
@@ -147,7 +172,7 @@ const DematAccount = ({ darkMode }) => {
       {/* Cards Section - Backend Data */}
       {!loading && offers.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-4 w-full">
-          {offers.map((offer, index) => (
+          {offers.map((offer) => (
             <div
               key={offer._id}
               className={`rounded-xl border shadow-sm p-3 sm:p-4 flex flex-col justify-between transition hover:shadow-lg hover:scale-105 ${
@@ -176,7 +201,7 @@ const DematAccount = ({ darkMode }) => {
                 </p>
               </div>
               <button
-                onClick={() => handleShare(offer._id)}
+                onClick={() => handleShare(offer)}
                 className="w-full py-2 sm:py-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white font-medium rounded-md hover:from-green-600 hover:to-emerald-600 transition transform hover:scale-105"
               >
                 📤 Share Offer
