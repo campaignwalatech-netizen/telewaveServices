@@ -123,20 +123,25 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
           };
         });
         
-        setTodayData(processedData);
+        // Filter out closed data (only show pending and called)
+        const activeData = processedData.filter(item => {
+          const status = item.status;
+          // Only include pending and contacted (called) data
+          return status === 'pending' || status === 'contacted';
+        });
         
-        // Calculate counts based on processed status
+        setTodayData(activeData);
+        
+        // Calculate counts based on filtered active data only
         const counts = {
-          total: processedData.length,
-          pending: processedData.filter(item => 
+          total: activeData.length,
+          pending: activeData.filter(item => 
             item.status === 'pending'
           ).length,
-          called: processedData.filter(item => 
+          called: activeData.filter(item => 
             item.status === 'contacted'
           ).length,
-          closed: processedData.filter(item => 
-            ['converted', 'rejected', 'not_reachable'].includes(item.status)
-          ).length
+          closed: 0 // No closed data shown in today's page
         };
         setTodaysCounts(counts);
       } else {
@@ -412,20 +417,16 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
   };
 
   const filterTodayData = () => {
+    // todayData already contains only pending and called data
     let filtered = todayData;
     
-    // Apply status filter
+    // Apply status filter (only pending and called options available)
     if (filterStatus !== 'all') {
       filtered = filtered.filter(item => {
         switch (filterStatus) {
           case 'pending':
             return item.status === 'pending';
           case 'called':
-            return item.status === 'contacted';
-          case 'closed':
-            return ['converted', 'rejected', 'not_reachable'].includes(item.status);
-          case 'converted':
-            return item.status === 'converted';
           case 'contacted':
             return item.status === 'contacted';
           default:
@@ -596,7 +597,7 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
         <div className="flex justify-between items-center">
           <div className="flex-1 min-w-0">
             <h1 className={`text-lg sm:text-xl font-bold truncate ${darkMode ? 'text-gray-100' : 'text-gray-900'}`}>
-              Today's Data
+              Today's Data (Pending & Called)
             </h1>
             {filteredData.length > 0 && (
               <p className={`text-xs sm:text-sm mt-0.5 ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -643,7 +644,7 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
           <div className="flex justify-between items-start md:items-center mb-4">
             <div>
               <h1 className="text-2xl font-bold mb-2">Today's Assigned Data</h1>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Manage your assigned data for today</p>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Pending and called data assigned today (closed data moved to Closed Data page)</p>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -665,7 +666,7 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
         </div>
         
         {/* Stats Overview - Mobile First */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6 md:mb-8">
           <div className={`rounded-lg sm:rounded-xl shadow-sm sm:shadow p-2.5 sm:p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             <div className="flex items-center">
               <div className={`p-1.5 sm:p-2 md:p-3 rounded-lg mr-2 sm:mr-3 md:mr-4 shrink-0 ${
@@ -674,7 +675,7 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
                 <Target className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className={`text-[10px] sm:text-xs md:text-sm truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Assigned</p>
+                <p className={`text-[10px] sm:text-xs md:text-sm truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Active</p>
                 <p className="text-base sm:text-lg md:text-2xl font-bold truncate">{todaysCounts.total}</p>
               </div>
             </div>
@@ -704,20 +705,6 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
               <div className="min-w-0 flex-1">
                 <p className={`text-[10px] sm:text-xs md:text-sm truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Called</p>
                 <p className="text-base sm:text-lg md:text-2xl font-bold truncate">{todaysCounts.called}</p>
-              </div>
-            </div>
-          </div>
-          
-          <div className={`rounded-lg sm:rounded-xl shadow-sm sm:shadow p-2.5 sm:p-3 md:p-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
-            <div className="flex items-center">
-              <div className={`p-1.5 sm:p-2 md:p-3 rounded-lg mr-2 sm:mr-3 md:mr-4 shrink-0 ${
-                darkMode ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-600'
-              }`}>
-                <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className={`text-[10px] sm:text-xs md:text-sm truncate ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Closed</p>
-                <p className="text-base sm:text-lg md:text-2xl font-bold truncate">{todaysCounts.closed}</p>
               </div>
             </div>
           </div>
@@ -781,8 +768,6 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
                     <option value="all">All Status</option>
                     <option value="pending">Pending</option>
                     <option value="called">Called</option>
-                    <option value="closed">Closed</option>
-                    <option value="converted">Converted</option>
                     <option value="contacted">Contacted</option>
                   </select>
                 </div>
@@ -906,8 +891,6 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
                   <option value="all">All Status</option>
                   <option value="pending">Pending</option>
                   <option value="called">Called</option>
-                  <option value="closed">Closed</option>
-                  <option value="converted">Converted</option>
                   <option value="contacted">Contacted</option>
                 </select>
               </div>
@@ -983,7 +966,7 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
                 <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   {searchQuery || filterStatus !== 'all' 
                     ? 'Try changing your filters' 
-                    : 'No data has been assigned to you today'}
+                    : 'No pending or called data assigned to you today'}
                 </p>
               </div>
             ) : (
@@ -1427,18 +1410,12 @@ const UserTodayDataPage = ({ darkMode, setDarkMode }) => {
                       <PhoneCall size={12} className="mr-1" />
                       Called: {todaysCounts.called}
                     </span>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs ${
-                      darkMode ? 'bg-green-900/30 text-green-300' : 'bg-green-100 text-green-800'
-                    }`}>
-                      <CheckCircle size={12} className="mr-1" />
-                      Closed: {todaysCounts.closed}
-                    </span>
                   </div>
                 </div>
                 
                 <div className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                  <p>Assigned today: {formatDateFull(todayData[0]?.assignedAt)}</p>
-                  <p>Data automatically moves to previous if not closed</p>
+                  <p>Showing only pending and called data assigned today</p>
+                  <p>Closed data is moved to Closed Data page</p>
                 </div>
               </div>
             </div>

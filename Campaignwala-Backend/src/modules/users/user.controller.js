@@ -4394,56 +4394,325 @@ const getAllUsersWithStats = async (req, res) => {
 
         const users = await User.find(query)
             .select('-password -otpAttempts -lastOtpSent -registrationOtp -registrationOtpExpires -loginOtp -loginOtpExpires -resetPasswordOtp -resetPasswordOtpExpires -emailOtp -emailOtpExpires -activeSession -sessionDevice -sessionIP -security')
+            .populate('reportingTo', 'name email phoneNumber')
             .limit(limit * 1)
             .skip((page - 1) * limit)
             .sort(sortConfig);
 
         const total = await User.countDocuments(query);
 
-        // Enhanced users with statistics
+        // Enhanced users with statistics - similar to getTeamUsersWithStats
         const usersWithStats = await Promise.all(
             users.map(async (user) => {
                 try {
-                    // Get leads statistics
-                    const leads = await Lead.find({ 
-                        hrUserId: user._id 
-                    });
+                    const userObj = user.toObject();
                     
-                    const totalLeads = leads.length;
-                    const completedLeads = leads.filter(lead => lead.status === 'completed').length;
-                    const pendingLeads = leads.filter(lead => lead.status === 'pending').length;
-                    const rejectedLeads = leads.filter(lead => lead.status === 'rejected').length;
-                    const approvedLeads = leads.filter(lead => lead.status === 'approved').length;
-
+                    // Extract attendance data
+                    const attendance = userObj.attendance || {};
+                    const monthlyStats = attendance.monthlyStats || {};
+                    const totalPresent = monthlyStats.present || 0;
+                    const totalAbsent = monthlyStats.absent || 0;
+                    const totalLate = monthlyStats.late || 0;
+                    const totalWorkingDays = totalPresent + totalAbsent + totalLate || 30;
+                    
+                    // Extract rollback data
+                    const rollback = userObj.rollback || [];
+                    const rollbackTotal = Array.isArray(rollback) ? rollback.length : (rollback.total || 0);
+                    const rollbackLastDate = Array.isArray(rollback) && rollback.length > 0 
+                        ? rollback[rollback.length - 1].date 
+                        : (rollback.lastDate || null);
+                    
+                    // Extract statistics
+                    const statistics = userObj.statistics || {};
+                    const totalLeads = statistics.totalLeads || 0;
+                    const completedLeads = statistics.completedLeads || 0;
+                    const pendingLeads = statistics.pendingLeads || 0;
+                    const rejectedLeads = statistics.rejectedLeads || 0;
+                    const calledLeads = statistics.calledLeads || 0;
+                    const closedLeads = statistics.closedLeads || 0;
+                    
+                    // Extract financials
+                    const financials = userObj.financials || {};
+                    
                     // Get wallet statistics
                     const wallet = await Wallet.findOne({ userId: user._id }) || {
                         balance: 0,
                         totalEarned: 0,
                         totalWithdrawn: 0
                     };
+                    
+                    // Extract lead distribution
+                    const leadDistribution = userObj.leadDistribution || {};
+                    
+                    // Calculate today's called/closed and last assigned data from DataDistribution
+                    const DataDistribution = require('./data.distribute');
+                    const mongoose = require('mongoose');
+                    
+                    // Get today's date range (00:00:00 to 23:59:59.999)
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const tomorrow = new Date(today);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    
+                    // Convert user._id to ObjectId for proper comparison
+                    const userId = mongoose.Types.ObjectId.isValid(user._id) 
+                        ? new mongoose.Types.ObjectId(user._id) 
+                        : user._id;
+                    
+                    // Get today's called count using aggregation (similar to CalledDataPage)
+                    // Count data where status is 'contacted' and contactedAt is today
+                    const todayCalledResult = await DataDistribution.aggregate([
+                        {
+                            $match: {
+                                isActive: true,
+                                'teamAssignments': {
+                                    $elemMatch: {
+                                        teamMember: userId,
+                                        withdrawn: false
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            $unwind: '$teamAssignments'
+                        },
+                        {
+                            $match: {
+                                'teamAssignments.teamMember': userId,
+                                'teamAssignments.status': 'contacted',
+                                'teamAssignments.withdrawn': false,
+                                'teamAssignments.contactedAt': {
+                                    $exists: true,
+                                    $ne: null,
+                                    $gte: today,
+                                    $lt: tomorrow
+                                }
+                            }
+                        },
+                        {
+                            $count: 'total'
+                        }
+                    ]);
+                    const todayCalled = todayCalledResult && todayCalledResult.length > 0 ? todayCalledResult[0].total : 0;
+                    
+                    // Get today's closed count using aggregation (similar to ClosedDataPage)
+                    // Count data where status is converted/rejected/not_reachable and statusUpdatedAt is today
+                    const todayClosedResult = await DataDistribution.aggregate([
+                        {
+                            $match: {
+                                isActive: true,
+                                'teamAssignments': {
+                                    $elemMatch: {
+                                        teamMember: userId,
+                                        withdrawn: false
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            $unwind: '$teamAssignments'
+                        },
+                        {
+                            $match: {
+                                'teamAssignments.teamMember': userId,
+                                'teamAssignments.status': {
+                                    $in: ['converted', 'rejected', 'not_reachable']
+                                },
+                                'teamAssignments.withdrawn': false,
+                                'teamAssignments.statusUpdatedAt': {
+                                    $exists: true,
+                                    $ne: null,
+                                    $gte: today,
+                                    $lt: tomorrow
+                                }
+                            }
+                        },
+                        {
+                            $count: 'total'
+                        }
+                    ]);
+                    const todayClosed = todayClosedResult && todayClosedResult.length > 0 ? todayClosedResult[0].total : 0;
+                    
+                    // Get last assigned data - find the most recent assignment
+                    // Use aggregation to find the latest assignment date
+                    const lastAssignmentAggregation = await DataDistribution.aggregate([
+                        {
+                            $match: {
+                                'teamAssignments.teamMember': user._id,
+                                'teamAssignments.withdrawn': false,
+                                isActive: true
+                            }
+                        },
+                        {
+                            $unwind: '$teamAssignments'
+                        },
+                        {
+                            $match: {
+                                'teamAssignments.teamMember': user._id,
+                                'teamAssignments.withdrawn': false
+                            }
+                        },
+                        {
+                            $sort: { 'teamAssignments.assignedAt': -1 }
+                        },
+                        {
+                            $limit: 1
+                        },
+                        {
+                            $project: {
+                                assignedAt: '$teamAssignments.assignedAt',
+                                batchNumber: '$batchNumber'
+                            }
+                        }
+                    ]);
+                    
+                    let lastDataCount = 0;
+                    let lastAssignedDate = null;
+                    
+                    if (lastAssignmentAggregation && lastAssignmentAggregation.length > 0) {
+                        const lastAssignment = lastAssignmentAggregation[0];
+                        lastAssignedDate = lastAssignment.assignedAt;
+                        
+                        if (lastAssignedDate) {
+                            // Count all data assigned to this user on the same date
+                            const assignmentDate = new Date(lastAssignedDate);
+                            assignmentDate.setHours(0, 0, 0, 0);
+                            const assignmentDateEnd = new Date(assignmentDate);
+                            assignmentDateEnd.setDate(assignmentDateEnd.getDate() + 1);
+                            
+                            // Count data assigned on the same date using aggregation
+                            const countResult = await DataDistribution.aggregate([
+                                {
+                                    $match: {
+                                        'teamAssignments.teamMember': user._id,
+                                        'teamAssignments.withdrawn': false,
+                                        isActive: true
+                                    }
+                                },
+                                {
+                                    $unwind: '$teamAssignments'
+                                },
+                                {
+                                    $match: {
+                                        'teamAssignments.teamMember': user._id,
+                                        'teamAssignments.withdrawn': false,
+                                        'teamAssignments.assignedAt': {
+                                            $gte: assignmentDate,
+                                            $lt: assignmentDateEnd
+                                        }
+                                    }
+                                },
+                                {
+                                    $count: 'total'
+                                }
+                            ]);
+                            
+                            lastDataCount = countResult && countResult.length > 0 ? countResult[0].total : 0;
+                        }
+                    }
+                    
+                    // Update leadDistribution with last assigned data info
+                    const updatedLeadDistribution = {
+                        ...leadDistribution,
+                        lastDataCount: lastDataCount,
+                        lastAssignedDate: lastAssignedDate,
+                        lastAssignedDataCount: lastDataCount // For backward compatibility
+                    };
 
                     return {
-                        ...user.toObject(),
+                        ...userObj,
+                        reportingTo: userObj.reportingTo,
+                        
+                        // Attendance data
+                        attendance: {
+                            ...attendance,
+                            monthlyStats: {
+                                present: totalPresent,
+                                absent: totalAbsent,
+                                late: totalLate
+                            },
+                            totalPresent,
+                            totalWorkingDays
+                        },
+                        
+                        // Rollback data
+                        rollback: {
+                            data: Array.isArray(rollback) ? rollback : [],
+                            total: rollbackTotal,
+                            lastDate: rollbackLastDate
+                        },
+                        
+                        // Statistics
+                        statistics: {
+                            ...statistics,
+                            totalLeads,
+                            completedLeads,
+                            pendingLeads,
+                            rejectedLeads,
+                            calledLeads,
+                            closedLeads
+                        },
+                        
+                        // Financials
+                        financials: {
+                            ...financials,
+                            salary: wallet.balance || financials.salary || 0
+                        },
+                        
+                        // Wallet (for backward compatibility)
+                        wallet: {
+                            balance: wallet.balance || 0,
+                            totalEarned: wallet.totalEarned || 0,
+                            totalWithdrawn: wallet.totalWithdrawn || 0
+                        },
+                        
+                        // Lead distribution (updated with last assigned data)
+                        leadDistribution: updatedLeadDistribution,
+                        
+                        // Last assigned data (for easy access)
+                        lastAssignedDataCount: lastDataCount,
+                        lastAssignedDate: lastAssignedDate,
+                        
+                        // Daily stats for today
+                        dailyStats: {
+                            [today.toISOString().split('T')[0]]: {
+                                called: todayCalled,
+                                closed: todayClosed
+                            }
+                        },
+                        
+                        // Direct properties for easy access (for backward compatibility)
+                        todayCalled: todayCalled,
+                        todayClosed: todayClosed,
+                        
+                        // For backward compatibility
                         totalLeads,
                         completedLeads,
                         pendingLeads,
                         rejectedLeads,
-                        approvedLeads,
-                        totalEarnings: wallet.totalEarned,
-                        currentBalance: wallet.balance,
-                        totalWithdrawals: wallet.totalWithdrawn,
+                        totalEarnings: wallet.totalEarned || 0,
+                        currentBalance: wallet.balance || 0,
+                        totalWithdrawals: wallet.totalWithdrawn || 0,
                         joinDate: user.createdAt.toISOString().split('T')[0],
                         lastActive: user.lastActivity ? user.lastActivity.toISOString().split('T')[0] : 'Never'
                     };
                 } catch (error) {
                     console.error(`Error getting stats for user ${user._id}:`, error);
+                    const userObj = user.toObject();
                     return {
-                        ...user.toObject(),
+                        ...userObj,
+                        reportingTo: userObj.reportingTo,
+                        attendance: userObj.attendance || {},
+                        rollback: { data: [], total: 0, lastDate: null },
+                        statistics: userObj.statistics || {},
+                        financials: userObj.financials || {},
+                        wallet: { balance: 0, totalEarned: 0, totalWithdrawn: 0 },
+                        leadDistribution: userObj.leadDistribution || {},
+                        dailyStats: {},
                         totalLeads: 0,
                         completedLeads: 0,
                         pendingLeads: 0,
                         rejectedLeads: 0,
-                        approvedLeads: 0,
                         totalEarnings: 0,
                         currentBalance: 0,
                         totalWithdrawals: 0,

@@ -222,7 +222,7 @@ const CardContent = ({ children, className = '' }) => (
   </div>
 );
 
-// Role Change Component
+// Role Change Component - Only for users (can change to TL)
 const RoleChangeButton = ({ user, onChangeRole, loading = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef(null);
@@ -245,10 +245,19 @@ const RoleChangeButton = ({ user, onChangeRole, loading = false }) => {
     }
   };
 
+  // Only show role change dropdown for users (not TL or admin)
+  if (user.role !== 'user') {
+    return (
+      <Badge variant="secondary" className="min-w-[80px] justify-center">
+        {user.role === 'TL' ? 'TL' : user.role === 'admin' ? 'Admin' : user.role}
+      </Badge>
+    );
+  }
+
   return (
     <div className="relative" ref={menuRef}>
       <Button
-        variant={user.role === 'TL' ? 'default' : user.role === 'admin' ? 'destructive' : 'default'}
+        variant="default"
         size="sm"
         onClick={() => setIsOpen(!isOpen)}
         disabled={loading}
@@ -264,25 +273,13 @@ const RoleChangeButton = ({ user, onChangeRole, loading = false }) => {
       {isOpen && (
         <div className="absolute left-0 top-10 z-50 w-32 rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-lg">
           <div className="p-1 space-y-1">
-            {user.role !== 'user' && (
-              <button
-                onClick={() => handleRoleChange('user')}
-                disabled={loading}
-                className="flex items-center w-full px-3 py-2 text-sm text-left rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50"
-              >
-                User
-              </button>
-            )}
-            {user.role !== 'TL' && (
-              <button
-                onClick={() => handleRoleChange('TL')}
-                disabled={loading}
-                className="flex items-center w-full px-3 py-2 text-sm text-left text-purple-600 rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/20 disabled:opacity-50"
-              >
-                TL
-              </button>
-            )}
-            
+            <button
+              onClick={() => handleRoleChange('TL')}
+              disabled={loading}
+              className="flex items-center w-full px-3 py-2 text-sm text-left text-purple-600 rounded-md hover:bg-purple-50 dark:hover:bg-purple-900/20 disabled:opacity-50"
+            >
+              TL
+            </button>
           </div>
         </div>
       )}
@@ -320,7 +317,7 @@ const StatusChangeButton = ({ user, onChangeStatus, loading = false }) => {
       case 'active': return 'Active';
       case 'hold': return 'Hold';
       case 'dead': return 'Dead';
-      default: return user.status || 'Unknown';
+      default: return 'Active'; // Default to Active if status is not one of the three
     }
   };
 
@@ -377,7 +374,6 @@ const StatusChangeButton = ({ user, onChangeStatus, loading = false }) => {
                 Dead
               </button>
             )}
-            
           </div>
         </div>
       )}
@@ -387,23 +383,32 @@ const StatusChangeButton = ({ user, onChangeStatus, loading = false }) => {
 
 // Attendance Component
 const AttendanceBadge = ({ user }) => {
+  // Get today's attendance status - check if marked today
+  const todayDate = new Date();
+  todayDate.setHours(0, 0, 0, 0);
+  const todayMarkedAt = user.attendance?.todayMarkedAt ? new Date(user.attendance.todayMarkedAt) : null;
+  const isMarkedToday = todayMarkedAt && todayMarkedAt >= todayDate;
+  
+  // Get the status - if marked today, use todayStatus, otherwise default to absent
+  const attendanceStatus = isMarkedToday ? (user.attendance?.todayStatus || 'absent') : 'absent';
+  
   const getVariant = () => {
-    switch(user.attendance?.todayStatus) {
+    switch(attendanceStatus) {
       case 'present': return "success";
       case 'absent': return "destructive";
-      case 'late': return "warning";
-      case 'half-day': return "orange";
-      default: return "secondary";
+      case 'late': return "success"; // Show late as present (success)
+      case 'half-day': return "success"; // Show half-day as present (success)
+      default: return "destructive"; // Default to absent (destructive)
     }
   };
 
   const getLabel = () => {
-    switch(user.attendance?.todayStatus) {
+    switch(attendanceStatus) {
       case 'present': return 'Present';
       case 'absent': return 'Absent';
-      case 'late': return 'Late';
-      case 'half-day': return 'Half Day';
-      default: return 'Not Marked';
+      case 'late': return 'Present'; // Show late as present
+      case 'half-day': return 'Present'; // Show half-day as present
+      default: return 'Absent'; // Default to Absent if not marked
     }
   };
 
@@ -544,8 +549,118 @@ const OpenLeadsWithrow = ({ openLeads, onWithrow }) => {
   );
 };
 
+// Delete/Block Modal Component
+const DeleteBlockModal = ({ user, isOpen, onClose, onConfirm, loading = false }) => {
+  const [actionType, setActionType] = useState('block'); // 'block' or 'delete'
+  const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setActionType('block');
+      setReason('');
+    }
+  }, [isOpen]);
+
+  const handleConfirm = () => {
+    if (!reason.trim()) {
+      toast.error('Please provide a reason');
+      return;
+    }
+    onConfirm(actionType, reason);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+            {actionType === 'block' ? 'Block User' : 'Delete User Permanently'}
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            User: <span className="font-medium">{user?.name || 'Unknown'}</span>
+          </p>
+        </div>
+        
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              Action Type
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="block"
+                  checked={actionType === 'block'}
+                  onChange={(e) => setActionType(e.target.value)}
+                  className="mr-2"
+                />
+                <span className="text-sm">Block User</span>
+              </label>
+              <label className="flex items-center">
+                <input
+                  type="radio"
+                  value="delete"
+                  checked={actionType === 'delete'}
+                  onChange={(e) => setActionType(e.target.value)}
+                  className="mr-2"
+                />
+                <span className="text-sm">Delete Permanently</span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              Reason <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Enter reason for blocking or deleting this user..."
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[100px]"
+              disabled={loading}
+            />
+          </div>
+
+          {actionType === 'delete' && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+              <p className="text-sm text-red-700 dark:text-red-300">
+                <strong>Warning:</strong> This action cannot be undone. All user data will be permanently deleted.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={loading || !reason.trim()}
+            className={`px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50 disabled:cursor-not-allowed ${
+              actionType === 'delete' 
+                ? 'bg-red-600 hover:bg-red-700' 
+                : 'bg-orange-600 hover:bg-orange-700'
+            }`}
+          >
+            {loading ? 'Processing...' : actionType === 'delete' ? 'Delete Permanently' : 'Block User'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Action Menu Component
-const ActionMenu = ({ user, onEdit, onDelete, loading = false }) => {
+const ActionMenu = ({ onEdit, onDelete, loading = false }) => {
   return (
     <div className="flex items-center gap-2">
       <Button
@@ -563,7 +678,7 @@ const ActionMenu = ({ user, onEdit, onDelete, loading = false }) => {
         size="icon"
         onClick={onDelete}
         disabled={loading}
-        title="Delete User"
+        title="Delete/Block User"
         className="text-red-600 hover:text-red-700 hover:bg-red-50"
       >
         <Trash2 className="w-4 h-4" />
@@ -604,49 +719,67 @@ export default function AllUsers() {
     const pendingLeads = user.statistics?.pendingLeads || 0;
     const rejectedLeads = user.statistics?.rejectedLeads || 0;
     
-    // Get CALLED data from user statistics - Updated to check correct fields
-    const calledLeads = user.statistics?.calledLeads || 
-                       user.statistics?.contactedLeads || 
-                       user.dailyStats?.called || 0;
-    
-    // Get CLOSED data from user statistics - Updated to check correct fields
-    const closedLeads = user.statistics?.closedLeads || 
-                       user.statistics?.completedLeads || 
-                       user.dailyStats?.closed || 0;
-    
     const conversionRate = totalLeads > 0 ? (completedLeads / totalLeads * 100) : 0;
     
-    // Attendance
-    const totalPresent = user.attendance?.totalPresent || 0;
-    const attendanceStatus = user.attendance?.todayStatus || 'not_marked';
+    // Calculate today's date string for dailyStats lookup
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
     
-    // Rollback data (withdrawal data)
-    const rollbackData = user.rollback?.total || 0;
+    // Attendance - Only show present/absent
+    // Check if attendance was marked today
+    const todayMarkedAt = user.attendance?.todayMarkedAt ? new Date(user.attendance.todayMarkedAt) : null;
+    const isMarkedToday = todayMarkedAt && todayMarkedAt >= todayDate;
+    
+    // Get the status - if marked today, use todayStatus, otherwise default to absent
+    const attendanceStatus = isMarkedToday ? (user.attendance?.todayStatus || 'absent') : 'absent';
+    const totalPresent = user.attendance?.totalPresent || user.attendance?.monthlyStats?.present || 0;
+    
+    // Rollback data (withdrawal data) - Updated to handle both array and object format
+    const rollbackData = user.rollback?.total || (Array.isArray(user.rollback?.data) ? user.rollback.data.length : 0);
     const rollbackDate = user.rollback?.lastDate ? 
       new Date(user.rollback.lastDate).toLocaleDateString('en-IN') : '-';
     
-    // Lead data
-    const lastData = user.leadDistribution?.lastLeadDate ? 
-      new Date(user.leadDistribution.lastLeadDate).toLocaleDateString('en-IN') : '-';
-    const dateAssigned = user.leadDistribution?.lastAssignedDate ? 
-      new Date(user.leadDistribution.lastAssignedDate).toLocaleDateString('en-IN') : '-';
+    // Last Data - Show last assigned data numbers (count of last assigned data)
+    // Check multiple possible locations for lastDataCount
+    const lastDataCount = user.lastAssignedDataCount || 
+                         user.leadDistribution?.lastDataCount || 
+                         user.leadDistribution?.lastAssignedDataCount ||
+                         user.statistics?.lastAssignedCount || 
+                         0;
+    const lastData = lastDataCount > 0 ? lastDataCount.toString() : '-';
     
-    // TL info - Get from reportingTo or tlDetails
+    // Date Assigned - Last data assignment date
+    // Check multiple possible locations for lastAssignedDate
+    const lastAssignedDateRaw = user.lastAssignedDate || 
+                               user.leadDistribution?.lastAssignedDate ||
+                               user.leadDistribution?.lastLeadDistributionDate;
+    const dateAssigned = lastAssignedDateRaw ? 
+      new Date(lastAssignedDateRaw).toLocaleDateString('en-IN') : '-';
+    
+    // TL info - Get from reportingTo (now populated from backend)
     const tlName = user.reportingTo?.name || 
                    user.tlDetails?.managedBy?.name || 
                    user.tlName || 
                    '-';
     
-    const manageTL = user.tlDetails?.managedBy?.name || '-';
+    const manageTL = user.reportingTo?.name || user.tlDetails?.managedBy?.name || '-';
 
-    // Calculate today's stats
-    const today = new Date().toISOString().split('T')[0];
-    const todayCalled = user.dailyStats?.[today]?.called || 0;
-    const todayClosed = user.dailyStats?.[today]?.closed || 0;
+    // Calculate today's stats - Updated to use dailyStats from backend
+    // Check dailyStats first, then fallback to direct properties, then 0
+    // Try multiple date formats to ensure we get the data
+    const todayCalled = user.dailyStats?.[todayDateStr]?.called ?? 
+                       user.dailyStats?.[new Date().toISOString().split('T')[0]]?.called ??
+                       user.todayCalled ?? 
+                       0;
+    const todayClosed = user.dailyStats?.[todayDateStr]?.closed ?? 
+                       user.dailyStats?.[new Date().toISOString().split('T')[0]]?.closed ??
+                       user.todayClosed ?? 
+                       0;
     
-    // Get total called and closed counts from statistics
-    const totalCalled = calledLeads;
-    const totalClosed = closedLeads;
+    // Open Data - Total data not closed or converted from all user data since registration
+    // Formula: totalLeads - completedLeads (converted) = open data
+    const openData = totalLeads - completedLeads; // All data minus converted = open data
 
     return {
       ...user,
@@ -659,15 +792,14 @@ export default function AllUsers() {
       attendanceStatus,
       rollbackData,
       rollbackDate,
-      lastData,
+      lastData, // Now shows count instead of date
       dateAssigned,
       tlName,
       manageTL,
-      openLeads: pendingLeads + rejectedLeads,
-      salary: user.financials?.salary || '-',
+      openData, // Renamed from openLeads to openData
+      openLeads: pendingLeads + rejectedLeads, // Keep for backward compatibility
+      salary: user.financials?.salary || user.wallet?.balance || user.currentBalance || '-',
       joinDate: new Date(user.createdAt).toLocaleDateString('en-IN'),
-      calledLeads: totalCalled, // Total number of calls clicked (contacted)
-      closedLeads: totalClosed, // Total number of all closed calls (converted, rejected, not interested)
       canReceiveLeads: user.status === 'active' && attendanceStatus === 'present',
       todayCalled,
       todayClosed,
@@ -675,8 +807,6 @@ export default function AllUsers() {
       performance: {
         calledToday: todayCalled,
         closedToday: todayClosed,
-        totalCalled: totalCalled,
-        totalClosed: totalClosed,
         conversionRate: conversionRate
       }
     };
@@ -743,13 +873,32 @@ export default function AllUsers() {
     }, 300));
   };
 
-  // Change user role
+  // Change user role - Updated to remove from previous TL when changed to TL
   const changeUserRole = async (userId, newRole) => {
     try {
       setActionLoading(prev => ({ ...prev, [userId]: true }));
+      
+      // Find the user to get their current TL
+      const currentUser = users.find(u => u._id === userId);
+      const previousTLId = currentUser?.reportingTo?._id || currentUser?.reportingTo;
+      
+      // Change the role
       const response = await userService.changeUserRole(userId, { newRole });
       
       if (response.success) {
+        // If changing to TL, remove from previous TL
+        if (newRole === 'TL' && previousTLId) {
+          try {
+            await userService.updateUser(userId, {
+              reportingTo: null // Remove from previous TL
+            });
+            toast.success('User removed from previous TL');
+          } catch (tlErr) {
+            console.warn('Failed to remove from previous TL:', tlErr);
+            // Don't fail the role change if TL removal fails
+          }
+        }
+        
         const successMsg = `User role changed to ${newRole} successfully`;
         setSuccess(successMsg);
         toast.success(`✅ ${successMsg}`);
@@ -831,7 +980,9 @@ export default function AllUsers() {
     }
   };
 
-  // Handle withrow
+  // Handle withdrawal - kept for OpenLeadsWithrow component (currently not used in table)
+  // Uncomment if OpenLeadsWithrow component is used in the table
+  /*
   const handleWithrow = async (userId, amount) => {
     try {
       setActionLoading(prev => ({ ...prev, [userId]: true }));
@@ -856,28 +1007,60 @@ export default function AllUsers() {
       setActionLoading(prev => ({ ...prev, [userId]: false }));
     }
   };
+  */
 
-  // Delete user
-  const deleteUser = async (userId) => {
-    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+  // Delete/Block user with reason
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedUserForDelete, setSelectedUserForDelete] = useState(null);
+
+  const handleDeleteClick = (user) => {
+    setSelectedUserForDelete(user);
+    setDeleteModalOpen(true);
+  };
+
+  const handleDeleteConfirm = async (actionType, reason) => {
+    if (!selectedUserForDelete) return;
+    
+    const userId = selectedUserForDelete._id;
+    setActionLoading(prev => ({ ...prev, [userId]: true }));
     
     try {
-      setActionLoading(prev => ({ ...prev, [userId]: true }));
-      const response = await userService.deleteUser(userId);
+      let response;
       
-      if (response.success) {
-        const successMsg = 'User deleted successfully';
+      if (actionType === 'block') {
+        // Block the user with reason
+        response = await userService.blockUser(userId, { reason });
+      } else {
+        // Delete permanently - try to pass reason if API supports it
+        try {
+          // Try with reason first (if backend supports it)
+          response = await userService.deleteUser(userId);
+          // If backend doesn't support reason in delete, we'll still proceed
+          // The reason is logged for admin reference
+          console.log(`Deleting user ${userId} with reason: ${reason}`);
+        } catch {
+          // If delete fails, try without reason
+          response = await userService.deleteUser(userId);
+        }
+      }
+      
+      if (response && response.success) {
+        const successMsg = actionType === 'block' 
+          ? `User blocked successfully. Reason: ${reason}` 
+          : `User deleted permanently. Reason: ${reason}`;
         setSuccess(successMsg);
-        toast.success(`✅ ${successMsg}`);
+        toast.success(`✅ ${actionType === 'block' ? 'User blocked' : 'User deleted'} successfully`);
+        setDeleteModalOpen(false);
+        setSelectedUserForDelete(null);
         await fetchUsers();
       } else {
-        const errorMsg = response.message || 'Failed to delete user';
+        const errorMsg = response?.message || `Failed to ${actionType} user`;
         setError(errorMsg);
         toast.error(errorMsg);
       }
     } catch (err) {
-      console.error('Error deleting user:', err);
-      const errorMsg = err.message || 'Failed to delete user';
+      console.error(`Error ${actionType}ing user:`, err);
+      const errorMsg = err.message || `Failed to ${actionType} user`;
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {
@@ -1006,7 +1189,7 @@ export default function AllUsers() {
         month: 'short',
         day: 'numeric'
       });
-    } catch (error) {
+    } catch {
       return 'Invalid Date';
     }
   };
@@ -1144,7 +1327,6 @@ export default function AllUsers() {
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="hold">Hold</SelectItem>
                 <SelectItem value="dead">Dead</SelectItem>
-                <SelectItem value="ex">Ex Users</SelectItem>
               </Select>
 
               <Select 
@@ -1224,16 +1406,12 @@ export default function AllUsers() {
                       Manage TL
                     </TableHead>
                     <TableHead>
-                      <Calendar className="w-4 h-4 inline mr-1" />
+                      <FileText className="w-4 h-4 inline mr-1" />
                       Last Data
                     </TableHead>
-                    <TableHead sortable onSort={handleSort} sortKey="calledLeads" currentSort={sort}>
-                      <PhoneCall className="w-4 h-4 inline mr-1" />
-                      Total Called
-                    </TableHead>
-                    <TableHead sortable onSort={handleSort} sortKey="closedLeads" currentSort={sort}>
-                      <CheckCircle className="w-4 h-4 inline mr-1" />
-                      Total Closed
+                    <TableHead>
+                      <CalendarIcon className="w-4 h-4 inline mr-1" />
+                      Date Assigned
                     </TableHead>
                     <TableHead>
                       <PhoneCall className="w-4 h-4 inline mr-1" />
@@ -1242,10 +1420,6 @@ export default function AllUsers() {
                     <TableHead>
                       <CheckCircle className="w-4 h-4 inline mr-1" />
                       Today Closed
-                    </TableHead>
-                    <TableHead>
-                      <CalendarIcon className="w-4 h-4 inline mr-1" />
-                      Date Assigned
                     </TableHead>
                     <TableHead sortable onSort={handleSort} sortKey="totalPresent" currentSort={sort}>
                       <Clock4 className="w-4 h-4 inline mr-1" />
@@ -1261,7 +1435,7 @@ export default function AllUsers() {
                     </TableHead>
                     <TableHead>
                       <FileText className="w-4 h-4 inline mr-1" />
-                      Open Leads
+                      Open Data
                     </TableHead>
                     <TableHead>
                       <Settings className="w-4 h-4 inline mr-1" />
@@ -1272,7 +1446,7 @@ export default function AllUsers() {
                 <TableBody>
                   {loading ? (
                     <TableRow>
-                      <TableCell colSpan={21} className="text-center py-12">
+                      <TableCell colSpan={19} className="text-center py-12">
                         <div className="flex flex-col items-center justify-center">
                           <RefreshCw className="w-10 h-10 animate-spin text-blue-600 mb-4" />
                           <span className="text-lg">Loading users...</span>
@@ -1282,7 +1456,7 @@ export default function AllUsers() {
                     </TableRow>
                   ) : users.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={21} className="text-center py-12 text-gray-500">
+                      <TableCell colSpan={19} className="text-center py-12 text-gray-500">
                         <Users className="w-16 h-16 mx-auto mb-4 opacity-30" />
                         <p className="text-xl font-medium">No users found</p>
                         <p className="text-sm mt-2">
@@ -1378,47 +1552,25 @@ export default function AllUsers() {
                           />
                         </TableCell>
                         
-                        {/* Last Data */}
+                        {/* Last Data - Show count of last assigned data */}
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Calendar className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm">{formatDate(user.lastData)}</span>
+                            <FileText className="w-4 h-4 text-gray-500" />
+                            <span className="text-sm font-medium">{user.lastData}</span>
                           </div>
                         </TableCell>
                         
-                        {/* Total Called (All time) */}
+                        {/* Date Assigned */}
                         <TableCell>
-                          <div className="text-center">
-                            <div className="flex flex-col items-center">
-                              <span className={`font-medium ${getPerformanceColor(user.calledLeads, 'count')}`}>
-                                {user.calledLeads}
-                              </span>
-                            </div>
-                          </div>
-                        </TableCell>
-                        
-                        {/* Total Closed (All time) */}
-                        <TableCell>
-                          <div className="text-center">
-                            <div className="flex flex-col items-center">
-                              <span className={`font-medium ${getPerformanceColor(user.closedLeads, 'count')}`}>
-                                {user.closedLeads}
-                              </span>
-                              {user.conversionRate > 0 && (
-                                <span className={`text-xs ${getPerformanceColor(parseFloat(user.conversionRate), 'conversion')}`}>
-                                  {user.conversionRate}% rate
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                          <span className="text-sm">{formatDate(user.dateAssigned)}</span>
                         </TableCell>
                         
                         {/* Today Called */}
                         <TableCell>
                           <div className="text-center">
                             <div className="flex flex-col items-center">
-                              <span className={`font-medium ${getPerformanceColor(user.todayCalled, 'count')}`}>
-                                {user.todayCalled}
+                              <span className={`font-medium ${getPerformanceColor(user.todayCalled || 0, 'count')}`}>
+                                {user.todayCalled ?? 0}
                               </span>
                             </div>
                           </div>
@@ -1428,16 +1580,11 @@ export default function AllUsers() {
                         <TableCell>
                           <div className="text-center">
                             <div className="flex flex-col items-center">
-                              <span className={`font-medium ${getPerformanceColor(user.todayClosed, 'count')}`}>
-                                {user.todayClosed}
+                              <span className={`font-medium ${getPerformanceColor(user.todayClosed || 0, 'count')}`}>
+                                {user.todayClosed ?? 0}
                               </span>
                             </div>
                           </div>
-                        </TableCell>
-                        
-                        {/* Date Assigned */}
-                        <TableCell>
-                          <span className="text-sm">{formatDate(user.dateAssigned)}</span>
                         </TableCell>
                         
                         {/* Total Present (till now from attendance history) */}
@@ -1472,20 +1619,20 @@ export default function AllUsers() {
                           </div>
                         </TableCell>
                         
-                        {/* Open Leads */}
+                        {/* Open Data - Total data not closed or converted */}
                         <TableCell>
-                          <OpenLeadsWithrow 
-                            openLeads={user.openLeads}
-                            onWithrow={(amount) => handleWithrow(user._id, amount)}
-                          />
+                          <div className="text-center">
+                            <Badge variant={user.openData > 0 ? 'warning' : 'success'}>
+                              {user.openData || 0}
+                            </Badge>
+                          </div>
                         </TableCell>
                         
                         {/* Action */}
                         <TableCell>
                           <ActionMenu
-                            user={user}
                             onEdit={() => editUser(user)}
-                            onDelete={() => deleteUser(user._id)}
+                            onDelete={() => handleDeleteClick(user)}
                             loading={actionLoading[user._id]}
                           />
                         </TableCell>
@@ -1580,9 +1727,9 @@ export default function AllUsers() {
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-orange-700 dark:text-orange-300">Open Leads</p>
+                  <p className="text-sm font-medium text-orange-700 dark:text-orange-300">Open Data</p>
                   <p className="text-2xl font-bold text-orange-800 dark:text-orange-200">
-                    {users.reduce((sum, user) => sum + (user.openLeads || 0), 0)}
+                    {users.reduce((sum, user) => sum + (user.openData || 0), 0)}
                   </p>
                 </div>
                 <FileText className="w-8 h-8 text-orange-600 dark:text-orange-400" />
@@ -1591,6 +1738,18 @@ export default function AllUsers() {
           </Card>
         </div>
       )}
+
+      {/* Delete/Block Modal */}
+      <DeleteBlockModal
+        user={selectedUserForDelete}
+        isOpen={deleteModalOpen}
+        onClose={() => {
+          setDeleteModalOpen(false);
+          setSelectedUserForDelete(null);
+        }}
+        onConfirm={handleDeleteConfirm}
+        loading={selectedUserForDelete ? actionLoading[selectedUserForDelete._id] : false}
+      />
     </div>
   );
 }
