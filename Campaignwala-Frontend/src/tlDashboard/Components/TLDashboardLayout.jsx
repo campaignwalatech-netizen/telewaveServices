@@ -59,8 +59,8 @@ export default function TLDashboardLayout() {
 
         {/* Main content shifted only on desktop */}
         <main
-          className={`p-3 sm:p-4 md:p-6 min-h-screen pt-16 sm:pt-20 transition-all duration-300 w-full ${
-            isSidebarOpen ? "md:ml-64" : "md:ml-16"
+          className={`p-4 min-h-screen pt-20 transition-all duration-300 ${
+            isSidebarOpen ? "md:ml-50" : "md:ml-16"
           }`}
         >
           <Outlet context={{ darkMode: isDark, setDarkMode: setIsDark }} />

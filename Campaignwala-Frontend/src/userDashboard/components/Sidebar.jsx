@@ -97,7 +97,7 @@ const Sidebar = ({ darkMode, isSidebarOpen, toggleSidebar }) => {
       )}
       <aside
         className={`fixed top-[64px] z-40 h-[calc(100vh-64px)] transition-all duration-300 ease-in-out 
-        ${isSidebarOpen ? "left-0 w-64" : "-left-full md:left-0 md:w-16"} 
+        ${isSidebarOpen ? "left-0 w-45" : "-left-full md:left-0 md:w-16"} 
         ${darkMode ? "bg-gray-900 bg-gradient-to-b from-gray-900 via-gray-900 to-gray-800 border-gray-700" : "bg-gradient-to-b from-blue-50 via-white to-purple-50 border-gray-200"} 
         border-r shadow-lg`}
       >
