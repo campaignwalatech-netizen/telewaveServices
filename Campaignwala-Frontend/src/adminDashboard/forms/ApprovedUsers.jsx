@@ -812,7 +812,7 @@ export default function AllUsers() {
     };
   };
 
-  // Fetch all users
+  // Fetch all users (only approved users - exclude pending_approval)
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
@@ -833,7 +833,12 @@ export default function AllUsers() {
       const response = await userService.getAllUsersWithStats(params);
       
       if (response.success) {
-        const enhancedUsers = response.data.users.map(enhanceUserData);
+        // Filter out pending_approval users - only show approved users
+        const approvedUsers = response.data.users.filter(user => 
+          user.status !== 'pending_approval'
+        );
+        
+        const enhancedUsers = approvedUsers.map(enhanceUserData);
         setUsers(enhancedUsers);
       } else {
         const errorMsg = response.message || 'Failed to fetch users';
